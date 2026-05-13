@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AetherNet Drift Monitor v1.3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top, #1e293b 0%, #0f172a 60%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #e2e8f0;
+        }
+        .container-main { max-width: 1000px; margin: 0 auto; padding: 1rem; width: 100%; }
+        .card { background-color: #1e293b; border: 1px solid #334155;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+        .gauge-bar { height: 1.5rem; transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="selection:bg-sky-400 selection:text-slate-900">
+    <div class="container-main">
+        <header class="text-center py-6">
+            <h1 class="text-3xl font-bold text-white tracking-wider">AetherNet Drift Monitor v1.3</h1>
+            <p class="text-slate-400 mt-1 text-sm">TrustCore Dynamic Resilience Analysis</p>
+        </header>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: inputs -->
+            <div class="lg:col-span-1 card rounded-xl p-5 h-fit sticky top-4">
+                <h2 class="text-lg font-semibold border-b border-slate-600/30 pb-2 mb-4 text-sky-400">
+                    1. Node Input & History
+                </h2>
+                <form id="node-analysis-form" class="space-y-4 text-sm">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="R_avg" class="block font-medium text-slate-400 mb-1">R Avg (0-1):</label>
+                            <input type="number" id="R_avg" value="0.75" step="0.01" min="0" max="1"
+                                   class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                        </div>
+                        <div>
+                            <label for="S_avg" class="block font-medium text-slate-400 mb-1">S Avg (0-1):</label>
+                            <input type="number" id="S_avg" value="0.70" step="0.01" min="0" max="1"
+                                   class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                        </div>
+                        <div>
+                            <label for="E_avg" class="block font-medium text-slate-400 mb-1">E Avg (0-1):</label>
+                            <input type="number" id="E_avg" value="0.72" step="0.01" min="0" max="1"
+                                   class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                        </div>
+                        <div>
+                            <label for="delta_s" class="block font-medium text-slate-400 mb-1">Delta S (0-1):</label>
+                            <input type="number" id="delta_s" value="0.10" step="0.01" min="0" max="1"
+                                   class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                        </div>
+                    </div>
+                    <div class="pt-2">
+                        <h3 class="font-semibold text-sky-400 text-sm mb-2">Resilience History Inputs</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="psa_current" class="block font-medium text-slate-400 mb-1">PSA Current (0-1):</label>
+                                <input type="number" id="psa_current" value="0.80" step="0.01" min="0" max="1"
+                                       class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                            </div>
+                            <div>
+                                <label for="psa_prev" class="block font-medium text-slate-400 mb-1">PSA Previous (0-1):</label>
+                                <input type="number" id="psa_prev" value="0.85" step="0.01" min="0" max="1"
+                                       class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                                <p class="text-xs text-red-400 mt-1" id="drift-indicator"></p>
+                            </div>
+                            <div>
+                                <label for="sigmaS" class="block font-medium text-slate-400 mb-1">SigmaS (Vol.):</label>
+                                <input type="number" id="sigmaS" value="0.15" step="0.01" min="0" max="1"
+                                       class="w-full p-2 rounded-lg bg-slate-900 border border-slate-600/40">
+                            </div>
+                            <div class="flex items-center pt-6">
+                                <input type="checkbox" id="alert_flag"
+                                       class="h-4 w-4 text-red-400 rounded border-slate-600/40 bg-slate-900">
+                                <label for="alert_flag" class="ml-2 block font-medium text-red-400">Legacy ALERT (CRISIS)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-sky-400 hover:bg-sky-300 text-slate-900 font-bold py-3 rounded-xl mt-6">
+                        Run TrustCore v1.3 Analysis
+                    </button>
+                </form>
+            </div>
+            <!-- Right: results -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="card rounded-xl p-5">
+                    <h2 class="text-lg font-semibold mb-2 text-sky-400 flex justify-between items-center">
+                        2. KRI_X Momentum Score
+                        <span id="kri_x_momentum_value" class="text-3xl font-mono">N/A</span>
+                    </h2>
+                    <p class="text-slate-400 text-sm mb-4">
+                        Dynamic resilience score reflecting trend (drift) and stability (sigmaS). PREALERT threshold = 0.60.
+                    </p>
+                    <div class="bg-slate-900 border border-slate-700/60 rounded-lg overflow-hidden mt-2">
+                        <div id="momentum-gauge" class="gauge-bar" style="width: 0%;" data-score="0"></div>
+                    </div>
+                    <div class="flex justify-between text-xs font-medium mt-1 text-slate-500">
+                        <span>0.00 (Critical)</span>
+                        <span class="text-amber-300 font-bold">0.60 (Prealert)</span>
+                        <span>1.00 (Optimal)</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="card rounded-xl p-5">
+                        <h3 class="text-lg font-semibold mb-2 text-sky-400">3. Alert Mode (AAC)</h3>
+                        <div id="alert-status-display" class="p-4 rounded-xl text-center shadow-inner"
+                             style="background-color:#2f3e53;">
+                            <p id="alert-mode-text" class="text-2xl font-bold tracking-wider uppercase">NONE</p>
+                            <p id="alert-mode-desc" class="text-sm text-slate-400 mt-1">
+                                System is stable and trending positively or neutrally.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card rounded-xl p-5">
+                        <h3 class="text-lg font-semibold mb-2 text-sky-400">4. Adaptive Focus (AAC)</h3>
+                        <div id="focus-display"
+                             class="p-4 rounded-xl text-center bg-slate-900 border border-slate-700/60">
+                            <p id="focus-text"
+                               class="text-2xl font-bold tracking-wider uppercase text-emerald-400">NONE</p>
+                            <p id="focus-desc" class="text-sm text-slate-400 mt-1">
+                                No intervention required based on LR-D triplet.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const FORM = document.getElementById('node-analysis-form');
+        const MOMENTUM_GAUGE = document.getElementById('momentum-gauge');
+        const KRI_X_VALUE = document.getElementById('kri_x_momentum_value');
+        const ALERT_STATUS_DISPLAY = document.getElementById('alert-status-display');
+        const ALERT_MODE_TEXT = document.getElementById('alert-mode-text');
+        const ALERT_MODE_DESC = document.getElementById('alert-mode-desc');
+        const FOCUS_DISPLAY = document.getElementById('focus-display');
+        const FOCUS_TEXT = document.getElementById('focus-text');
+        const FOCUS_DESC = document.getElementById('focus-desc');
+        const DRIFT_INDICATOR = document.getElementById('drift-indicator');
+
+        function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+        function calculate_kri_x_momentum(psa_current, psa_prev, sigmaS){
+            psa_current = clamp(psa_current, 0, 1);
+            sigmaS = clamp(sigmaS, 0, 1);
+            const drift = psa_current - psa_prev;
+            const gain = 2.0;
+            const drift_factor = clamp(drift * gain, -0.3, 0.3);
+            const base = psa_current * (1.0 - sigmaS);
+            const kri_x = base * (1.0 + drift_factor);
+            return clamp(kri_x, 0, 1);
+        }
+
+        function aac_evaluate(kri_x_momentum, alert_flag_raw){
+            if(alert_flag_raw === 1) return 'CRISIS';
+            if(kri_x_momentum < 0.60) return 'PREALERT';
+            return 'NONE';
+        }
+
+        function aac_suggest_focus(R_avg, S_avg, E_avg, delta_s){
+            let min_val = R_avg, focus = 'RESOURCES';
+            if(S_avg < min_val){ min_val = S_avg; focus = 'SOCIAL'; }
+            if(E_avg < min_val){ min_val = E_avg; focus = 'ECO'; }
+            if(R_avg > 0.7 && S_avg > 0.7 && E_avg > 0.7){
+                if(delta_s > 0.2) return 'SOCIAL';
+                return 'NONE';
+            }
+            return focus;
+        }
+
+        function updateUI(data){
+            const kri = calculate_kri_x_momentum(data.psa_current, data.psa_prev, data.sigmaS);
+            KRI_X_VALUE.textContent = kri.toFixed(3);
+            const widthPercentage = (kri * 100).toFixed(0);
+            MOMENTUM_GAUGE.style.width = widthPercentage + '%';
+            let momentumColor = 'bg-emerald-400';
+            if(kri < 0.60) momentumColor = 'bg-amber-300';
+            if(kri < 0.40) momentumColor = 'bg-rose-400';
+            MOMENTUM_GAUGE.className = 'gauge-bar rounded-lg ' + momentumColor;
+
+            const drift = data.psa_current - data.psa_prev;
+            if (drift > 0.01){
+                DRIFT_INDICATOR.textContent = `Drift: +${drift.toFixed(2)} (Strengthening)`;
+                DRIFT_INDICATOR.className = 'text-xs text-emerald-400 mt-1';
+            } else if (drift < -0.01){
+                DRIFT_INDICATOR.textContent = `Drift: ${drift.toFixed(2)} (Weakening)`;
+                DRIFT_INDICATOR.className = 'text-xs text-rose-400 mt-1';
+            } else {
+                DRIFT_INDICATOR.textContent = `Drift: ${drift.toFixed(2)} (Neutral)`;
+                DRIFT_INDICATOR.className = 'text-xs text-slate-400 mt-1';
+            }
+
+            const alert_mode = aac_evaluate(kri, data.alert_flag);
+            ALERT_MODE_TEXT.textContent = alert_mode;
+            if(alert_mode === 'CRISIS'){
+                ALERT_STATUS_DISPLAY.style.backgroundColor = '#450a0a';
+                ALERT_MODE_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-rose-300';
+                ALERT_MODE_DESC.textContent = 'CRITICAL: legacy alert flag triggered, immediate human intervention required.';
+            } else if(alert_mode === 'PREALERT'){
+                ALERT_STATUS_DISPLAY.style.backgroundColor = '#4e401b';
+                ALERT_MODE_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-amber-300';
+                ALERT_MODE_DESC.textContent = 'WARNING: momentum below 0.60, trending towards instability.';
+            } else {
+                ALERT_STATUS_DISPLAY.style.backgroundColor = '#103928';
+                ALERT_MODE_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-emerald-300';
+                ALERT_MODE_DESC.textContent = 'NOMINAL: resilience core stable or strengthening.';
+            }
+
+            const focus = aac_suggest_focus(data.R_avg, data.S_avg, data.E_avg, data.delta_s);
+            FOCUS_TEXT.textContent = focus;
+            FOCUS_DISPLAY.className = 'p-4 rounded-xl text-center border';
+            if(focus === 'RESOURCES'){
+                FOCUS_DISPLAY.classList.add('border-sky-400', 'bg-sky-900/20');
+                FOCUS_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-sky-300';
+                FOCUS_DESC.textContent = 'Primary focus: resources, infrastructure, physical assets (R).';
+            } else if(focus === 'SOCIAL'){
+                FOCUS_DISPLAY.classList.add('border-amber-300', 'bg-amber-900/20');
+                FOCUS_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-amber-300';
+                FOCUS_DESC.textContent = 'Primary focus: social cohesion, trust and divergence (S).';
+            } else if(focus === 'ECO'){
+                FOCUS_DISPLAY.classList.add('border-emerald-300', 'bg-emerald-900/20');
+                FOCUS_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-emerald-300';
+                FOCUS_DESC.textContent = 'Primary focus: ecological / economic stability (E).';
+            } else {
+                FOCUS_DISPLAY.className = 'p-4 rounded-xl text-center bg-slate-900 border border-slate-700/60';
+                FOCUS_TEXT.className = 'text-2xl font-bold tracking-wider uppercase text-slate-400';
+                FOCUS_DESC.textContent = 'NOMINAL: no dominant intervention axis in LR-D.';
+            }
+        }
+
+        FORM.addEventListener('submit', (e)=>{
+            e.preventDefault();
+            const data = {
+                R_avg: parseFloat(document.getElementById('R_avg').value),
+                S_avg: parseFloat(document.getElementById('S_avg').value),
+                E_avg: parseFloat(document.getElementById('E_avg').value),
+                delta_s: parseFloat(document.getElementById('delta_s').value),
+                psa_current: parseFloat(document.getElementById('psa_current').value),
+                psa_prev: parseFloat(document.getElementById('psa_prev').value),
+                sigmaS: parseFloat(document.getElementById('sigmaS').value),
+                alert_flag: document.getElementById('alert_flag').checked ? 1 : 0,
+            };
+            updateUI(data);
+        });
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+            FORM.dispatchEvent(new Event('submit'));
+        });
+    </script>
+</body>
+</html>
