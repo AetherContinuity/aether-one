@@ -1,0 +1,26 @@
+{
+  "Energy2035_Mixed_Local": {
+    "RSM": 2,
+    "RRM": 1,
+    "TSM": 2,
+    "RAP": 1,
+    "IRS": 1,
+    "LRM": 2
+  },
+  "Energy2035_Fusion_Heavy": {
+    "RSM": -1,
+    "RRM": -2,
+    "TSM": 0,
+    "RAP": -1,
+    "IRS": -1,
+    "LRM": -1
+  },
+  "Health2030_Stress": {
+    "RSM": 1,
+    "RRM": 0,
+    "TSM": -1,
+    "RAP": 1,
+    "IRS": -1,
+    "LRM": 0
+  }
+}

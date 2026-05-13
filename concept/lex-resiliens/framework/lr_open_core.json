@@ -1,0 +1,129 @@
+{
+  "name": "Lex Resiliens Open Framework Core",
+  "version": "1.0.0",
+  "edition": "Kuopio 2025",
+  "description": "Core definition for LR-Open: six resilience functions + KRI_X index.",
+  "principles": [
+    "Truth before comfort",
+    "Autonomy before control",
+    "Responsibility before reward",
+    "Data before opinion",
+    "Silent understanding before noise"
+  ],
+  "components": {
+    "R": {
+      "name": "Resource Resilience",
+      "description": "Energy, materials, food, water, logistics \u2013 ability to sustain physical basics."
+    },
+    "S": {
+      "name": "Social & Systemic Resilience",
+      "description": "Human well-being, trust, institutions, psychological stability, fairness."
+    },
+    "E": {
+      "name": "Ecological & Economic Resilience",
+      "description": "Ecological limits, long-term productivity, climate impact, financial stability."
+    }
+  },
+  "scale": {
+    "min": -3,
+    "max": 3,
+    "description": "Discrete resilience scale from -3 (critical failure) to +3 (strongly resilient)."
+  },
+  "functions": [
+    {
+      "id": "RSM",
+      "name": "Resource & Systems Matrix",
+      "description": "Energy, materials, and basic infrastructure resilience.",
+      "affects_components": {
+        "R": 0.7,
+        "S": 0.1,
+        "E": 0.2
+      }
+    },
+    {
+      "id": "RRM",
+      "name": "Risk & Revenue Management",
+      "description": "Funding flows, risk exposure, political capture risk.",
+      "affects_components": {
+        "R": 0.3,
+        "S": 0.2,
+        "E": 0.5
+      }
+    },
+    {
+      "id": "TSM",
+      "name": "Technical & Service Matrix",
+      "description": "Technical performance, innovation spillover, critical services.",
+      "affects_components": {
+        "R": 0.4,
+        "S": 0.4,
+        "E": 0.2
+      }
+    },
+    {
+      "id": "RAP",
+      "name": "Fair Allocation & Policy Lock",
+      "description": "Fair, transparent and rule-based allocation.",
+      "affects_components": {
+        "R": 0.1,
+        "S": 0.6,
+        "E": 0.3
+      }
+    },
+    {
+      "id": "IRS",
+      "name": "Information & Risk Signalling",
+      "description": "Honesty of communication and early warning.",
+      "affects_components": {
+        "R": 0.1,
+        "S": 0.8,
+        "E": 0.1
+      }
+    },
+    {
+      "id": "LRM",
+      "name": "Legal & Regulation Matrix",
+      "description": "Rules, contracts and automatic locks.",
+      "affects_components": {
+        "R": 0.3,
+        "S": 0.5,
+        "E": 0.2
+      }
+    }
+  ],
+  "kri_index": {
+    "id": "KRI_X",
+    "name": "Key Resilience Index",
+    "description": "Aggregated index combining R, S and E components.",
+    "weights": {
+      "R": 0.4,
+      "S": 0.3,
+      "E": 0.3
+    },
+    "output_format": "KRI_X: (R{R_score} / S{S_score} / E{E_score})",
+    "status_rules": [
+      {
+        "status": "Critical",
+        "condition": "R <= -2 or S <= -2 or E <= -2"
+      },
+      {
+        "status": "Fragile",
+        "condition": "-2 < min(R, S, E) <= -1"
+      },
+      {
+        "status": "Tense / Unstable",
+        "condition": "-1 < min(R, S, E) < 1"
+      },
+      {
+        "status": "Resilient / Stable",
+        "condition": "min(R, S, E) >= 1"
+      }
+    ]
+  },
+  "vrf_lock": {
+    "name": "48h VRF Lock",
+    "description": "If KRI_X is Critical or Fragile, trigger 48h lock.",
+    "trigger_condition": "status in ['Critical', 'Fragile']",
+    "default_duration_hours": 48
+  }
+}
