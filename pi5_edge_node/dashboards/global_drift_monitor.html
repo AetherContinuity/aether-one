@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aether One — Global Drift Monitor</title>
+<style>
+  body { font-family: monospace; background: #0a0a0f; color: #b0c4de; margin: 0; padding: 20px; }
+  h1   { color: #7ec8e3; letter-spacing: 2px; font-size: 1.1em; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 20px; }
+  .card { background: #111622; border: 1px solid #1e2d45; border-radius: 6px; padding: 16px; }
+  .card h2 { margin: 0 0 10px; font-size: 0.85em; color: #5a8fa8; text-transform: uppercase; }
+  .value { font-size: 2em; font-weight: bold; color: #7ec8e3; }
+  .label { font-size: 0.75em; color: #4a6070; margin-top: 4px; }
+  .bar-wrap { background: #0d1520; border-radius: 4px; height: 8px; margin: 6px 0; overflow: hidden; }
+  .bar      { height: 8px; border-radius: 4px; transition: width 0.4s; }
+  .OK     { color: #4caf50; border-color: #1a3320; }
+  .WATCH  { color: #ff9800; border-color: #3a2800; }
+  .ALERT  { color: #f44336; border-color: #3a0a0a; }
+  .sensor-row { display: flex; justify-content: space-between; font-size: 0.8em; margin: 4px 0; }
+  .source-badge { font-size: 0.7em; padding: 2px 6px; border-radius: 10px; background: #1e2d45; }
+  .mock-badge   { background: #2d1e00; color: #ff9800; }
+  #api-url { background: #0d1520; border: 1px solid #1e2d45; color: #b0c4de;
+             font-family: monospace; padding: 6px 10px; border-radius: 4px; width: 260px; }
+  button { background: #1a3a5c; border: none; color: #7ec8e3; padding: 7px 16px;
+           border-radius: 4px; cursor: pointer; font-family: monospace; }
+  button:hover { background: #1e4a7a; }
+  #status { font-size: 0.75em; color: #4a6070; margin-top: 8px; }
+  #log { margin-top: 20px; background: #0d1520; border: 1px solid #1e2d45;
+         border-radius: 6px; padding: 12px; font-size: 0.75em; color: #5a8fa8;
+         max-height: 160px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<h1>⬡ AETHER ONE — EDGE NODE MONITOR (Pi5 + Real Sensors)</h1>
+
+<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <input id="api-url" type="text" value="http://localhost:8080" placeholder="API base URL">
+  <label style="font-size:0.8em">
+    <input type="checkbox" id="auto-poll" checked> Auto-poll
+  </label>
+  <select id="interval" style="background:#0d1520;border:1px solid #1e2d45;color:#b0c4de;font-family:monospace;padding:5px;">
+    <option value="2000">2s</option>
+    <option value="5000" selected>5s</option>
+    <option value="10000">10s</option>
+  </select>
+  <button onclick="fetchAll()">▶ Fetch now</button>
+</div>
+<div id="status">Idle</div>
+
+<div class="grid">
+  <div class="card" id="card-kri">
+    <h2>TrustCore KRI</h2>
+    <div class="value" id="val-kri">—</div>
+    <div class="label">KRI Value</div>
+    <div class="bar-wrap" style="margin-top:10px">
+      <div class="bar" id="bar-kri" style="width:0%;background:#ff9800"></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="sensor-row"><span>R (Resilience)</span><span id="val-r">—</span></div>
+      <div class="bar-wrap"><div class="bar" id="bar-r" style="width:0%;background:#4caf50"></div></div>
+      <div class="sensor-row"><span>S (Stress)</span><span id="val-s">—</span></div>
+      <div class="bar-wrap"><div class="bar" id="bar-s" style="width:0%;background:#2196f3"></div></div>
+      <div class="sensor-row"><span>E (Exposure)</span><span id="val-e">—</span></div>
+      <div class="bar-wrap"><div class="bar" id="bar-e" style="width:0%;background:#9c27b0"></div></div>
+    </div>
+    <div style="margin-top:12px;font-size:0.75em" id="dissonance-badge">—</div>
+  </div>
+
+  <div class="card" id="card-sensors">
+    <h2>Physical Sensors</h2>
+    <div class="sensor-row">
+      <span>MQ-9 (Gas)</span>
+      <span id="mq9-val">—</span>
+      <span class="source-badge" id="mq9-src">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar" id="bar-mq9" style="width:0%;background:#ff5722"></div>
+    </div>
+    <div class="sensor-row" style="margin-top:10px">
+      <span>AetherCam</span>
+      <span id="cam-val">—</span>
+      <span class="source-badge" id="cam-src">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar" id="bar-cam" style="width:0%;background:#00bcd4"></div>
+    </div>
+    <div style="margin-top:16px; font-size:0.75em; color:#4a6070" id="ts-label">—</div>
+  </div>
+
+  <div class="card" id="card-lr">
+    <h2>LR Status</h2>
+    <div class="value" id="lr-status">—</div>
+    <div class="label" id="lr-score-label">Score: —</div>
+    <div style="margin-top:12px;font-size:0.75em;color:#4a6070" id="lr-components">—</div>
+    <div style="margin-top:12px">
+      <div style="font-size:0.7em;color:#5a8fa8">Attestation</div>
+      <div style="font-size:0.85em;margin-top:4px" id="attestation-status">—</div>
+    </div>
+  </div>
+</div>
+
+<div id="log"></div>
+
+<script>
+let timer = null;
+
+function base() { return document.getElementById("api-url").value.replace(/\/$/, ""); }
+
+function logMsg(msg) {
+  const d = document.getElementById("log");
+  const t = new Date().toLocaleTimeString();
+  d.innerHTML = `<span style="color:#2a4a5a">${t}</span> ${msg}\n` + d.innerHTML;
+}
+
+function setBar(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = (Math.min(1, Math.max(0, val)) * 100).toFixed(1) + "%";
+}
+
+async function fetchAll() {
+  const url = base();
+  document.getElementById("status").textContent = "Fetching...";
+  try {
+    const [nodeRes, mq9Res, camRes, lrRes, attestRes] = await Promise.all([
+      fetch(`${url}/node_status_realtime`),
+      fetch(`${url}/sensor/mq9`),
+      fetch(`${url}/sensor/aethercam`),
+      fetch(`${url}/lr`),
+      fetch(`${url}/attestation`),
+    ]);
+
+    const node = await nodeRes.json();
+    const mq9  = await mq9Res.json();
+    const cam  = await camRes.json();
+    const lr   = await lrRes.json();
+    const att  = await attestRes.json();
+
+    // KRI card
+    document.getElementById("val-kri").textContent = node.kri.toFixed(4);
+    setBar("bar-kri", node.kri);
+    document.getElementById("val-r").textContent = node.R.toFixed(3);
+    document.getElementById("val-s").textContent = node.S.toFixed(3);
+    document.getElementById("val-e").textContent = node.E.toFixed(3);
+    setBar("bar-r", node.R);
+    setBar("bar-s", node.S);
+    setBar("bar-e", node.E);
+    document.getElementById("dissonance-badge").textContent =
+      node.constructive ? "✓ Constructive" : "⚠ Dissonance detected";
+
+    // Sensor card
+    document.getElementById("mq9-val").textContent  = mq9.normalized.toFixed(3);
+    document.getElementById("cam-val").textContent  = cam.normalized.toFixed(3);
+    setBar("bar-mq9", mq9.normalized);
+    setBar("bar-cam", cam.normalized);
+
+    const srcClass = s => s === "mock" ? "source-badge mock-badge" : "source-badge";
+    document.getElementById("mq9-src").textContent  = mq9.source;
+    document.getElementById("mq9-src").className    = srcClass(mq9.source);
+    document.getElementById("cam-src").textContent  = cam.source;
+    document.getElementById("cam-src").className    = srcClass(cam.source);
+    document.getElementById("ts-label").textContent =
+      "Updated: " + new Date(node.timestamp * 1000).toLocaleTimeString();
+
+    // LR card
+    const lrStatusEl = document.getElementById("lr-status");
+    lrStatusEl.textContent = lr.status;
+    lrStatusEl.className = "value " + lr.status;
+    document.getElementById("card-lr").className = "card " + lr.status;
+    document.getElementById("lr-score-label").textContent = `Score: ${lr.score.toFixed(2)}`;
+    document.getElementById("lr-components").textContent =
+      lr.details.components?.join(", ") || "No alerts";
+
+    // Attestation
+    const attText = att.status + (att.device_id ? ` (${att.device_id.slice(0,8)}...)` : "");
+    document.getElementById("attestation-status").textContent = attText;
+
+    document.getElementById("status").textContent = "OK";
+    logMsg(`KRI=${node.kri.toFixed(3)} [${lr.status}] Att=${att.status}`);
+
+  } catch (e) {
+    document.getElementById("status").textContent = "Error: " + e.message;
+    logMsg("⚠ " + e.message);
+  }
+}
+
+function startPolling() {
+  if (timer) clearInterval(timer);
+  if (document.getElementById("auto-poll").checked) {
+    const ms = parseInt(document.getElementById("interval").value);
+    timer = setInterval(fetchAll, ms);
+  }
+}
+
+document.getElementById("auto-poll").onchange = startPolling;
+document.getElementById("interval").onchange  = startPolling;
+
+startPolling();
+fetchAll();
+</script>
+</body>
+</html>

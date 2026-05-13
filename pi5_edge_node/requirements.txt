@@ -1,0 +1,11 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+pycryptodome>=3.19.0
+cbor2>=5.5.0
+Pillow>=10.0.0
+
+# Valinnainen rautakirjastot (lisää jos käytössä):
+# explorerhat
+# adafruit-circuitpython-ads1x15
+# opencv-python-headless

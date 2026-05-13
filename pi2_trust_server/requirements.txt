@@ -1,0 +1,5 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+pycryptodome>=3.19.0
+cbor2>=5.5.0
