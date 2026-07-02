@@ -64,6 +64,38 @@ jobs:
           sleep 3
           python3 test_enroll_live.py
 
+  test-client-tpm-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build deps for liboqs + tpm2-tools + swtpm
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake ninja-build build-essential libssl-dev tpm2-tools swtpm
+      - name: Build minimal liboqs (ML-DSA-65 only)
+        run: |
+          git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          cd liboqs && mkdir build && cd build
+          cmake -GNinja -DOQS_MINIMAL_BUILD="SIG_ml_dsa_65" -DOQS_USE_OPENSSL=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release ..
+          ninja -j$(nproc)
+          sudo ninja install
+          sudo ldconfig
+      - name: Install Python deps
+        run: pip install liboqs-python fastapi uvicorn cbor2 httpx
+      - name: Provision swtpm + AK handle
+        run: |
+          cd pi5_edge_node
+          bash setup_swtpm.sh
+      - name: Start server and run full TPM+PQC client e2e test
+        run: |
+          export TPM2TOOLS_TCTI="swtpm:host=localhost,port=2321"
+          cd pi5_edge_node
+          (TRUSTCORE_DATA_DIR=.trustcore_server uvicorn core.trustcore.server:APP --port 8100 &)
+          sleep 3
+          python3 test_client_e2e.py
+
   run-pqc-rtl-m1-test:
     runs-on: ubuntu-latest
     steps:
