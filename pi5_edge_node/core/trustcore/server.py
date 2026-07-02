@@ -159,6 +159,7 @@ async def verify(req: Request) -> Dict[str, Any]:
             return {"status": "FAIL", "reason": "Device not enrolled", "ts": int(time.time())}
         devices[device_id] = {
             "public_key_hash": pk_hash,
+            "public_key_hex": bytes(pqc.get("public_key") or b"").hex(),
             "algorithm": pqc.get("algorithm"),
             "enrolled_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "baseline_pcrs": None,
@@ -168,6 +169,10 @@ async def verify(req: Request) -> Dict[str, Any]:
     else:
         if dev.get("public_key_hash") and dev.get("public_key_hash") != pk_hash:
             return {"status": "FAIL", "reason": "Public key mismatch", "ts": int(time.time())}
+        if not dev.get("public_key_hex"):
+            # Vanha tietue ilman talletettua avainta - taydenna migraationa.
+            dev["public_key_hex"] = bytes(pqc.get("public_key") or b"").hex()
+            _save_devices(db)
 
     baseline = dev.get("baseline_pcrs")
     if baseline:
@@ -190,22 +195,85 @@ async def verify(req: Request) -> Dict[str, Any]:
 async def enroll(device_id: str, req: Request) -> Dict[str, Any]:
     """Set baseline PCRs for a device.
 
-    Body JSON: {"baseline_pcrs": {"pcr0": "<hex>", ...}}
-    """
-    try:
-        body = await req.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+    KORJATTU 2026-07-02: aiempi versio hyvaksyi allekirjoittamattoman JSON-bodyn,
+    eli kuka tahansa palvelimeen paasseva pystyi ylikirjoittamaan minka
+    tahansa rekisteroidyn laitteen baseline_pcrs-arvon ja siten kumoamaan
+    koko attestaation tarkoituksen. Nyt vaaditaan sama mekanismi kuin
+    /verify:ssa: CBOR-bundle jonka laite on allekirjoittanut omalla PQC-
+    avaimellaan, sidottuna kertakayttoiseen nonceen.
 
-    baseline = body.get("baseline_pcrs")
+    Body: CBOR {device_id, nonce, baseline_pcrs: {pcr0: bytes, ...},
+                pqc: {algorithm, signature}}
+    Allekirjoitus lasketaan samalla make_signed_message-kanonisoinnilla
+    kuin /verify:ssa, decision_hash-kentan paikalla sha256(baseline_pcrs).
+    """
+    raw = await req.body()
+    try:
+        bundle = cbor2.loads(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid CBOR")
+
+    if bundle.get("device_id") != device_id:
+        raise HTTPException(status_code=400, detail="device_id mismatch (path vs body)")
+
+    nonce = bundle.get("nonce")
+    if not isinstance(nonce, (bytes, bytearray)):
+        raise HTTPException(status_code=400, detail="Missing nonce")
+    nonce_hex = bytes(nonce).hex()
+    reason = _consume_nonce(nonce_hex)
+    if reason:
+        return {"status": "FAIL", "reason": reason, "ts": int(time.time())}
+
+    baseline = bundle.get("baseline_pcrs")
     if not isinstance(baseline, dict):
         raise HTTPException(status_code=400, detail="baseline_pcrs must be a dict")
 
     db = _load_devices()
     devices = db.setdefault("devices", {})
-    if device_id not in devices:
-        raise HTTPException(status_code=404, detail="Device not enrolled yet")
-    devices[device_id]["baseline_pcrs"] = baseline
+    dev = devices.get(device_id)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Device not enrolled yet (call /verify first)")
+
+    stored_pk_hex = dev.get("public_key_hex")
+    if not stored_pk_hex:
+        raise HTTPException(
+            status_code=409,
+            detail="No public key on file for this device - re-run /verify to establish one",
+        )
+
+    if oqs is None:
+        raise HTTPException(status_code=503, detail="PQC backend not available on server")
+
+    pqc = bundle.get("pqc") or {}
+    algorithm = pqc.get("algorithm") or dev.get("algorithm")
+    signature = pqc.get("signature")
+    if not (algorithm and signature):
+        return {"status": "FAIL", "reason": "Missing PQC fields", "ts": int(time.time())}
+
+    pcrs_canon = b"".join(
+        f"{k}:{v}".encode("utf-8") for k, v in sorted(baseline.items())
+    )
+    baseline_hash = hashlib.sha256(pcrs_canon).digest()
+    msg = make_signed_message(
+        device_id=str(device_id),
+        policy_id="ENROLL",
+        nonce=bytes(nonce),
+        pcrs_concat=b"",
+        sensor_state_hash=b"",
+        decision_hash=baseline_hash,
+    )
+    digest = hashlib.sha256(msg).digest()
+
+    try:
+        with oqs.Signature(str(algorithm), public_key=bytes.fromhex(stored_pk_hex)) as verifier:
+            ok = bool(verifier.verify(digest, bytes(signature)))
+    except Exception as e:
+        return {"status": "FAIL", "reason": f"PQC verify error: {e}", "ts": int(time.time())}
+
+    if not ok:
+        return {"status": "FAIL", "reason": "Enrollment signature invalid", "ts": int(time.time())}
+
+    devices[device_id]["baseline_pcrs"] = {k: v for k, v in baseline.items()}
     _save_devices(db)
     return {"status": "OK", "device_id": device_id, "baseline_keys": sorted(baseline.keys())}
 
