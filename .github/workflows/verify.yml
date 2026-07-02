@@ -1,0 +1,45 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-lex-resiliens-modules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Test wem_bridge (R/S derivation from WEM §12 fields)
+        run: |
+          cd concept/lex-resiliens/framework/wem_bridge
+          python -m pytest test_wem_to_lr.py -v
+
+      - name: Test generic_bridge (domain-agnostic trust log + golden runner)
+        run: |
+          cd concept/lex-resiliens/framework/generic_bridge
+          python -m pytest test_generic_bridge.py -v
+
+  check-rtl-status-honesty:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if RTL is claimed done without sources
+        run: |
+          if grep -q "VALMIS" hardware/pqc-rtl/README.md; then
+            if [ ! -d hardware/pqc-rtl/rtl ] || [ -z "$(find hardware/pqc-rtl/rtl -name '*.sv' 2>/dev/null)" ]; then
+              echo "FAIL: hardware/pqc-rtl/README.md claims a milestone is VALMIS but hardware/pqc-rtl/rtl/*.sv does not exist."
+              echo "This check exists specifically to prevent the failure mode found in this repo's history:"
+              echo "four prior package iterations marked M1 as done while no RTL source was ever committed."
+              exit 1
+            fi
+          fi
+          echo "OK: no unverified VALMIS claim, or RTL sources actually present."
