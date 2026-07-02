@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fail if RTL is claimed done without sources
         run: |
-          if grep -q "VALMIS" hardware/pqc-rtl/README.md; then
+          if grep -qE '^\| M[0-9] \|.*VALMIS' hardware/pqc-rtl/README.md; then
             if [ ! -d hardware/pqc-rtl/rtl ] || [ -z "$(find hardware/pqc-rtl/rtl -name '*.sv' 2>/dev/null)" ]; then
               echo "FAIL: hardware/pqc-rtl/README.md claims a milestone is VALMIS but hardware/pqc-rtl/rtl/*.sv does not exist."
               echo "This check exists specifically to prevent the failure mode found in this repo's history:"

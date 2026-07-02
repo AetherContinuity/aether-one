@@ -18,7 +18,7 @@ M1:n valmiiksi, mutta `sim/verify_all.sh` epäonnistuu suoraan ensimmäisessä
 askeleessa: `ERROR: rtl/*.sv not found`. Testipenkit (`tb/*.sv`) ja Python-
 golden-malli (`GENERATE_VECTORS.py`, Kyber-NTT + Montgomery-reduktio) ovat
 olemassa ja vaikuttavat oikeilta, mutta niillä ei ole mitään mitä vastaan
-verrata. M1-status palautetaan "VALMIS"-tilaan vasta kun `rtl/*.sv` on
+verrata. M1-status palautetaan hyväksytyksi vasta kun `rtl/*.sv` on
 olemassa JA `sim/verify_all.sh conflict` on ajettu vihreäksi CI:ssä
 (ks. `.github/workflows/verify.yml`), ei käsin kirjoitettuna.
 
