@@ -28,6 +28,15 @@ jobs:
           cd concept/lex-resiliens/framework/generic_bridge
           python -m pytest test_generic_bridge.py -v
 
+      - name: Install docgen dependencies
+        run: pip install pyyaml jinja2
+
+      - name: Test docgen engine (facts/formulas -> document, no hand-typed numbers)
+        run: |
+          cd concept/lex-resiliens/docgen
+          python -m pytest test_engine.py -v
+          python build.py
+
   test-enroll-e2e:
     runs-on: ubuntu-latest
     steps:

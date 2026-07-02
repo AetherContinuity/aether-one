@@ -11,3 +11,6 @@ hardware/pqc-rtl/vectors/*.memh
 pi5_edge_node/.trustcore_server/
 pi5_edge_node/trustcore_keys/
 pi5_edge_node/server.log
+concept/lex-resiliens/docgen/output/
+concept/lex-resiliens/docgen/.pytest_cache/
+concept/lex-resiliens/docgen/__pycache__/

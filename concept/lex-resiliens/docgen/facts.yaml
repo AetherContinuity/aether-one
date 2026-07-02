@@ -1,0 +1,179 @@
+# facts.yaml
+#
+# Jokainen luku joka esiintyy jossain LR-sarjan dokumentissa maaritellaan
+# TASSA, kerran. Dokumentit eivat kirjoita lukuja - ne viittaavat nailla
+# avaimilla. Jos sama tosiasia yrittaa saada kaksi eri arvoa, build.py
+# kaatuu (duplicate key -> YAML-virhe tai validate.py:n oma tarkistus).
+#
+# status:
+#   primary      = suoraan viralliselta lahteelta, pvm mainittu
+#   interpolated = johdettu/arvioitu toisesta primary-luvusta, sanottu aareen
+#   derived      = laskettu muista facts-arvoista (katso formulas.yaml)
+
+edp_debt_q1_2026:
+  value: 255.1
+  unit: "mrd EUR"
+  status: primary
+  source: "Tilastokeskus, 17.6.2026, Julkisyhteisojen velka neljannesvuosittain, Q1/2026"
+
+edp_debt_gdp_ratio_q1_2026:
+  value: 89.8
+  unit: "% BKT"
+  status: primary
+  source: "Tilastokeskus, 17.6.2026"
+
+edp_debt_growth_q1_quarterly:
+  value: 6.0
+  unit: "mrd EUR / neljannes"
+  status: primary
+  source: "Tilastokeskus, 17.6.2026 - HUOM: yhden neljanneksen kasvu, ei vuositaso"
+
+edp_debt_growth_yoy:
+  value: 21.6
+  unit: "mrd EUR / 12kk"
+  status: primary
+  source: "Tilastokeskus, 17.6.2026, vuoden takaiseen ajankohtaan verrattuna"
+
+central_gov_debt_q1_2026:
+  value: 216.4
+  unit: "mrd EUR"
+  status: primary
+  source: "Tilastokeskus, 17.6.2026"
+
+gdp_2026:
+  value: 295
+  unit: "mrd EUR"
+  status: primary
+  source: "VM, talousarvioesitys 2026"
+
+deficit_pct_gdp_2025:
+  value: 4.3
+  unit: "% BKT"
+  status: primary
+  source: "VM, Taloudellinen katsaus, syksy 2025"
+
+budget_deficit_2026:
+  value: 11.0
+  unit: "mrd EUR"
+  status: primary
+  source: "VM, talousarvioesitys 2026 (menot 90,3 - tulot 81,6)"
+
+sustainability_gap_pct:
+  value: 2.5
+  unit: "% BKT"
+  status: primary
+  source: "VM, kehysehdotus, huhtikuu 2026"
+
+sustainability_gap_eur:
+  value: 7.5
+  unit: "mrd EUR / v"
+  status: derived
+  source: "sustainability_gap_pct * gdp_2026 (2.5% * 295 = 7.375, VM pyoristaa 7.5)"
+
+deficit_forecast_2027:
+  value: 12.6
+  unit: "mrd EUR"
+  status: primary
+  source: "VM, kehysehdotus, huhtikuu 2026"
+
+deficit_forecast_2030:
+  value: 16.0
+  unit: "mrd EUR"
+  status: primary
+  source: "VM, kehysehdotus, huhtikuu 2026"
+
+deficit_forecast_2028_2029_avg_hint:
+  value: 14.9
+  unit: "mrd EUR / v"
+  status: interpolated
+  source: "VM:n nelivuotiskeskiarvo 2027-2030 (14.9), sovellettu 2028:aan ja 2029:aan koska VM ei nimennyt niita erikseen. EI sama asia kuin 2027/2030-luvut."
+
+interest_cost_2026:
+  value: 3.2
+  unit: "mrd EUR"
+  status: primary
+  source: "VM"
+
+interest_cost_2030:
+  value: 6.3
+  unit: "mrd EUR"
+  status: primary
+  source: "VM"
+
+eu_net_payment:
+  value: 309
+  unit: "M EUR / v"
+  status: primary
+  source: "VM/EU-tilinpaatos, 2025"
+
+nominee_register_tax_loss:
+  value: 87.5
+  unit: "M EUR / v"
+  status: primary
+  source: "Verohallinto, 2018-2021 keskiarvo, vahvistettu 2025-valvonnassa (haarukka 80-95)"
+
+business_subsidies_paid_2025:
+  value: 827
+  unit: "M EUR"
+  status: primary
+  source: "Tilastokeskus, yritystukitilasto 2025"
+
+corporate_tax_revenue_2025:
+  value: 7.1
+  unit: "mrd EUR"
+  status: primary
+  source: "Verohallinto, 2025"
+
+corporate_tax_rate_current:
+  value: 20
+  unit: "%"
+  status: primary
+  source: "Verohallinto"
+
+corporate_tax_rate_2027_decided:
+  value: 18
+  unit: "%"
+  status: primary
+  source: "Paatetty hallitusohjelmassa, voimaan 2027"
+
+pension_index_increase_2026:
+  value: 0.88
+  unit: "%"
+  status: primary
+  source: "ETK, tyoelakeindeksi 2026"
+
+pension_index_base_tyel:
+  value: 37.2
+  unit: "mrd EUR"
+  status: primary
+  source: "ETK, tyoelakemenot 2025"
+
+kansanelake_index_increase_2026:
+  value: 0.5
+  unit: "%"
+  status: primary
+  source: "Kela, kansanelakeindeksi 2026"
+
+kansanelake_base:
+  value: 2.6
+  unit: "mrd EUR"
+  status: primary
+  source: "Kela, kansanelake+takuuelake"
+
+combined_income_corporate_tax_base:
+  value: 46
+  unit: "mrd EUR"
+  status: interpolated
+  source: "Ansiotulovero (~39mrd, VM 2025) + yhteisovero (7.1mrd) - ei yhden lahteen summaluku, laskettu tassa"
+
+soli_rate:
+  value: 5.5
+  unit: "%"
+  status: primary
+  source: "Saksan Solidaritatszuschlag-malli, historiallinen kanta"
+
+debt_target_2030:
+  value: 170
+  unit: "mrd EUR"
+  status: primary
+  source: "Hallituksen oma tavoite (poliittinen, ei laskennallinen)"

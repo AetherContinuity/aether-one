@@ -1,0 +1,49 @@
+# formulas.yaml
+#
+# Jokainen derived-luku dokumentissa lasketaan tasta, ei kasin. build.py
+# evaluoi nama facts.yaml:n arvoilla ja upottaa tuloksen dokumenttiin.
+# expression kayttaa Python-syntaksia; muuttujat ovat facts.yaml:n avaimia.
+
+debt_projection_2030:
+  expression: "edp_debt_q1_2026 + budget_deficit_2026 + deficit_forecast_2027 + deficit_forecast_2028_2029_avg_hint + deficit_forecast_2028_2029_avg_hint + deficit_forecast_2030"
+  unit: "mrd EUR"
+  note: "255.1 + 11.0 + 12.6 + 14.9 + 14.9 + 16.0. 2028/2029 interpoloitu (katso facts.yaml)."
+
+gap_to_target_2030:
+  expression: "debt_projection_2030 - debt_target_2030"
+  unit: "mrd EUR"
+
+annual_effort_needed_for_target:
+  expression: "gap_to_target_2030 / 5"
+  unit: "mrd EUR / v"
+  note: "Tasainen jako viidelle vuodelle 2026-2030. Ei ole VM:n ennuste, tama on tama dokumentin oma johdettu luku."
+
+pension_freeze_saving:
+  expression: "pension_index_base_tyel * (pension_index_increase_2026 / 100) + kansanelake_base * (kansanelake_index_increase_2026 / 100)"
+  unit: "mrd EUR / v"
+
+corporate_tax_hold_saving:
+  expression: "corporate_tax_revenue_2025 * ((corporate_tax_rate_current - corporate_tax_rate_2027_decided) / corporate_tax_rate_current)"
+  unit: "mrd EUR / v"
+  note: "Staattinen laskelma - ei huomioi kayttaytymisvaikutusta"
+
+soli_full_scope_yield:
+  expression: "combined_income_corporate_tax_base * (soli_rate / 100)"
+  unit: "mrd EUR / v"
+
+fiscal_package_without_soli:
+  expression: "pension_freeze_saving + corporate_tax_hold_saving"
+  unit: "mrd EUR / v"
+  note: "Ei sisalla yritystukien karsintaa (haarukka, ei piste-estimaatti - katso dokumentti erikseen)"
+
+fiscal_package_without_soli_coverage_pct:
+  expression: "(fiscal_package_without_soli / sustainability_gap_eur) * 100"
+  unit: "%"
+
+fiscal_package_with_soli:
+  expression: "fiscal_package_without_soli + soli_full_scope_yield"
+  unit: "mrd EUR / v"
+
+fiscal_package_with_soli_coverage_pct:
+  expression: "(fiscal_package_with_soli / sustainability_gap_eur) * 100"
+  unit: "%"

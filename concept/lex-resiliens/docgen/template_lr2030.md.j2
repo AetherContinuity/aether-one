@@ -1,0 +1,64 @@
+# LR2030 — Julkisen talouden liikkumavara-analyysi 2026–2030 (v3, generoitu)
+
+*Tama dokumentti on generoitu `build.py`:lla facts.yaml + formulas.yaml -tiedostoista.
+Yhtaan lukua ei ole kirjoitettu tahan kasin - jos luku on vaara, virhe on
+facts.yaml:ssa tai formulas.yaml:ssa, ei tassa tiedostossa. Generointiaika: {{ build_time }}.*
+
+---
+
+## 1. Tilannekuva
+
+| Muuttuja | Arvo | Status | Lähde |
+|---|---|---|---|
+| Julkisyhteisöjen EDP-velka (Q1/2026) | {{ edp_debt_q1_2026 }} mrd € | primary | {{ facts.edp_debt_q1_2026.source }} |
+| Velka/BKT-suhde | {{ edp_debt_gdp_ratio_q1_2026 }} % | primary | {{ facts.edp_debt_gdp_ratio_q1_2026.source }} |
+| Velan kasvu, Q1/2026 (yksi neljännes) | {{ edp_debt_growth_q1_quarterly }} mrd € | primary | {{ facts.edp_debt_growth_q1_quarterly.source }} |
+| Velan kasvu, 12 kk | {{ edp_debt_growth_yoy }} mrd € | primary | {{ facts.edp_debt_growth_yoy.source }} |
+| BKT 2026 | {{ gdp_2026 }} mrd € | primary | {{ facts.gdp_2026.source }} |
+| Budjettialijäämä 2026 | {{ budget_deficit_2026 }} mrd € | primary | {{ facts.budget_deficit_2026.source }} |
+| Kestävyysvaje | {{ sustainability_gap_eur }} mrd €/v ({{ sustainability_gap_pct }} % BKT) | derived | {{ facts.sustainability_gap_eur.source }} |
+| Alijäämäennuste 2027 | {{ deficit_forecast_2027 }} mrd € | primary | {{ facts.deficit_forecast_2027.source }} |
+| Alijäämäennuste 2028/2029 (kumpikin) | {{ deficit_forecast_2028_2029_avg_hint }} mrd €/v | **interpolated** | {{ facts.deficit_forecast_2028_2029_avg_hint.source }} |
+| Alijäämäennuste 2030 | {{ deficit_forecast_2030 }} mrd € | primary | {{ facts.deficit_forecast_2030.source }} |
+
+---
+
+## 2. 2030-projektio
+
+```
+{{ edp_debt_q1_2026 }} (Q1/2026)
++ {{ budget_deficit_2026 }} (2026, budjettialijäämä - EI Q1-neljänneksen {{ edp_debt_growth_q1_quarterly }})
++ {{ deficit_forecast_2027 }} (2027)
++ {{ deficit_forecast_2028_2029_avg_hint }} (2028, interpoloitu)
++ {{ deficit_forecast_2028_2029_avg_hint }} (2029, interpoloitu)
++ {{ deficit_forecast_2030 }} (2030)
+= {{ "%.1f"|format(debt_projection_2030) }} mrd € vuonna 2030
+```
+
+Hallituksen tavoite: {{ "%.0f"|format(debt_target_2030) }} mrd €. **Ero: {{ "%.1f"|format(gap_to_target_2030) }} mrd €.**
+
+Jaettuna viidelle vuodelle: **{{ "%.1f"|format(annual_effort_needed_for_target) }} mrd €/v** lisätoimia tarvittaisiin — ei sekoiteta kestävyysvajeen ({{ sustainability_gap_eur }} mrd €/v) kanssa, eri yksikkö (kertynyt varanto vs. vuotuinen virta).
+
+---
+
+## 3. Fiskaaliset toimenpiteet
+
+| Toimenpide | Vaikutus (mrd €/v) | Huom |
+|---|---|---|
+| Eläkeindeksin jäädytys (1 v) | {{ "%.2f"|format(pension_freeze_saving) }} | Kertaluonteinen ellei toisteta |
+| Yhteisöveron pito {{ corporate_tax_rate_current|int }} %:ssa | {{ "%.2f"|format(corporate_tax_hold_saving) }} | Perutaan päätetty lasku {{ corporate_tax_rate_2027_decided|int }} %:iin |
+| Solidaarisuusmaksu ({{ soli_rate }} %, täysi laajuus) | {{ "%.2f"|format(soli_full_scope_yield) }} | Poliittisesti raskain |
+| **Yhteensä ilman Solia** | **{{ "%.2f"|format(fiscal_package_without_soli) }}** | Kattaa {{ "%.1f"|format(fiscal_package_without_soli_coverage_pct) }} % kestävyysvajeesta |
+| **Yhteensä Solin kanssa** | **{{ "%.2f"|format(fiscal_package_with_soli) }}** | Kattaa {{ "%.1f"|format(fiscal_package_with_soli_coverage_pct) }} % kestävyysvajeesta |
+
+**Hylätyt (mittakaava tarkistettu, ei riitä tai ristiriidassa):**
+- Hallintarekisterit: {{ nominee_register_tax_loss }} M€/v ({{ facts.nominee_register_tax_loss.source }})
+- EU-nettomaksu: {{ eu_net_payment }} M€/v — täysikin poisto pienempi kuin yksi desimaali tarpeesta.
+
+---
+
+## 4. Mitä tämä dokumentti ei väitä
+
+1. {{ "%.0f"|format(debt_target_2030) }} mrd € ei ole saavutettavissa millään tässä esitetyllä toimenpiteellä ({{ "%.1f"|format(gap_to_target_2030) }} mrd € ero).
+2. Kestävyysvajeesta jää parhaimmillaankin (Soli mukana) noin {{ "%.0f"|format(100 - fiscal_package_with_soli_coverage_pct) }} % kattamatta.
+3. Kaikki tässä esitetyt luvut on laskettu `formulas.yaml`:sta — ei käsin.
