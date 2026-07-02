@@ -8,3 +8,6 @@ __pycache__/
 hardware/pqc-rtl/sim/*.vcd
 hardware/pqc-rtl/sim/m1_sim
 hardware/pqc-rtl/vectors/*.memh
+pi5_edge_node/.trustcore_server/
+pi5_edge_node/trustcore_keys/
+pi5_edge_node/server.log

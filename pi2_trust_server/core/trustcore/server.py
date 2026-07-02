@@ -116,8 +116,8 @@ def _verify_pqc(bundle: Dict[str, Any]) -> Optional[str]:
     digest = hashlib.sha256(msg).digest()
 
     try:
-        with oqs.Signature(str(algorithm), public_key=bytes(public_key)) as verifier:
-            ok = bool(verifier.verify(digest, bytes(signature)))
+        with oqs.Signature(str(algorithm)) as verifier:
+            ok = bool(verifier.verify(digest, bytes(signature), bytes(public_key)))
     except Exception as e:
         return f"PQC verify error: {e}"
 
@@ -265,8 +265,8 @@ async def enroll(device_id: str, req: Request) -> Dict[str, Any]:
     digest = hashlib.sha256(msg).digest()
 
     try:
-        with oqs.Signature(str(algorithm), public_key=bytes.fromhex(stored_pk_hex)) as verifier:
-            ok = bool(verifier.verify(digest, bytes(signature)))
+        with oqs.Signature(str(algorithm)) as verifier:
+            ok = bool(verifier.verify(digest, bytes(signature), bytes.fromhex(stored_pk_hex)))
     except Exception as e:
         return {"status": "FAIL", "reason": f"PQC verify error: {e}", "ts": int(time.time())}
 

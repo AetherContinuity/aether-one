@@ -74,7 +74,7 @@ class PQCKeyMeta:
 class PQCManager:
     """Manage Dilithium keys and signatures (OQS native key bytes)."""
 
-    def __init__(self, keydir: str = "trustcore_keys", algorithm: str = "Dilithium3"):
+    def __init__(self, keydir: str = "trustcore_keys", algorithm: str = "ML-DSA-65"):
         self.keydir = Path(keydir)
         self.keydir.mkdir(parents=True, exist_ok=True)
         self.algorithm = algorithm
