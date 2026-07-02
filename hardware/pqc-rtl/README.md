@@ -7,36 +7,57 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 
 | Milestone | Kuvaus | Tila |
 |-----------|--------|------|
-| M1 | 2-Lane cluster + conflict validation | ❌ EI TODENNETTU — ks. alla |
-| M2 | 256-point NTT korrektisuus Pi5:llä | ⛔ EI ALOITETTU (riippuu M1:stä) |
+| M1 (skoopattu) | 1 NTT-taso, 16 butterflya/lane, pankkikonflikti | ✅ TODENNETTU 2026-07-02, ks. rajaus alla |
+| M2 | Koko 256-pisteen NTT, monivaiheinen aikataulutin | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
-**Huomio (2026-07-02):** Tässä hakemistossa ei ole yhtään `.sv`-lähdetiedostoa
-`rtl/`-alla. Aiemmat statusdokumentit (neljä pakettia, 2026-02) merkitsivät
-M1:n valmiiksi, mutta `sim/verify_all.sh` epäonnistuu suoraan ensimmäisessä
-askeleessa: `ERROR: rtl/*.sv not found`. Testipenkit (`tb/*.sv`) ja Python-
-golden-malli (`GENERATE_VECTORS.py`, Kyber-NTT + Montgomery-reduktio) ovat
-olemassa ja vaikuttavat oikeilta, mutta niillä ei ole mitään mitä vastaan
-verrata. M1-status palautetaan hyväksytyksi vasta kun `rtl/*.sv` on
-olemassa JA `sim/verify_all.sh conflict` on ajettu vihreäksi CI:ssä
-(ks. `.github/workflows/verify.yml`), ei käsin kirjoitettuna.
+**M1:n todennettu skoopin rajaus (2026-07-02):**
+`rtl/pqc_rvv_cluster_2lane.sv` + `tb/pqc_cluster_m1_tb.sv` ajettu Icarus
+Verilogilla, PASS kahdella eri satunnaissiemenellä, sekä negatiivikontrolli
+(tahallaan rikottu golden-arvo -> testi epäonnistuu oikein, exit code 1).
+Aja itse: `bash hardware/pqc-rtl/run_m1_test.sh`.
 
-## Arkkitehtuuri (suunniteltu, ei toteutettu)
+Mitä tämä TODISTAA:
+- Montgomery-perhonen (`t=mont_reduce(b*zeta); a'=a+t; b'=a-t mod Q`) on
+  bittitarkka Python-golden-mallia vastaan.
+- Round-robin-arbitteri alternoi oikein kun kaksi lanea pyytää samaa
+  pankkia (bank0) samana syklina - konflikti on aito, todennettu
+  laskemalla alternointien määrä ajon aikana (≥2, tyypillisesti ~30).
 
-- Modular Montgomery Multiplier (pipelined)
-- Banked Memory Subsystem (4-bank, rinnakkainen)
-- Round-Robin Arbiter (deterministinen)
-- 2-Lane Cluster Top
+Mitä tämä EI todista (tietoinen rajaus, ei piilotettu):
+- Ei koko 256-pisteen NTT:tä, vain yksi taso, 16 butterflya per lane.
+- Kaikki saman lanen butterflyt käyttävät SAMAA zeta-arvoa (ei per-
+  butterfly-indeksointia kuten oikea 256-pisteen NTT vaatisi).
+- Malli on **käyttäytymismalli (behavioral), ei synteesikelpoinen RTL**.
+  Ei todista piirin ajoitusta, pinta-alaa eikä FPGA/ASIC-synteesikelpoi-
+  suutta. `always_comb`/`function automatic` -rakenteet ja hierarkkinen
+  suora muistiosoitus eivät sellaisenaan synteesoidu.
+- Edellisen session testipenkki (`pqc_cluster_verified_tb.sv`, ei tässä
+  repossa) hylättiin: sen oma osoitelaskenta oli sisäisesti ristiriitainen
+  (base_addr_lane1=16 vs. data sijoitettu osoitteisiin 32-63). Tämä on
+  uusi, itsekonsistentti pari - DUT ja testipenkki kirjoitettu yhdessä.
+
+Seuraava askel M2:een: tuo `idx` ulos `lane_fsm`:sta jotta per-butterfly-
+zeta-indeksointi on mahdollinen, laajenna yhdestä NTT-tasosta kahdeksaan
+(level 7..0, Cooley-Tukey), lisää oikea pankinvalinta osoitteesta neljälle
+pankille (tässä versiossa aina bank0).
+
+## Arkkitehtuuri (M1-skoopissa toteutettu)
+
+- Montgomery-reduktio (behavioral, ei pipelinoitu)
+- Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken
+- 2-lane FSM: IDLE → REQ_READ → COMPUTE → REQ_WRITE → (seuraava/DONE)
 
 ## Toolchain
 
-- Icarus Verilog (ARM64, Pi 5)
-- GTKWave (waveform)
-- Python GENERATE_VECTORS.py → .memh → SV testbench (golden-malli olemassa)
+- Icarus Verilog 12.0 (testattu tässä ympäristössä, ei vielä Pi5:llä)
+- Python `gen_vectors.py` → `.memh` → SV-testipenkki
 
 ## Yhteys TrustCore NX:ään
 
 NTT256 on Kyber/Dilithium PQC-operaatioiden ydin.
-Tämä RTL siirtyy suoraan TrustCore NX ASIC:iin — kun se on olemassa.
+Tämä RTL siirtyy suoraan TrustCore NX ASIC:iin — synteesikelpoisen
+uudelleenkirjoituksen jälkeen (M3/M4).
+
 
