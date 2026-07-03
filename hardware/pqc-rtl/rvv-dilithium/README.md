@@ -7,6 +7,33 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**TÄYSI VERIFIOINTI, SAMA AVAINPARI KUIN ALLEKIRJOITUS** (`verify_core_rvv.c`):
+`crypto_sign_verify_internal`:n matemaattinen ydin, testattu **juuri
+tuotettua, 9 yrityksen hylkäyssilmukan läpikäynyttä allekirjoitusta
+vastaan**. RVV-verifiointi hyväksyy oikean allekirjoituksen (paluuarvo 0)
+ja hylkää turmellun `z`:n (paluuarvo -1).
+
+**Löytyi ja korjattiin vakava virhe ennen RVV-koodin kirjoittamista:**
+ensimmäinen golden-allekirjoitus epäonnistui **omassa
+itseverifioinnissaan** — ei RVV:n vika, vaan testiasetelman: `t0`
+(allekirjoituksessa käytetty) oli mielivaltainen testiarvo, mutta
+verifiointiin laskettu `t1` (julkinen avain) johdettiin oikeasta
+`t=As+e`-laskusta *eri* `t0`:lla. Kaksi eri avainparia, ei sama —
+tietenkään ei täsmännyt. Korjaus: laskettu `t=As+e` kerran ennen
+allekirjoitusta, käytetty **sama** `t0` sekä signeeraukseen että `t1`:n
+johtamiseen. Tämä on tarkalleen se virhe jota koko tämä hakemisto on
+yrittänyt välttää — nyt löytyi omasta testi-infrastruktuurista, ei
+RVV-koodista, ja korjattiin **ennen** kuin RVV-puolta edes kirjoitettiin
+(sisäinen itseverifiointi C-referenssitasolla paljasti sen ensin).
+
+PASS molemmilla VLEN-arvoilla, negatiivikontrolli (turmeltu `z`) läpi.
+
+**`use_hint` + `poly_shiftl`** (`use_hint_rvv.c`): `use_hint` korjaa
+`decompose`:n antamat korkeat bitit vihjeen mukaan (±1 mod 16, `a0`:n
+etumerkin mukaan) — käyttää jo todennettua `poly_decompose_rvv`:tä
+sisäisesti. `poly_shiftl` on triviaali (`<<D`). PASS 256/256 molemmille,
+molemmilla VLEN-arvoilla, negatiivikontrolli läpi.
+
 **TÄYSI ALLEKIRJOITUKSEN MATEMAATTINEN YDIN** (`sign_core_rvv.c`): kaikki
 tähän mennessä rakennetut palikat (NTT/INTT, `ExpandA`, `poly_uniform_gamma1`,
 matriisikertolasku, `decompose`, `SampleInBall`, `pointwise_montgomery`,
@@ -242,12 +269,10 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta, mutta koko allekirjoituksen matemaattinen ydin ON
-  todennettu.** Puuttuu: `unpack_sk`/`pack_sig` (koodaus), `mu`:n laskenta
-  oikeasta viestistä (`shake256(tr,pre,msg)`), `rhoprime`:n laskenta
-  `key`/`rnd`:sta — testattu kiinteillä, ei viestistä johdetuilla
-  `rhoprime`/`mu`-arvoilla. Verifiointi (`crypto_sign_verify`) ei
-  kosketettu ollenkaan.
+- **Sekä allekirjoituksen että verifioinnin matemaattinen ydin on nyt
+  todennettu, samalla avainparilla, molemmat suunnat.** Puuttuu:
+  `pack_sig`/`unpack_pk`/`unpack_sk` (koodaus), `mu`:n/`rhoprime`:n
+  laskenta oikeasta viestistä/avaimesta (testattu kiinteillä arvoilla).
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -264,15 +289,13 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-Kolme mahdollista suuntaa, ei yhtä oikeaa:
-1. **Verifiointi** (`crypto_sign_verify`): eri, kevyempi algoritmi —
-   uudelleenlaskee `w1`:n allekirjoituksesta ja vertaa haasteeseen. Suurin
-   osa palikoista on jo olemassa.
-2. **`pack_sig`/`unpack_sk`**: koodaus/pakkaus varsinaiseen tavumuotoon.
-   Mekaanista, ei uutta matemaattista logiikkaa.
-3. **Kytkentä `oqs-rvv-provider/`:hen**: ensimmäistä kertaa on jotain
-   oikeasti kytkettävää — koko avaingenerointi ja allekirjoituksen ydin.
-   Provider on yhä NULL-runko.
+Matemaattinen ydin (sign+verify) on nyt kokonaan todennettu. Jäljellä:
+1. **`pack_sig`/`unpack_pk`/`unpack_sk`**: koodaus/pakkaus varsinaiseen
+   tavumuotoon. Mekaanista, ei uutta matemaattista logiikkaa.
+2. **Kytkentä `oqs-rvv-provider/`:hen**: nyt on olemassa koko toimiva
+   ydin — avaingenerointi, allekirjoitus, verifiointi. Provider on yhä
+   NULL-runko kaikelle. Tämä olisi ensimmäinen kerta jolloin providerilla
+   olisi jotain oikeaa algoritmia tarjottavana.
 
 ## Toolchain
 

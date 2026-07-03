@@ -31,9 +31,34 @@ int main(void) {
     /* Synteettiset mutta ETA-rajatut s1/s2/t0 (ei oikea keypair, mutta
      * kelvollinen signeeraustestille - sama periaate kuin compute_t:n
      * synteettinen testidata). */
+    /* Synteettiset mutta ETA-rajatut s1/s2 (ei oikea satunnainen keypair,
+     * mutta kelvollinen signeeraustestille). t0 EI ole mielivaltainen -
+     * se lasketaan oikeasti t=As+e:sta samalla s1/s2/mat:lla, jotta
+     * signeerauksen ja verifioinnin julkinen avain on sama avainpari. */
     for (int i = 0; i < L; i++) for (int n = 0; n < N; n++) s1.vec[i].coeffs[n] = (n % 9) - 4;
     for (int i = 0; i < K; i++) for (int n = 0; n < N; n++) s2.vec[i].coeffs[n] = ((n*3) % 9) - 4;
-    for (int i = 0; i < K; i++) for (int n = 0; n < N; n++) t0.vec[i].coeffs[n] = ((n*5) % 17) - 8;
+
+    polyveck t1_pub;
+    {
+        polyvecl s1hat_for_t = s1;
+        polyvecl_ntt(&s1hat_for_t);
+        for (int i = 0; i < K; i++) {
+            poly tmp;
+            poly_pointwise_montgomery(&t0.vec[i], &mat[i].vec[0], &s1hat_for_t.vec[0]);
+            for (int j = 1; j < L; j++) {
+                poly_pointwise_montgomery(&tmp, &mat[i].vec[j], &s1hat_for_t.vec[j]);
+                poly_add(&t0.vec[i], &t0.vec[i], &tmp);
+            }
+        }
+        polyveck_reduce(&t0);
+        polyveck_invntt_tomont(&t0);
+        polyveck_add(&t0, &t0, &s2);
+        polyveck_caddq(&t0);
+        polyveck_power2round(&t1_pub, &t0, &t0);
+        /* HUOM: power2round(&t1_pub, &t0, &t0) kirjoittaa a0:n takaisin
+         * t0:aan (sallittu, poly-per-poly ei limity). Nyt t0 = LowBits,
+         * t1_pub = HighBits - oikea Power2Round-pari. */
+    }
 
     s1hat = s1; polyvecl_ntt(&s1hat);
     s2hat = s2; polyveck_ntt(&s2hat);
@@ -86,7 +111,57 @@ rej:
 
     printf("attempts=%d nonce_final=%u n_hints=%u\n", attempts, nonce, n_hints);
 
+    /* SISAINEN ITSEVERIFIOINTI heti muistissa, ei tiedostokierrätysta. */
+    {
+        polyveck w1_self, t1_self_copy, h_self_copy;
+        polyvecl z_self_copy;
+        poly cp_self;
+        uint8_t buf_self[K*POLYW1_PACKEDBYTES];
+        uint8_t c2_self[CTILDEBYTES];
+
+        z_self_copy = z;
+        h_self_copy = h;
+        t1_self_copy = t1_pub;
+
+        poly_challenge(&cp_self, ctilde);
+        polyvecl mat2[K];
+        polyvec_matrix_expand(mat2, rho);
+        polyvecl_ntt(&z_self_copy);
+        polyvec_matrix_pointwise_montgomery(&w1_self, mat2, &z_self_copy);
+        poly_ntt(&cp_self);
+        polyveck_shiftl(&t1_self_copy);
+        polyveck_ntt(&t1_self_copy);
+        polyveck_pointwise_poly_montgomery(&t1_self_copy, &cp_self, &t1_self_copy);
+        polyveck_sub(&w1_self, &w1_self, &t1_self_copy);
+        polyveck_reduce(&w1_self);
+        polyveck_invntt_tomont(&w1_self);
+        polyveck_caddq(&w1_self);
+        polyveck_use_hint(&w1_self, &w1_self, &h_self_copy);
+        polyveck_pack_w1(buf_self, &w1_self);
+
+        keccak_state st_self;
+        shake256_init(&st_self);
+        shake256_absorb(&st_self, mu, CRHBYTES);
+        shake256_absorb(&st_self, buf_self, K*POLYW1_PACKEDBYTES);
+        shake256_finalize(&st_self);
+        shake256_squeeze(c2_self, CTILDEBYTES, &st_self);
+
+        int self_ok = 1;
+        for (int i = 0; i < CTILDEBYTES; i++) if (ctilde[i] != c2_self[i]) self_ok = 0;
+        printf("SISAINEN ITSEVERIFIOINTI: %s\n", self_ok ? "OK (c==c2)" : "EPAONNISTUI (c!=c2)");
+    }
+
     FILE *f;
+    f = fopen("ver_ctilde.txt", "w");
+    for (int i = 0; i < CTILDEBYTES; i++) fprintf(f, "%d\n", ctilde[i]);
+    fclose(f);
+    f = fopen("ver_t1.txt", "w");
+    for (int i = 0; i < K; i++) for (int n = 0; n < N; n++) fprintf(f, "%d\n", t1_pub.vec[i].coeffs[n]);
+    fclose(f);
+    f = fopen("ver_h.txt", "w");
+    for (int i = 0; i < K; i++) for (int n = 0; n < N; n++) fprintf(f, "%u\n", h.vec[i].coeffs[n]);
+    fclose(f);
+
     f = fopen("sig_z.txt", "w");
     for (int i = 0; i < L; i++) for (int n = 0; n < N; n++) fprintf(f, "%d\n", z.vec[i].coeffs[n]);
     fclose(f);

@@ -238,4 +238,37 @@ qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu 
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_sign_core
 
+echo "[22/23] use_hint + poly_shiftl (verifioinnin uudet palikat)..."
+gcc -O2 hint_driver.c -o hint_driver
+./hint_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 decompose_rvv.c use_hint_rvv.c test_use_hint.c -o test_use_hint
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_use_hint
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_use_hint
+
+echo "[23/23] Taysi verifiointi: sama avainpari kuin allekirjoitustesti, hyvaksyy oikean/hylkaa turmellun..."
+cp "$REF_DIR/ref/reduce.c" "$REF_DIR/ref/reduce.h" "$REF_DIR/ref/ntt.c" "$REF_DIR/ref/ntt.h" \
+   "$REF_DIR/ref/poly.c" "$REF_DIR/ref/poly.h" "$REF_DIR/ref/polyvec.c" "$REF_DIR/ref/polyvec.h" \
+   "$REF_DIR/ref/rounding.c" "$REF_DIR/ref/rounding.h" "$REF_DIR/ref/symmetric-shake.c" \
+   "$REF_DIR/ref/symmetric.h" "$REF_DIR/ref/params.h" "$REF_DIR/ref/config.h" \
+   "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" .
+gcc -O2 -DDILITHIUM_MODE=3 sign_golden_driver.c reduce.c ntt.c poly.c polyvec.c fips202.c rounding.c symmetric-shake.c -o sign_golden_driver
+./sign_golden_driver
+gcc -O2 -DDILITHIUM_MODE=3 verify_golden_driver.c reduce.c ntt.c poly.c polyvec.c fips202.c rounding.c symmetric-shake.c -o verify_golden_driver
+./verify_golden_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c \
+  ntt_rvv.c invntt_rvv.c poly_ops_rvv.c \
+  sample_in_ball_rvv.c decompose_rvv.c chknorm_rvv.c pw_poly_rvv.c \
+  polyw1_pack_rvv.c vec_wrappers_rvv.c use_hint_rvv.c verify_core_rvv.c \
+  test_verify_core.c fips202.c \
+  -o test_verify_core -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+rm -f reduce.c reduce.h ntt.c ntt.h poly.c poly.h polyvec.c polyvec.h rounding.c rounding.h \
+      symmetric-shake.c symmetric.h params.h config.h fips202.c fips202.h
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_verify_core
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_verify_core
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

@@ -112,3 +112,10 @@ hardware/pqc-rtl/rvv-dilithium/rounding.c
 hardware/pqc-rtl/rvv-dilithium/rounding.h
 hardware/pqc-rtl/rvv-dilithium/symmetric-shake.c
 hardware/pqc-rtl/rvv-dilithium/symmetric.h
+hardware/pqc-rtl/rvv-dilithium/hint_driver
+hardware/pqc-rtl/rvv-dilithium/test_use_hint
+hardware/pqc-rtl/rvv-dilithium/uh_*.txt
+hardware/pqc-rtl/rvv-dilithium/shl_*.txt
+hardware/pqc-rtl/rvv-dilithium/verify_golden_driver
+hardware/pqc-rtl/rvv-dilithium/test_verify_core
+hardware/pqc-rtl/rvv-dilithium/ver_*.txt
