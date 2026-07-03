@@ -283,4 +283,21 @@ echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyt1_pack
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_pk
 
+echo "[25/25] Salaisen avaimen koodaus: polyeta_pack + polyt0_pack + pack_sk..."
+gcc -O2 eta_pack_driver.c -o eta_pack_driver
+./eta_pack_driver
+gcc -O2 t0_pack_driver.c -o t0_pack_driver
+./t0_pack_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyeta_pack_rvv.c test_polyeta_pack.c -o test_polyeta_pack
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyt0_pack_rvv.c test_polyt0_pack.c -o test_polyt0_pack
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyeta_pack_rvv.c polyt0_pack_rvv.c pack_sk_rvv.c test_pack_sk.c -o test_pack_sk
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_polyeta_pack
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_polyt0_pack
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_pack_sk
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyeta_pack
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyt0_pack
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_sk
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

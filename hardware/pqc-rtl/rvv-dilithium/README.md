@@ -7,6 +7,27 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**Salaisen avaimen koodaus** (`polyeta_pack_rvv.c`, `polyt0_pack_rvv.c`,
+`pack_sk_rvv.c`): `polyeta_pack`/`unpack` (ETA=4, 2 kerrointa/tavu,
+sama malli kuin `polyw1_pack`). **`polyt0_pack`/`unpack` on tahallaan
+skalaarinen** — 8 kerrointa pakataan 13 tavuun epäsäännöllisellä
+bittikuviolla (jokainen kerroin alkaa eri bittikohdasta: 0,5,3,11,6,1,9,4,
+12,7,2,10,5), ei kiinteävälistä kuten `polyt1_pack`:n 4/5-jako. Sama
+harkinta kuin `SampleInBall`:ssa: pakotettu vektorointi epäsäännölliselle
+bittikuviolle olisi näennäistä.
+
+**`pack_sk` löysi jarjestysvirheen ennen RVV-koodia:** `ref/packing.c`:n
+`pack_sk`-funktion parametrilista on `(sk, rho, tr, key, ...)`, mutta
+funktion RUNKO kirjoittaa järjestyksessä **rho, key, tr** (ei rho,tr,key).
+Parametrinimien järjestys johtaisi harhaan jos koodin lukisi vain
+allekirjoituksen, ei runkoa. Tarkistettu suoraan **bittitarkasti oikeaa
+referenssiä vasten** (`pack_sk_ref_driver.c`, linkitetty `ref/packing.c`:hen
+suoraan) — ei vain itsekonsistenssia, kuten aiemmissa pakkaustesteissä.
+
+PASS: `polyeta_pack` 128/128, `polyt0_pack` 416/416, `pack_sk`
+täysi pyöräytys + bittitarkka täsmäys oikeaan referenssiin. Molemmilla
+VLEN-arvoilla, negatiivikontrolli läpi.
+
 **Julkisen avaimen koodaus** (`polyt1_pack_rvv.c`, `pack_pk_rvv.c`):
 `polyt1_pack`/`unpack` (4 kerrointa/10 bittiä → 5 tavua, sama malli kuin
 `polyw1_pack`/`polyz_unpack` mutta 4-suuntainen 2-suuntaisen sijaan) ja
@@ -283,12 +304,10 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
 - **Sekä allekirjoituksen että verifioinnin matemaattinen ydin on
-  todennettu, samalla avainparilla, molemmat suunnat. Julkisen avaimen
-  koodaus (`pack_pk`/`unpack_pk`) on nyt myös todennettu.** Puuttuu:
-  `pack_sk`/`unpack_sk` (`polyeta_pack`, `polyt0_pack` — uudet
-  bittileveydet, ei vielä tehty), `pack_sig`/`unpack_sig` (sisältää
-  vihjeiden `h` vaihtuvanmittaisen paikkakoodauksen — eri luonteinen
-  kuin kiinteän levyisiin kenttiin perustuva pakkaus, oma haasteensa).
+  todennettu, samalla avainparilla. Julkisen JA salaisen avaimen koodaus
+  on nyt todennettu, jälkimmäinen bittitarkasti oikeaa referenssiä
+  vasten.** Puuttuu: `pack_sig`/`unpack_sig` (sisältää vihjeiden `h`
+  vaihtuvanmittaisen paikkakoodauksen).
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -305,15 +324,10 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-1. **`polyeta_pack`/`unpack`** (ETA=4, 4-bittinen, 2 kerrointa/tavu —
-   pienempi kuin `polyt1_pack`). **`polyt0_pack`/`unpack`** (13-bittinen,
-   sama laajuus kuin `Power2Round`:n `D`). Yhdessä nämä täydentävät
-   `pack_sk`/`unpack_sk`:n.
-2. **`pack_sig`/`unpack_sig`**: `ctilde`||`z`||`h`. `h`:n koodaus on
-   vaihtuvamittainen (vain 1-bittien *positiot* tallennetaan, ei koko
-   256-bittistä karttaa) — eri algoritminen luonne kuin kiinteälevyinen
-   pakkaus, oma haasteensa.
-3. **Kytkentä `oqs-rvv-provider/`:hen.**
+1. **`pack_sig`/`unpack_sig`**: `ctilde`||`z`||`h`. `h`:n koodaus tallentaa
+   vain 1-bittien *positiot* (ei koko 256-bittistä karttaa per polynomi) —
+   viimeinen jäljellä oleva pakkausmuoto, eri algoritminen luonne.
+2. **Kytkentä `oqs-rvv-provider/`:hen.**
 
 ## Toolchain
 

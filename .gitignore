@@ -123,3 +123,11 @@ hardware/pqc-rtl/rvv-dilithium/t1pack_driver
 hardware/pqc-rtl/rvv-dilithium/test_polyt1_pack
 hardware/pqc-rtl/rvv-dilithium/test_pack_pk
 hardware/pqc-rtl/rvv-dilithium/t1_*.txt
+hardware/pqc-rtl/rvv-dilithium/eta_pack_driver
+hardware/pqc-rtl/rvv-dilithium/test_polyeta_pack
+hardware/pqc-rtl/rvv-dilithium/eta_pack_*.txt
+hardware/pqc-rtl/rvv-dilithium/t0_pack_driver
+hardware/pqc-rtl/rvv-dilithium/test_polyt0_pack
+hardware/pqc-rtl/rvv-dilithium/t0_*.txt
+hardware/pqc-rtl/rvv-dilithium/test_pack_sk
+hardware/pqc-rtl/rvv-dilithium/sk_*.txt
