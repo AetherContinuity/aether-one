@@ -21,3 +21,6 @@ hardware/pqc-rtl/rvv/vectors.h
 hardware/pqc-rtl/tvm-riscv/model_riscv.so
 hardware/pqc-rtl/tvm-riscv/golden_data.h
 hardware/pqc-rtl/tvm-riscv/harness_riscv
+hardware/pqc-rtl/oqs-rvv-provider/*.o
+hardware/pqc-rtl/oqs-rvv-provider/harness_provider_riscv
+.openssl-src-riscv/

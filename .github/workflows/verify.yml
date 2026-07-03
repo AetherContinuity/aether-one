@@ -124,6 +124,17 @@ jobs:
           cd hardware/pqc-rtl/tvm-riscv
           bash run_tvm_test.sh
 
+  test-oqs-rvv-provider-skeleton:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU riscv64 + cross-toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+      - name: Build OpenSSL libcrypto for RISC-V (cross), then provider skeleton, run under QEMU
+        run: |
+          cd hardware/pqc-rtl/oqs-rvv-provider
+          bash run_provider_test.sh
+
   run-pqc-rtl-m1-test:
     runs-on: ubuntu-latest
     steps:
