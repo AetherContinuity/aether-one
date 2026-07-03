@@ -24,3 +24,10 @@ hardware/pqc-rtl/tvm-riscv/harness_riscv
 hardware/pqc-rtl/oqs-rvv-provider/*.o
 hardware/pqc-rtl/oqs-rvv-provider/harness_provider_riscv
 .openssl-src-riscv/
+hardware/pqc-rtl/rvv-dilithium/test_mont_dilithium
+hardware/pqc-rtl/rvv-dilithium/test_ntt
+hardware/pqc-rtl/rvv-dilithium/driver
+hardware/pqc-rtl/rvv-dilithium/zetas.h
+hardware/pqc-rtl/rvv-dilithium/ntt_input.txt
+hardware/pqc-rtl/rvv-dilithium/ntt_golden.txt
+.dilithium-ref/

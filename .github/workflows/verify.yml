@@ -135,6 +135,17 @@ jobs:
           cd hardware/pqc-rtl/oqs-rvv-provider
           bash run_provider_test.sh
 
+  test-rvv-dilithium-ntt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU riscv64 + cross-toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+      - name: Build reference, extract zetas, build RVV, run under QEMU
+        run: |
+          cd hardware/pqc-rtl/rvv-dilithium
+          bash run_ntt_test.sh
+
   run-pqc-rtl-m1-test:
     runs-on: ubuntu-latest
     steps:
