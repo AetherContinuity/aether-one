@@ -30,7 +30,19 @@ void poly_pointwise_montgomery_rvv(int32_t *c, const int32_t *a, const int32_t *
     }
 }
 
-/* c[i] = a[i] + b[i], ei redusointia (sama kuin ref/poly.c:n poly_add) */
+/* c[i] = a[i] - b[i], ei redusointia */
+void poly_sub_rvv(int32_t *c, const int32_t *a, const int32_t *b) {
+    unsigned int i = 0;
+    while (i < N) {
+        size_t vl = __riscv_vsetvl_e32m1(N - i);
+        vint32m1_t va = __riscv_vle32_v_i32m1(&a[i], vl);
+        vint32m1_t vb = __riscv_vle32_v_i32m1(&b[i], vl);
+        __riscv_vse32_v_i32m1(&c[i], __riscv_vsub_vv_i32m1(va, vb, vl), vl);
+        i += vl;
+    }
+}
+
+/* c[i] = a[i] + b[i] (add_rvv:n alias, koska tama on eri tiedostosta kutsuttu nimi) */
 void poly_add_rvv(int32_t *c, const int32_t *a, const int32_t *b) {
     unsigned int i = 0;
     while (i < N) {

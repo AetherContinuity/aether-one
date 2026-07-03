@@ -98,3 +98,17 @@ hardware/pqc-rtl/rvv-dilithium/chk_*.txt
 hardware/pqc-rtl/rvv-dilithium/pw_poly_driver
 hardware/pqc-rtl/rvv-dilithium/test_pw_poly
 hardware/pqc-rtl/rvv-dilithium/pw_*.txt
+hardware/pqc-rtl/rvv-dilithium/w1pack_driver
+hardware/pqc-rtl/rvv-dilithium/test_polyw1_pack
+hardware/pqc-rtl/rvv-dilithium/w1_*.txt
+hardware/pqc-rtl/rvv-dilithium/sign_golden_driver
+hardware/pqc-rtl/rvv-dilithium/test_sign_core
+hardware/pqc-rtl/rvv-dilithium/sig_*.txt
+hardware/pqc-rtl/rvv-dilithium/poly.c
+hardware/pqc-rtl/rvv-dilithium/poly.h
+hardware/pqc-rtl/rvv-dilithium/polyvec.c
+hardware/pqc-rtl/rvv-dilithium/polyvec.h
+hardware/pqc-rtl/rvv-dilithium/rounding.c
+hardware/pqc-rtl/rvv-dilithium/rounding.h
+hardware/pqc-rtl/rvv-dilithium/symmetric-shake.c
+hardware/pqc-rtl/rvv-dilithium/symmetric.h

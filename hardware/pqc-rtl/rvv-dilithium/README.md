@@ -7,7 +7,44 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
-**`polyvecl`/`polyveck_pointwise_poly_montgomery`** (`pw_poly_rvv.c`):
+**TÄYSI ALLEKIRJOITUKSEN MATEMAATTINEN YDIN** (`sign_core_rvv.c`): kaikki
+tähän mennessä rakennetut palikat (NTT/INTT, `ExpandA`, `poly_uniform_gamma1`,
+matriisikertolasku, `decompose`, `SampleInBall`, `pointwise_montgomery`,
+`chknorm`, `make_hint`, `polyw1_pack`) koostettu **referenssin
+`crypto_sign_signature_internal`:n hylkäyssilmukaksi** (`ref/sign.c`:n
+"Expand matrix"-kohdasta alkaen).
+
+Golden-data ei ole käsin uudelleenkirjoitettu — `sign_golden_driver.c`
+linkittää suoraan oikeaan `poly.c`+`polyvec.c`+`reduce.c`+`ntt.c`+
+`rounding.c`+`fips202.c`:hen (koko referenssi, ei osittaista
+jäljittelyä), jotta golden-datan oma oikeellisuus ei riipu käsin
+kirjoitetusta logiikasta samalla tavalla kuin aiemmissa vaiheissa.
+
+**Testisyötteillä hylkäyssilmukka laukesi 9 kertaa ennen onnistumista**
+(ei kertaonnistuminen) — RVV-ydin täsmää referenssiin **jokaisen
+yhdeksän yrityksen läpi**, mukaan lukien nonce-kaava `L*yritys+i` (löytyi
+suoraan lähteestä — oma alkuperäinen oletukseni juoksevasta laskurista
+oli väärä, korjattu ennen testausta). Lopullinen `z`-vektori (5×256
+kerrointa) täsmää bittitarkasti.
+
+**Löydetyt omat virheet ennen testausta:**
+1. Nonce-kaava `polyvecl_uniform_gamma1`:lle on `L*nonce+i`, ei juokseva
+   laskuri — tarkistettu suoraan `ref/polyvec.c`:sta.
+2. GCC:n sisäkkäinen funktio (nested function) korvattu tiedostotason
+   funktiolla — trampoliinit ja `-Wa,--noexecstack` eivät sovi yhteen,
+   siirrettävyysriski jota ei tarvinnut ottaa.
+3. `polyw1_pack_rvv`:n ensimmäinen versio yritti `vncvt`-narrowingia
+   yhdellä LMUL-ryhmällä joka ei täsmännyt (sama luokan virhe kuin RTL
+   M1:ssä aiemmin) — korjattu kaksivaiheiseksi (vektori laskee 32-bittisenä,
+   skalaarisilmukka typistää tavuiksi).
+
+PASS attempts=9, n_hints=0, koko `z`-vektori (0 virhettä), molemmilla
+VLEN-arvoilla. Negatiivikontrolli läpi. **Testaustyökalu (`head`-putkitus)
+aiheutti kerran vääräksi tulkitun "segmentation fault" -viestin SIGPIPE:n
+takia** — korjattu ajamalla ilman putkitusta ennen johtopäätöksen tekoa,
+ei jäänyt piiloon.
+
+**`polyw1_pack`** (`polyw1_pack_rvv.c`, GAMMA2=(Q-1)/32-haara): pakkaa
 triviaali silmukka jo todennetun `poly_pointwise_montgomery_rvv`:n
 ympärille — yksi kiinteä `cp`-polynomi kerrottuna jokaiseen vektorin
 polynomiin (L=5 tai K=6 kertaa). Ei uutta ydinlogiikkaa. PASS 2816/2816
@@ -205,13 +242,12 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** Kaikki allekirjoitusalgoritmin YKSITTÄISET
-  primitiivit on nyt todennettu: `poly_uniform_gamma1`, `SampleInBall`,
-  `decompose`/`make_hint`, `chknorm`, `pointwise_poly_montgomery`.
-  Puuttuu vain itse hylkäyssilmukan orkestrointi — ei uusi RVV-
-  primitiivi, vaan kontrollivuo joka ketjuttaa nämä yhdeksi,
-  mahdollisesti toistuvaksi allekirjoitusyritykseksi.
-  `pack_pk`/`pack_sk`/`pack_sig` (koodaus) ei kosketettu.
+- **Ei koko ML-DSA:ta, mutta koko allekirjoituksen matemaattinen ydin ON
+  todennettu.** Puuttuu: `unpack_sk`/`pack_sig` (koodaus), `mu`:n laskenta
+  oikeasta viestistä (`shake256(tr,pre,msg)`), `rhoprime`:n laskenta
+  `key`/`rnd`:sta — testattu kiinteillä, ei viestistä johdetuilla
+  `rhoprime`/`mu`-arvoilla. Verifiointi (`crypto_sign_verify`) ei
+  kosketettu ollenkaan.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -228,16 +264,15 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-Kaikki palikat ovat nyt olemassa: `NTT`/`INTT`, `ExpandA`, `ExpandS`,
-`poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`, `chknorm`,
-`pointwise_montgomery` (molemmat muodot). Jäljellä on `sign_rvv.c`:
-`polyvecl_uniform_gamma1(y)` → `w=Ay` (uudelleenkäyttää `compute_t_rvv`:n
-matriisikertolaskurakennetta) → `decompose(w)` → `c=H(mu,w1)` →
-`SampleInBall` → `z=cs1+y`, `chknorm` → `w0-cs2`, `chknorm` → `cт0`,
-`chknorm`+`MakeHint` → jos mikä tahansa `chknorm` epäonnistuu, `nonce++`
-ja uudestaan alusta. Tämä on ensimmäinen kerta jossa itse silmukka
-(uudelleenyritys) pitää toteuttaa RVV-koodin *ympärille*, ei sisään —
-eri luonteinen tehtävä kuin mikään tähän mennessä.
+Kolme mahdollista suuntaa, ei yhtä oikeaa:
+1. **Verifiointi** (`crypto_sign_verify`): eri, kevyempi algoritmi —
+   uudelleenlaskee `w1`:n allekirjoituksesta ja vertaa haasteeseen. Suurin
+   osa palikoista on jo olemassa.
+2. **`pack_sig`/`unpack_sk`**: koodaus/pakkaus varsinaiseen tavumuotoon.
+   Mekaanista, ei uutta matemaattista logiikkaa.
+3. **Kytkentä `oqs-rvv-provider/`:hen**: ensimmäistä kertaa on jotain
+   oikeasti kytkettävää — koko avaingenerointi ja allekirjoituksen ydin.
+   Provider on yhä NULL-runko.
 
 ## Toolchain
 
