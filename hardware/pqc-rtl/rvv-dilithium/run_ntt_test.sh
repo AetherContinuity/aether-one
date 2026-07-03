@@ -96,3 +96,17 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_rej_eta
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_rej_eta
+
+echo "[11/11] poly_uniform_eta (SHAKE256+rej_eta yhdistettyna, oikea uudelleentaytto)..."
+echo "HUOM: kayttaa referenssin fips202.c:ta, EI OpenSSL:n EVP_DigestFinalXOF:ia -"
+echo "toistuva EVP_DigestFinalXOF-kutsu havaittiin EI-jatkuvaksi (katso README)."
+cp "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" .
+gcc -O2 poly_eta_driver.c fips202.c -o poly_eta_driver
+./poly_eta_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 rej_eta_rvv.c poly_uniform_eta_rvv.c test_poly_uniform_eta.c fips202.c \
+  -o test_poly_uniform_eta
+rm -f fips202.c fips202.h
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_uniform_eta
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform_eta

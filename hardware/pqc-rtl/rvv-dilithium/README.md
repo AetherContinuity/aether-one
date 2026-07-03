@@ -7,6 +7,28 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`poly_uniform_eta`** (`poly_uniform_eta_rvv.c`): SHAKE256 + `rej_eta_rvv`
+yhdistettynä, mukaan lukien referenssin uudelleentäyttö. **Todellinen
+uudelleentäyttö löytyi luonnostaan** (seed=56410, nonce=0, ctr=253/256
+ensimmäisen erän jälkeen) — ei tarvinnut keinotekoista dataa kuten
+`poly_uniform`:in (SHAKE128) tapauksessa.
+
+**Löydös OpenSSL:n EVP-XOF:sta (tärkeä, dokumentoitu jotta ei toistu):**
+Ensimmäinen versio käytti `EVP_DigestFinalXOF`:ia toistuvasti samalle
+kontekstille uudelleentäyttöä varten (sama malli kuin `shake128_test.c`:ssä,
+mutta useilla peräkkäisillä kutsuilla). Tämä epäonnistui — testattiin
+suoraan: `EVP_DigestFinalXOF(ctx, buf, 272)` seurattuna
+`EVP_DigestFinalXOF(ctx, buf2, 136)` **ei** anna samaa tulosta kuin yksi
+`EVP_DigestFinalXOF(ctx, full, 408)`-kutsu. Käytös on deterministinen
+(sama kutsujono antaa aina saman tuloksen) mutta **ei ole todellinen
+squeeze-jatkumo**. Referenssin `stream256_squeezeblocks` vaatii aidon
+jatkumon. Korjaus: käytetään pq-crystalsin omaa `fips202.c`:tä
+(`shake256_absorb_once`+`shake256_squeezeblocks`) OpenSSL:n EVP-rajapinnan
+sijaan tälle testille. Aiemmat SHAKE128-testit eivät kärsineet tästä,
+koska ne kutsuivat `EVP_DigestFinalXOF`:ia vain kerran per konteksti.
+
+PASS 256/256, molemmilla VLEN-arvoilla, negatiivikontrolli läpi.
+
 **`rej_eta`** (`rej_eta_rvv.c`, ETA=4 ML-DSA-65:lle — vahvistettu
 `ref/params.h`:sta, ei 2): eri hylkäysrakenne kuin `rej_uniform` — nibble-
 pohjainen (2 ehdokasta/tavu), ei 3-tavu-tripletti. Arvo on suora `4-t`
@@ -85,11 +107,10 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `rej_eta`-ydin todennettu.
-  Puuttuu: `poly_uniform_eta` (SHAKE256+`rej_eta` yhdistettynä, sama
-  uudelleentäyttökuvio kuin `poly_uniform`:ssa — ei vielä tehty),
-  `SampleInBall` (kolmas eri näytteistyslogiikka), avaingenerointi
-  (`t=As+e`, `Power2Round`), hylkäysnäytteistys allekirjoituksessa,
+- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `poly_uniform_eta` todennettu.
+  Puuttuu: `ExpandS`:n silmukka (L+K `poly_uniform_eta`-kutsua kokoamaan
+  `s1`,`s2`), `SampleInBall` (kolmas, eri näytteistyslogiikka), `t=As+e`,
+  `Power2Round`, avaingenerointi, hylkäysnäytteistys allekirjoituksessa,
   koodaus/pakkaus.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
@@ -107,10 +128,11 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`poly_uniform_eta`: yhdistä SHAKE256 + `rej_eta_rvv` samalla
-uudelleentäyttökuviolla kuin `poly_uniform_rvv`. Sen jälkeen `s1` (L
-polynomia) ja `s2` (K polynomia) näytteistetään tällä. `SampleInBall`
-on eri, kolmas näytteistyslogiikka (τ epänollaa ±1-kerrointa) — ei tehty.
+`ExpandS`: silmukka joka kutsuu `poly_uniform_eta_rvv`:tä L+K kertaa eri
+nonce-arvoilla, kokoaa `s1` (L polynomia) ja `s2` (K polynomia). Sen
+jälkeen `t=As+e` (NTT-pisteittäinen kertolasku matriisin ja `s1`:n välillä
++ INTT + `s2`:n lisäys) ja `Power2Round`. `SampleInBall` on eri, kolmas
+näytteistyslogiikka (τ epänollaa ±1-kerrointa) — ei tehty.
 
 ## Toolchain
 
