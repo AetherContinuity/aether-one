@@ -31,3 +31,5 @@ hardware/pqc-rtl/rvv-dilithium/zetas.h
 hardware/pqc-rtl/rvv-dilithium/ntt_input.txt
 hardware/pqc-rtl/rvv-dilithium/ntt_golden.txt
 .dilithium-ref/
+hardware/pqc-rtl/rvv-dilithium/shake128_test
+.openssl-src-riscv/

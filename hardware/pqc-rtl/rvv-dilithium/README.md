@@ -7,6 +7,15 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**SHAKE128** (`shake128_test.c`): OpenSSL:n `EVP_DigestFinalXOF`-rajapinta
+oikeaa ristikäännettyä `libcrypto.a`:ta vasten. Kolme testivektoria
+(tyhjä syöte, yksi tavu 0xCC, Dilithium-tyylinen seed+nonce), kaikki
+laskettu itsenäisesti Python `hashlib`:lla — ei muistinvaraisia
+"tunnettuja testivektoreita" (yksi käsin kirjoitettu arvo osoittautui
+vääräksi ennen tätä tarkistusta, katso alla). PASS x86:lla ja RISC-V:llä
+bittitarkasti. Tämä on `ExpandA`:n pohja (SHAKE128-pohjainen
+näytteistys), ei vielä hylkäysnäytteistystä.
+
 **32-bittinen Montgomery-reduktio** (`mont_dilithium_rvv.c`), pq-crystals/
 dilithium `ref/reduce.c`:n algoritmi (`t32=(int32_t)a*QINV; t=(a-t32*Q)>>32`).
 `QINV=58728449` — huom: tämä EI ole yleisesti muistettu "4236238847", joka
@@ -39,6 +48,15 @@ ajolla, `.dilithium-ref/`, ei committoitu).
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
   Molemmat pysyvät repossa, eri parametrijoukoille.
+
+## Löydetty oma virhe (dokumentoitu, jotta ei toistu)
+
+SHAKE128-testin ensimmäinen versio sisälsi käsin kirjoitetun "tunnetun"
+testivektorin yhden tavun (0xCC) syötteelle joka oli yksinkertaisesti
+väärä (ei mistään lähteestä, muistinvarainen). OpenSSL:n oikea tuloste
+erosi tästä väärästä odotusarvosta - testi näytti aluksi epäonnistumiselta
+vaikka koodi oli oikein. Korjattu laskemalla oikea arvo itsenäisesti
+Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 

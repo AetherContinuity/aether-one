@@ -43,3 +43,18 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_ntt
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_ntt
+
+echo "[6/6] SHAKE128 (ExpandA:n pohja) - kaannetaan libcrypto.a jos ei jo olemassa..."
+OPENSSL_SRC=../../../.openssl-src-riscv
+if [ ! -f "$OPENSSL_SRC/libcrypto.a" ]; then
+  git clone --depth 1 --branch openssl-3.2 https://github.com/openssl/openssl.git "$OPENSSL_SRC"
+  cd "$OPENSSL_SRC"
+  ./Configure linux64-riscv64 no-shared no-tests no-apps no-docs no-legacy no-async \
+    --cross-compile-prefix=riscv64-linux-gnu-
+  make -j"$(nproc)" build_generated
+  make -j"$(nproc)" libcrypto.a
+  cd - > /dev/null
+fi
+riscv64-linux-gnu-gcc -O2 -I "$OPENSSL_SRC/include" shake128_test.c -o shake128_test \
+  -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./shake128_test
