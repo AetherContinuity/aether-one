@@ -122,3 +122,26 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_expand_s
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_expand_s
+
+echo "[13/13] t=As+e + Power2Round (avaingeneroinnin ydinlasku, ML-DSA-65)..."
+cp "$REF_DIR/ref/reduce.c" "$REF_DIR/ref/reduce.h" "$REF_DIR/ref/ntt.c" "$REF_DIR/ref/ntt.h" \
+   "$REF_DIR/ref/params.h" "$REF_DIR/ref/config.h" .
+
+gcc -O2 invntt_driver.c -o invntt_driver
+./invntt_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 invntt_rvv.c test_invntt.c -o test_invntt
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_invntt
+
+gcc -O2 ops_driver.c -o ops_driver
+./ops_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 poly_ops_rvv.c test_poly_ops.c -o test_poly_ops
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_ops
+
+gcc -O2 compute_t_driver.c -o compute_t_driver
+./compute_t_driver
+rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c test_compute_t.c -o test_compute_t
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_compute_t
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_compute_t

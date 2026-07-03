@@ -7,6 +7,34 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`t=As+e` + `Power2Round`** (`compute_t_rvv.c`): avaingeneroinnin
+ydinlasku, koostettu kuudesta uudesta, erikseen todennetusta palikasta:
+
+- **`invntt_rvv.c`**: käänteis-NTT (Gentleman-Sande-perhonen, eri
+  operaatiojärjestys kuin eteenpäin-NTT — add/sub ENNEN kertolaskua, ei
+  jälkeen). Lopuksi skaalaus Montgomery-kertoimella (f=41978). PASS
+  256/256 oikeaa referenssiä vastaan.
+- **`poly_ops_rvv.c`**: `poly_pointwise_montgomery` (NTT-domain-kertolasku),
+  `poly_add`, `reduce32`, `caddq`, `power2round` — kaikki yksinkertaisia
+  per-kerroin-operaatioita, vektoroitu suoraan ilman compress-tarvetta.
+  6/6 PASS.
+- **`compute_t_rvv.c`**: kokoaa nämä + jo olemassa olevan `ntt_rvv`:n
+  referenssin `crypto_sign_keypair`:n järjestykseen: `NTT(s1)` →
+  matriisi-vektori-pistetulo+summa (L termiä K:lle polynomille) →
+  `reduce32` → `invntt_tomont` → `+s2` → `caddq` → `power2round`.
+
+**Löydetty oma virhe ennen testausta:** golden-generaattorin ensimmäinen
+versio lisäsi ylimääräisen `reduce32`-kutsun juuri ennen `caddq`:ta, jota
+referenssissä ei ole (`ref/sign.c`: `invntt_tomont → add s2 → caddq`,
+ei toista `reduce32`:ta välissä). Korjattu ennen RVV-testausta lukemalla
+`sign.c` uudestaan rivi riviltä — sattumalta tulos ei muuttunut tälle
+testidatalle, mutta virhe olisi voinut piillä muulla datalla.
+
+PASS 3072/3072 (2×6×256: `t1`+`t0`, K=6 polynomia), molemmilla VLEN-
+arvoilla, negatiivikontrolli läpi. Testidata synteettistä (ei oikeasta
+ExpandA/ExpandS-ulostulosta) — testaa laskuketjun oikeellisuuden, ei
+kytkeytymistä aiempiin vaiheisiin (se on oma, tekemätön askel).
+
 **`ExpandS`** (`expand_s_rvv.c`): `s1` (L=5) + `s2` (K=6) = 11 kutsua
 `poly_uniform_eta_rvv`:hen, nonce-järjestys `ref/sign.c`:stä vahvistettu
 (`s1` nonce 0..L-1, `s2` jatkuu nonce L..L+K-1 — ei molemmat nollasta).
@@ -118,10 +146,11 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `ExpandS` todennettu.
-  Puuttuu: `SampleInBall` (kolmas, eri näytteistyslogiikka), `t=As+e`
-  (NTT-pisteittäinen kertolasku + INTT + `s2`:n lisäys), `Power2Round`,
-  avaingenerointi, hylkäysnäytteistys allekirjoituksessa, koodaus/pakkaus.
+- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `ExpandS` + `t=As+e`+`Power2Round`
+  todennettu erikseen, **ei ketjutettuna yhteen** (ExpandA/ExpandS-
+  ulostuloa ei ole vielä syötetty suoraan `compute_t_rvv`:hen — testattu
+  synteettisellä datalla). Puuttuu: `SampleInBall`, `pack_pk`/`pack_sk`
+  (koodaus), hylkäysnäytteistys allekirjoituksessa.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -138,12 +167,12 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`t=As+e`: matriisin `A` (ExpandA) ja `s1`:n (ExpandS) NTT-pisteittäinen
-kertolasku, INTT, `s2`:n lisäys, `Power2Round`. Tämä on ensimmäinen
-avaingenerointiaskel joka yhdistää kaikki tähän mennessä rakennetut
-palikat (NTT, ExpandA, ExpandS) yhdeksi laskuksi. `SampleInBall` on
-edelleen erillinen, kolmas näytteistyslogiikka (τ epänollaa
-±1-kerrointa) — tarvitaan vasta allekirjoitukselle, ei avaingeneroinnille.
+1. **Ketjuta oikeasti**: syötä `expand_a_rvv`:n ja `expand_s_rvv`:n
+   ulostulo suoraan `compute_t_rvv`:hen, todennettu päästä päähän oikeasta
+   `rho`/`rhoprime`-seedistä, ei synteettisellä testidatalla. Tämä on
+   avaingeneroinnin ensimmäinen todella täydellinen päästä-päähän-testi.
+2. `SampleInBall`: kolmas, eri näytteistyslogiikka (τ epänollaa
+   ±1-kerrointa) — tarvitaan allekirjoitukselle, ei avaingeneroinnille.
 
 ## Toolchain
 
