@@ -7,6 +7,25 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**Täysi keypair-ketju** (`test_keypair_chain.c`): `ExpandA` + `ExpandS` +
+`t=As+e`+`Power2Round` ajettu **peräkkäin, oikealla `rho`/`rhoprime`-
+seedillä**, ei enää erillisinä synteettisin testein. PASS 3072/3072
+oikeaa referenssin `crypto_sign_keypair`-alkuosaa vastaan (sama seed
+molemmissa). Tämä on ensimmäinen kerta koko projektissa jossa useampi
+RVV-rakennuspalikka on todistetusti yhteensopiva päästä päähän, ei vain
+kukin erikseen.
+
+**`SampleInBall`** (`sample_in_ball_rvv.c`, TAU=49, CTILDEBYTES=48
+ML-DSA-65:lle — vahvistettu `ref/params.h`:sta): **tahallaan skalaarinen,
+ei RVV-vektoroitu.** Tämä on Fisher-Yates-tyyppinen osittainen sekoitus
+rejektionäytteistyksellä — jokainen askel `i` lukee ja kirjoittaa
+`c[b]`:tä, jossa `b`:n hyväksymisehto (`b≤i`) ja luettava muisti riippuvat
+edellisen askeleen lopputuloksesta. Kahta peräkkäistä askelta ei voi
+laskea rinnakkain ilman algoritmin vaihtamista. Vektorointiyritys tähän
+olisi näennäistä — sama virhe jota koko tämä hakemisto on välttänyt.
+PASS 256/256 kahdella riippumattomalla siemenellä (49/256 epänollaa
+kerrointa molemmissa, täsmää TAU:hun), negatiivikontrolli läpi.
+
 **`t=As+e` + `Power2Round`** (`compute_t_rvv.c`): avaingeneroinnin
 ydinlasku, koostettu kuudesta uudesta, erikseen todennetusta palikasta:
 
@@ -146,11 +165,11 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `ExpandS` + `t=As+e`+`Power2Round`
-  todennettu erikseen, **ei ketjutettuna yhteen** (ExpandA/ExpandS-
-  ulostuloa ei ole vielä syötetty suoraan `compute_t_rvv`:hen — testattu
-  synteettisellä datalla). Puuttuu: `SampleInBall`, `pack_pk`/`pack_sk`
-  (koodaus), hylkäysnäytteistys allekirjoituksessa.
+- **Ei koko ML-DSA:ta.** Koko avaingenerointiketju (`ExpandA`+`ExpandS`+
+  `t=As+e`+`Power2Round`) todennettu päästä päähän, ja `SampleInBall`
+  (allekirjoituksen näytteistys) todennettu erikseen. Puuttuu: `pack_pk`/
+  `pack_sk` (koodaus), koko allekirjoitusalgoritmi (`y`-näytteistys,
+  `w=Ay`, `z=y+cs1`, hylkäysnäytteistys — iso, ei kosketettu), verifiointi.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -167,12 +186,14 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-1. **Ketjuta oikeasti**: syötä `expand_a_rvv`:n ja `expand_s_rvv`:n
-   ulostulo suoraan `compute_t_rvv`:hen, todennettu päästä päähän oikeasta
-   `rho`/`rhoprime`-seedistä, ei synteettisellä testidatalla. Tämä on
-   avaingeneroinnin ensimmäinen todella täydellinen päästä-päähän-testi.
-2. `SampleInBall`: kolmas, eri näytteistyslogiikka (τ epänollaa
-   ±1-kerrointa) — tarvitaan allekirjoitukselle, ei avaingeneroinnille.
+Koko avaingenerointi on nyt todennettu päästä päähän. Seuraava iso
+kokonaisuus on allekirjoitusalgoritmi: `y` (`poly_uniform_gamma1`, neljäs
+eri näytteistyslogiikka), `w=Ay`, `w1=HighBits(w)`, `c=H(mu,w1)` →
+`SampleInBall`, `z=y+cs1` (hylätään jos `||z||∞≥GAMMA1-BETA`), `r0=
+LowBits(w-cs2)` (hylätään jos liian suuri), `h=MakeHint`. Isompi kuin
+mikään tähän mennessä tehty yksittäinen askel — sisältää useita
+hylkäysehtoja jotka voivat pakottaa koko allekirjoitusyrityksen
+uusimisen alusta.
 
 ## Toolchain
 

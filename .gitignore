@@ -78,3 +78,9 @@ hardware/pqc-rtl/rvv-dilithium/ntt.c
 hardware/pqc-rtl/rvv-dilithium/ntt.h
 hardware/pqc-rtl/rvv-dilithium/params.h
 hardware/pqc-rtl/rvv-dilithium/config.h
+hardware/pqc-rtl/rvv-dilithium/keypair_driver
+hardware/pqc-rtl/rvv-dilithium/test_keypair_chain
+hardware/pqc-rtl/rvv-dilithium/real_*.txt
+hardware/pqc-rtl/rvv-dilithium/sib_driver
+hardware/pqc-rtl/rvv-dilithium/test_sample_in_ball
+hardware/pqc-rtl/rvv-dilithium/sib_*.txt

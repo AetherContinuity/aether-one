@@ -145,3 +145,26 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_compute_t
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_compute_t
+
+echo "[14/14] Taysi keypair-ketju: ExpandA+ExpandS+t=As+e oikealla rho/rhoprime:lla..."
+cp "$REF_DIR/ref/reduce.c" "$REF_DIR/ref/reduce.h" "$REF_DIR/ref/ntt.c" "$REF_DIR/ref/ntt.h" \
+   "$REF_DIR/ref/params.h" "$REF_DIR/ref/config.h" "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" .
+gcc -O2 keypair_driver.c -o keypair_driver
+./keypair_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c \
+  rej_eta_rvv.c poly_uniform_eta_rvv.c expand_s_rvv.c \
+  ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c \
+  test_keypair_chain.c fips202.c \
+  -o test_keypair_chain -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_keypair_chain
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_keypair_chain
+
+echo "[15/15] SampleInBall (tahallaan skalaarinen - Fisher-Yates ei vektoroidu)..."
+gcc -O2 sib_driver.c fips202.c -o sib_driver
+./sib_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 sample_in_ball_rvv.c test_sample_in_ball.c fips202.c -o test_sample_in_ball
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_sample_in_ball
+rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h
