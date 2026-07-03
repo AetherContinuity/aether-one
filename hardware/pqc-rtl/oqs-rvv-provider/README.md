@@ -6,7 +6,26 @@ edellisen ristiriitoja.
 
 ## Mitä tämä TODISTAA
 
-`provider.c` on spesifikaation mukainen OpenSSL 3.0 provider-runko
+**KEYMGMT-kytkentä ML-DSA-65-RVV-toteutukseen** (`keymgmt.c`):
+`OSSL_FUNC_KEYMGMT_NEW`/`GEN_INIT`/`GEN`/`GEN_CLEANUP`/`HAS`/`GET_PARAMS`/
+`GETTABLE_PARAMS` toteutettu oikeilla, `core_dispatch.h`:sta luetuilla
+funktiosignaturoilla (ei arvattu). `keymgmt_gen` kutsuu
+`rvv-dilithium/crypto_sign_keypair_rvv.c`:tä oikealla `RAND_bytes`-
+satunnaisuudella (ei kiinnitetty siemen — tämä on ensimmäinen kohta koko
+repossa jossa RVV-koodi ajetaan oikealla satunnaisuudella, ei
+determinismin vuoksi kiinnitetyllä testiarvolla).
+
+Testattu **kutsumalla dispatch-taulukkoa täsmälleen niin kuin OpenSSL:n
+oma ydin tekisi** (etsitään funktiot `function_id`:n perusteella
+taulukosta, ei suoraan nimellä) — ei vain "kääntyy", vaan todellinen
+rajapintapolku. Tuotettu avain testattu **toiminnallisesti**: samalla
+avaimella oikea `crypto_sign_signature_rvv`+`crypto_sign_verify_rvv`
+-kierto onnistuu, ja turmeltu viesti hylätään. Koska siemen on oikeaa
+satunnaisuutta, ei bittitarkkaa golden-vertailua — toiminnallinen PASS on
+oikea mittari tässä. PASS molemmilla VLEN-arvoilla, eri avain joka
+ajolla, silti aina toimiva.
+
+**`provider.c` on spesifikaation mukainen OpenSSL 3.0 provider-runko**
 (`OSSL_provider_init`, `provider_get_params`, `provider_gettable_params`,
 `provider_query_operation`, `provider_teardown`). Todennettu kahdesti:
 
@@ -19,25 +38,25 @@ edellisen ristiriitoja.
 
 ## Mitä tämä EI todista (tietoinen rajaus)
 
-- **Ei yhtään algoritmia.** `provider_query_operation` palauttaa `NULL`
-  kaikelle. Ei Kyber/Dilithium/ML-DSA, ei RVV-kutsua ollenkaan viela.
-  `hardware/pqc-rtl/rvv/mont_rvv.c` (todennettu erikseen) ei ole vielä
-  kytketty tähän.
+- **Ei allekirjoitusoperaatiota (`OSSL_FUNC_SIGNATURE_*`).** `KEYMGMT`
+  tuottaa avaimen, mutta `provider_query_operation` palauttaa yhä `NULL`
+  `OSSL_OP_SIGNATURE`:lle — avainta ei voi vielä käyttää oikean
+  `EVP_PKEY_sign`/`EVP_PKEY_verify`-rajapinnan kautta, vain suoralla
+  testiajurilla joka kutsuu `crypto_sign_signature_rvv`/`verify_rvv`:tä
+  itse.
 - **Ei ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **`.so`-lataustestiä ei ole tehty RISC-V:lla.** RISC-V-testi kutsuu
-  `OSSL_provider_init`:ia suoraan linkattuna binaarina, ei dynaamisen
-  latauksen (`dlopen`/`OSSL_PROVIDER_load`) kautta, koska `openssl`-CLI:ta
-  ei ristikaannetty (`no-apps`). x86-testi sen sijaan KAYTTI oikeaa
-  dynaamista latausta oikealla CLI:lla.
+- **`.so`-lataustestiä ei ole tehty RISC-V:lla.** Testi kutsuu dispatch-
+  taulukkoa suoraan linkattuna binaarina, ei dynaamisen latauksen kautta.
 
 ## Seuraava askel jos jatketaan
 
-Kytke `mont_rvv.c`:n Montgomery-reduktio yhteen `provider_query_operation`:in
-palauttamaan operaatioon (esim. `OSSL_OP_KEM` tai custom-KDF), niin että
-`provider_query` palauttaa ensimmäisen oikean, RVV-kiihdytetyn algoritmin
-NULL:n sijaan. Tama on isompi askel - vaatii OpenSSL:n oman
-algoritmirekisteroinnin (`OSSL_ALGORITHM`-taulukot) ja parametrien
-kasittelyn, ei vain runkoa.
+`OSSL_FUNC_SIGNATURE_*`: `newctx`/`sign_init`/`sign`/`verify_init`/
+`verify`/`freectx` -toteutus joka kutsuu `crypto_sign_signature_rvv`/
+`crypto_sign_verify_rvv`:tä `KEYMGMT`:n tuottaman avainolion kanssa.
+Tämä on viimeinen palanen ennen kuin providerin läpi voi tehdä oikean
+`openssl pkeyutl -sign`/`-verify` -komennon (vaatisi myös `openssl`-CLI:n
+ristikäännöksen, joka jätettiin pois `no-apps`-lipulla — oma päätöksensä
+jos halutaan mennä niin pitkälle).
 
 ## Toolchain
 

@@ -148,3 +148,5 @@ hardware/pqc-rtl/rvv-dilithium/test_crypto_sign_keypair
 hardware/pqc-rtl/rvv-dilithium/test_crypto_sign_full
 hardware/pqc-rtl/rvv-dilithium/keypair_*.txt
 hardware/pqc-rtl/rvv-dilithium/fullsig_*.txt
+hardware/pqc-rtl/oqs-rvv-provider/test_keymgmt_provider
+hardware/pqc-rtl/oqs-rvv-provider/*.o
