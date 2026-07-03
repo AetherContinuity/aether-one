@@ -56,7 +56,11 @@ pankille (tässä versiossa aina bank0).
 
 ## Yhteys TrustCore NX:ään
 
-NTT256 on Kyber/Dilithium PQC-operaatioiden ydin.
+NTT256 tässä käyttää Kyberin (ML-KEM) 16-bittistä Montgomery-reduktiota
+(Q=3329). **Ei ML-DSA/Dilithium** — Dilithiumin Montgomery on 32-bittinen
+(Q=8380417, R=2^32). Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tämä M1 ei
+kelpaa sellaisenaan; tarvitaan erillinen 32-bittinen Dilithium-Montgomery
+(ks. hardware/pqc-rtl/rvv/README.md).
 Tämä RTL siirtyy suoraan TrustCore NX ASIC:iin — synteesikelpoisen
 uudelleenkirjoituksen jälkeen (M3/M4).
 

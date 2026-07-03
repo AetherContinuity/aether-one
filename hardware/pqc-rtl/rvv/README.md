@@ -2,7 +2,7 @@
 
 ## Mitä tämä TODISTAA
 
-`mont_rvv.c` laskee Kyber-tyylisen Montgomery-reduktion RISC-V Vector
+`mont_rvv.c` laskee Kyberin (ML-KEM) tyylisen Montgomery-reduktion RISC-V Vector
 -intrinsiceillä, 8 arvoa rinnakkain. Todennettu:
 
 - Bittitarkka Python-golden-mallia vastaan (`gen_vectors.py`, sama Q/QINV
@@ -21,6 +21,10 @@ Aja itse: `bash run_rvv_test.sh`.
   malli. Ei todista suorituskykyä, virrankulutusta eikä ajoitusta.
 - **Ei koko liboqsin RVV-porttausta.** Yksi funktio (Montgomery-reduktio),
   ei koko Kyber/Dilithium-primitiivijoukkoa.
+- **EI KELPAA ML-DSA:lle/Dilithiumille sellaisenaan.** Tässä Q=3329
+  (Kyber/ML-KEM, 16-bittinen Montgomery). Dilithiumin Montgomery on
+  32-bittinen (Q=8380417, R=2^32, eri QINV). Dual-Pi-protolle (ML-DSA-65)
+  tarvitaan erillinen 32-bittinen versio, ei tämän parametrien vaihto.
 - **Ei sido tätä `oqs_rvv_provider/provider.c`:hen.** Se on yhä 4-rivinen
   stubi (`AetherOne_Platform_v1_0_FullInstaller`-paketista, ei tässä
   repossa). Tämä koodi on rakennuspalikka jolle provider voisi perustua,
