@@ -40,3 +40,7 @@ hardware/pqc-rtl/rvv-dilithium/rej_golden.txt
 hardware/pqc-rtl/rvv-dilithium/poly_uniform_test_driver
 hardware/pqc-rtl/rvv-dilithium/test_poly_uniform
 hardware/pqc-rtl/rvv-dilithium/poly_uniform_golden.txt
+hardware/pqc-rtl/rvv-dilithium/expand_a_driver
+hardware/pqc-rtl/rvv-dilithium/test_expand_a
+hardware/pqc-rtl/rvv-dilithium/expand_a_golden.txt
+hardware/pqc-rtl/rvv-dilithium/expand_a_rho.txt

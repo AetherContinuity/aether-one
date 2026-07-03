@@ -76,3 +76,14 @@ echo "-- VLEN=256 (pakotettu uudelleentaytto) --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_uniform
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform
+
+echo "[9/9] ExpandA taydelle matriisille (ML-DSA-65: K=6, L=5)..."
+gcc -O2 expand_a_driver.c -o expand_a_driver -lcrypto
+./expand_a_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c test_expand_a.c \
+  -o test_expand_a -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_expand_a
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_expand_a

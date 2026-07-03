@@ -7,6 +7,14 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`ExpandA`** (`expand_a_rvv.c`): koko matriisi ML-DSA-65:lle (K=6, L=5,
+`ref/params.h`:sta vahvistettu — ei oletettu), 30 `poly_uniform_rvv`-
+kutsua nonce-arvoilla `(i<<8)+j` (referenssin `polyvec_matrix_expand`).
+PASS 7680/7680 kerrointa (30×256), molemmilla VLEN-arvoilla,
+negatiivikontrolli läpi. Kaikki 30 nonce-arvoa täyttyivät yhdellä
+SHAKE128-erällä (ei tarvinnut uudelleentäyttöpolkua — se on testattu
+erikseen `poly_uniform`-tasolla synteettisellä datalla).
+
 **`poly_uniform`** (`poly_uniform_rvv.c`): SHAKE128 + `rej_uniform_rvv`
 yhdistettynä, mukaan lukien referenssin `while(ctr<N)`-uudelleentäyttö.
 Todellinen SHAKE128 ei käytännössä koskaan laukaise uudelleentäyttöä
@@ -65,10 +73,9 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + `poly_uniform` (=`ExpandA` yhdelle
-  polynomille) todennettu. Puuttuu: `ExpandA` koko matriisille (k×l
-  `poly_uniform`-kutsua eri nonce-arvoilla), `ExpandS`/`SampleInBall`
-  (eri näytteistyskaava, ei sama kuin `rej_uniform`), avaingenerointi,
+- **Ei koko ML-DSA:ta.** NTT + `ExpandA` (koko matriisi) todennettu.
+  Puuttuu: `ExpandS`/`SampleInBall` (eri näytteistyskaava, η-rajattu,
+  ei sama kuin `rej_uniform`), avaingenerointi (`t=As+e`, `Power2Round`),
   hylkäysnäytteistys allekirjoituksessa, koodaus/pakkaus.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
@@ -86,9 +93,10 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`ExpandA`: silmukka joka kutsuu `poly_uniform_rvv`:tä k×l kertaa eri
-(i,j)-nonce-arvoilla, kokoaa matriisin. Sen jälkeen `ExpandS` (eri
-näytteistyslogiikka, η-rajattu, ei samat vakiot kuin `rej_uniform`).
+`ExpandS`: näytteistys `[-η,η]`-välille (η=4 ML-DSA-65:lle), eri
+hylkäyslogiikka kuin `rej_uniform` (`rej_eta`, käyttää nibblejä, ei
+3-tavu-triplettejä). Sen jälkeen `t=As+e` (NTT-pisteittäinen kertolasku
++ INTT) ja avaingenerointi.
 
 ## Toolchain
 
