@@ -7,6 +7,23 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`decompose`/`HighBits`/`LowBits` + `make_hint`** (`decompose_rvv.c`,
+GAMMA2=(Q-1)/32 ML-DSA-65:lle — vahvistettu `ref/params.h`:sta): per-
+kerroin-operaatioita, suoraan vektoroitavissa ilman compressia (kuten
+`poly_ops_rvv.c`). **Löydös omasta testauksesta:** ensimmäinen
+`make_hint`-golden-data (johdettu `decompose`:n omasta ulostulosta
+satunnaisluvuille) antoi `hint_count=0` kaikille 256 kertoimelle —
+ei koodivirhe, vaan rakenteellinen seuraus: `decompose`:n oma
+jälkiehtoa takaa `|a0|≤GAMMA2` lähes aina, joten `make_hint=1` on
+käytännössä mahdoton syntyä `decompose`:n omasta ulostulosta suoraan
+(oikeassa allekirjoituksessa `a0` tulee `w-cs2`:n erotuksesta, ei
+suoraan `decompose`:sta). Testattu siis erikseen **seitsemällä käsin
+valitulla rajatapauksella** (`hint_edge_driver.c`) jotka kattavat kaikki
+kolme ehtohaaraa (`a0>GAMMA2`, `a0<-GAMMA2`, `a0==-GAMMA2 && a1≠0`).
+PASS kaikilla kolmella testillä (decompose 512/512, make_hint
+decompose-datalla 256/256, make_hint-rajatapaukset 7/7), molemmilla
+VLEN-arvoilla, negatiivikontrolli läpi.
+
 **`poly_uniform_gamma1`** (`polyz_unpack_rvv.c` + `poly_uniform_gamma1_rvv.c`):
 allekirjoituksen `y`-näytteen näytteistys. GAMMA1=2^19 ML-DSA-65:lle
 (vahvistettu `ref/params.h`:sta). **Viides eri näytteistyslogiikka tässä
@@ -174,11 +191,11 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** Avaingenerointi todennettu päästä päähän.
-  Allekirjoitusalgoritmi ALOITETTU (`poly_uniform_gamma1`, `SampleInBall`)
-  mutta ei valmis: puuttuu `decompose`/`HighBits`/`LowBits`, `chknorm`,
-  `MakeHint`, koko hylkäyssilmukan orkestrointi (`w=Ay`→`z=y+cs1`→
-  useita ehtoja→mahdollinen uusinta). `pack_pk`/`pack_sk`/`pack_sig`
+- **Ei koko ML-DSA:ta.** Avaingenerointi valmis. Allekirjoitusalgoritmin
+  osista: `poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`
+  todennettu. Puuttuu: `chknorm`, `polyvecl_pointwise_poly_montgomery`
+  (poly×polyvec-kertolasku, eri kuin `polyvecl_pointwise_acc_montgomery`),
+  koko hylkäyssilmukan orkestrointi. `pack_pk`/`pack_sk`/`pack_sig`
   (koodaus) ei kosketettu.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
@@ -196,13 +213,14 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`decompose`/`HighBits`/`LowBits` (`w`:n hajotus korkeisiin/matalabitteihin,
-GAMMA2-riippuvainen, eri kynnys kuin `Power2Round`), sitten `chknorm`
-(yksinkertainen max-itseisarvo-tarkistus, helposti vektoroitavissa
-`vredmax`-tyyppisellä redusoinnilla). Vasta niiden jälkeen koko
-hylkäyssilmukan orkestrointi, joka on isoin jäljellä oleva osa —
-sisältää kolme erillistä hylkäysehtoa jotka voivat pakottaa koko
-allekirjoitusyrityksen alusta.
+`chknorm` (yksinkertainen max-itseisarvo-tarkistus koko polynomivektorille,
+`vredmax`-tyyppinen redusointi — helppo). Sen jälkeen
+`polyvecl_pointwise_poly_montgomery` (yksi kiinteä `cp`-polynomi kerrottuna
+jokaiseen `s1`/`s2`/`t0`:n polynomiin — uudelleenkäyttää jo olemassa
+olevaa `poly_pointwise_montgomery_rvv`:tä silmukassa, ei uutta ydintä).
+Isoin jäljellä oleva osa on itse hylkäyssilmukan orkestrointi (`goto rej`
+kolmella eri ehdolla) — ei uusi RVV-primitiivi vaan kontrollivuo joka
+yhdistää kaiken tähän mennessä rakennetun.
 
 ## Toolchain
 

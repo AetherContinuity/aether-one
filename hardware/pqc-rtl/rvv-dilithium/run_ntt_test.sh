@@ -177,4 +177,15 @@ qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu 
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform_gamma1
 
+echo "[17/17] decompose (HighBits/LowBits) + make_hint (GAMMA2=(Q-1)/32)..."
+gcc -O2 decompose_driver.c -o decompose_driver
+./decompose_driver
+gcc -O2 hint_edge_driver.c -o hint_edge_driver
+./hint_edge_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 decompose_rvv.c test_decompose.c -o test_decompose
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_decompose
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_decompose
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

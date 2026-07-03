@@ -87,3 +87,8 @@ hardware/pqc-rtl/rvv-dilithium/sib_*.txt
 hardware/pqc-rtl/rvv-dilithium/gamma1_driver
 hardware/pqc-rtl/rvv-dilithium/test_poly_uniform_gamma1
 hardware/pqc-rtl/rvv-dilithium/gamma1_*.txt
+hardware/pqc-rtl/rvv-dilithium/decompose_driver
+hardware/pqc-rtl/rvv-dilithium/hint_edge_driver
+hardware/pqc-rtl/rvv-dilithium/test_decompose
+hardware/pqc-rtl/rvv-dilithium/dec_*.txt
+hardware/pqc-rtl/rvv-dilithium/hint_edge.txt
