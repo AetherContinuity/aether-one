@@ -300,4 +300,30 @@ qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyeta_pack
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyt0_pack
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_sk
 
+echo "[26/26] Allekirjoituksen koodaus: polyz_pack + hint-koodaus + pack_sig (bittitarkka referenssia vasten)..."
+cp "$REF_DIR/ref/reduce.c" "$REF_DIR/ref/reduce.h" "$REF_DIR/ref/ntt.c" "$REF_DIR/ref/ntt.h" \
+   "$REF_DIR/ref/poly.c" "$REF_DIR/ref/poly.h" "$REF_DIR/ref/polyvec.c" "$REF_DIR/ref/polyvec.h" \
+   "$REF_DIR/ref/rounding.c" "$REF_DIR/ref/rounding.h" "$REF_DIR/ref/symmetric-shake.c" \
+   "$REF_DIR/ref/symmetric.h" "$REF_DIR/ref/params.h" "$REF_DIR/ref/config.h" \
+   "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" "$REF_DIR/ref/packing.c" "$REF_DIR/ref/packing.h" .
+gcc -O2 z_pack_driver.c -o z_pack_driver
+./z_pack_driver
+gcc -O2 hint_pack_driver.c -o hint_pack_driver
+./hint_pack_driver
+gcc -O2 -DDILITHIUM_MODE=3 pack_sig_ref_driver.c packing.c poly.c polyvec.c reduce.c ntt.c fips202.c rounding.c symmetric-shake.c -o pack_sig_ref_driver
+./pack_sig_ref_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyz_pack_rvv.c polyz_unpack_rvv.c test_polyz_pack.c -o test_polyz_pack
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 pack_hint_rvv.c test_pack_hint.c -o test_pack_hint
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyz_pack_rvv.c polyz_unpack_rvv.c pack_hint_rvv.c pack_sig_rvv.c test_pack_sig.c -o test_pack_sig
+rm -f reduce.c reduce.h ntt.c ntt.h poly.c poly.h polyvec.c polyvec.h rounding.c rounding.h \
+      symmetric-shake.c symmetric.h params.h config.h fips202.c fips202.h packing.c packing.h
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_polyz_pack
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_pack_hint
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_pack_sig
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyz_pack
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_hint
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_sig
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

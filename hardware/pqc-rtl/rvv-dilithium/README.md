@@ -7,6 +7,25 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**KOKO PAKKAUSSUITE VALMIS: `pack_sig`/`unpack_sig`** (`polyz_pack_rvv.c`,
+`pack_hint_rvv.c`, `pack_sig_rvv.c`): `polyz_pack` (GAMMA1=2^19-haara,
+sama malli kuin `polyt1_pack`, ristiinvarmistettu jo olemassa olevalla
+`polyz_unpack_rvv`:llä). **Hint-koodaus (`h`) on tahallaan skalaarinen**
+— tallentaa vain 1-bittien positiot (vaihtuvamittainen, 0..OMEGA), sama
+rakenteellinen syy kuin `SampleInBall`:ssa ja `polyt0_pack`:ssa.
+Negatiivikontrolli testaa **oikeasti rikotun järjestyksen hylkäämisen**
+(`unpack_hint_rvv` palauttaa 1 "strong unforgeability" -tarkistuksen
+mukaisesti), ei vain väärää arvoa.
+
+`pack_sig` testattu **bittitarkasti oikeaa referenssiä vasten** (`ref/
+packing.c`, linkitetty suoraan) käyttäen aiemman `verify`-testin **oikeaa,
+9-yrityksen allekirjoitusta**: 3309/3309 tavua täsmää täydellisesti
+(`CRYPTO_BYTES` vahvistettu `ref/params.h`:sta). `unpack_sig`-pyöräytys
+palauttaa saman `ctilde`/`z`/`h`:n.
+
+**Tämä sulkee koko pakkaussuiten: `pack_pk`, `pack_sk`, `pack_sig` — kaikki
+kolme todennettu, kaksi kolmesta bittitarkasti oikeaa referenssiä vasten.**
+
 **Salaisen avaimen koodaus** (`polyeta_pack_rvv.c`, `polyt0_pack_rvv.c`,
 `pack_sk_rvv.c`): `polyeta_pack`/`unpack` (ETA=4, 2 kerrointa/tavu,
 sama malli kuin `polyw1_pack`). **`polyt0_pack`/`unpack` on tahallaan
@@ -303,11 +322,13 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Sekä allekirjoituksen että verifioinnin matemaattinen ydin on
-  todennettu, samalla avainparilla. Julkisen JA salaisen avaimen koodaus
-  on nyt todennettu, jälkimmäinen bittitarkasti oikeaa referenssiä
-  vasten.** Puuttuu: `pack_sig`/`unpack_sig` (sisältää vihjeiden `h`
-  vaihtuvanmittaisen paikkakoodauksen).
+- **Matemaattinen ydin (avaingenerointi, allekirjoitus, verifiointi) JA
+  koko koodaus/pakkaus (`pack_pk`, `pack_sk`, `pack_sig`) on nyt
+  todennettu.** Puuttuu: `mu`:n/`rhoprime`:n laskenta oikeasta viestistä/
+  avaimesta/satunnaisluvusta (testattu kiinteillä arvoilla koko tämän
+  hakemiston ajan), varsinaiset `crypto_sign_keypair`/`crypto_sign`/
+  `crypto_sign_open`-tason API-funktiot jotka yhdistäisivät kaiken tämän
+  yhdeksi kutsuksi.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -324,10 +345,17 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-1. **`pack_sig`/`unpack_sig`**: `ctilde`||`z`||`h`. `h`:n koodaus tallentaa
-   vain 1-bittien *positiot* (ei koko 256-bittistä karttaa per polynomi) —
-   viimeinen jäljellä oleva pakkausmuoto, eri algoritminen luonne.
-2. **Kytkentä `oqs-rvv-provider/`:hen.**
+Matemaattinen ydin ja koodaus ovat molemmat valmiit ja todennetut. Kaksi
+suuntaa jäljellä, ei yksi oikea:
+1. **API-tason kokoonpano**: `crypto_sign_keypair`/`crypto_sign`/
+   `crypto_sign_open` -funktiot jotka kutsuvat kaikkea tähän mennessä
+   rakennettua oikeassa järjestyksessä oikealla `mu`/`rhoprime`-
+   johdannolla (SHAKE256 viestistä/avaimesta/satunnaisluvusta — ei
+   uutta matemaattista logiikkaa, mekaanista ketjutusta).
+2. **Kytkentä `oqs-rvv-provider/`:hen**: nyt on olemassa täysi, toimiva,
+   referenssiin bittitarkasti verrattu ML-DSA-65-toteutus. Provider on
+   yhä NULL-runko kaikelle algoritmille — tämä olisi ensimmäinen kerta
+   jolloin sillä olisi jotain oikeaa tarjottavana.
 
 ## Toolchain
 
