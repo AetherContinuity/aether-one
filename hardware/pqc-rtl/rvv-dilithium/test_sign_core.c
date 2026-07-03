@@ -22,7 +22,8 @@ extern unsigned int sign_core_rvv(
     int32_t mat[K][L][N], int32_t s1hat[L][N], int32_t s2hat[K][N], int32_t t0hat[K][N],
     uint8_t rhoprime[CRHBYTES], uint8_t mu[CRHBYTES],
     void (*gamma1_shake)(uint8_t*, uint16_t, uint8_t*, unsigned int),
-    void (*challenge_hash)(const uint8_t*, const uint8_t*, unsigned int, uint8_t*));
+    void (*challenge_hash)(const uint8_t*, const uint8_t*, unsigned int, uint8_t*),
+    uint8_t ctilde_out[CTILDEBYTES]);
 
 extern void ntt_rvv(int32_t *a);
 
@@ -102,8 +103,9 @@ int main(void) {
     static int32_t z[L][N];
     static uint32_t h[K][N];
     unsigned int n_hints;
+    uint8_t ctilde_computed[CTILDEBYTES];
     unsigned int attempts = sign_core_rvv(z, h, &n_hints, mat, s1hat, s2hat, t0hat, rhoprime, mu,
-                                           real_gamma1_shake, real_challenge_hash);
+                                           real_gamma1_shake, real_challenge_hash, ctilde_computed);
 
     printf("attempts=%u (odotettu %d), n_hints=%u (odotettu %d)\n", attempts, attempts_exp, n_hints, n_hints_exp);
 

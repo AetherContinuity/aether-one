@@ -326,4 +326,45 @@ qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyz_pack
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_hint
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_sig
 
-rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h
+echo "[27/27] TAYSI API: crypto_sign_keypair + crypto_sign_signature + crypto_sign_verify..."
+cp "$REF_DIR/ref/reduce.c" "$REF_DIR/ref/reduce.h" "$REF_DIR/ref/ntt.c" "$REF_DIR/ref/ntt.h" \
+   "$REF_DIR/ref/poly.c" "$REF_DIR/ref/poly.h" "$REF_DIR/ref/polyvec.c" "$REF_DIR/ref/polyvec.h" \
+   "$REF_DIR/ref/rounding.c" "$REF_DIR/ref/rounding.h" "$REF_DIR/ref/symmetric-shake.c" \
+   "$REF_DIR/ref/symmetric.h" "$REF_DIR/ref/params.h" "$REF_DIR/ref/config.h" \
+   "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" "$REF_DIR/ref/packing.c" "$REF_DIR/ref/packing.h" .
+gcc -O2 -DDILITHIUM_MODE=3 keypair_api_driver.c packing.c poly.c polyvec.c reduce.c ntt.c fips202.c rounding.c symmetric-shake.c -o keypair_api_driver
+./keypair_api_driver
+gcc -O2 -DDILITHIUM_MODE=3 full_sign_verify_driver.c packing.c poly.c polyvec.c reduce.c ntt.c fips202.c rounding.c symmetric-shake.c -o full_sign_verify_driver
+./full_sign_verify_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c \
+  rej_eta_rvv.c poly_uniform_eta_rvv.c expand_s_rvv.c \
+  ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c \
+  polyz_unpack_rvv.c poly_uniform_gamma1_rvv.c \
+  sample_in_ball_rvv.c decompose_rvv.c chknorm_rvv.c pw_poly_rvv.c \
+  polyw1_pack_rvv.c vec_wrappers_rvv.c sign_core_rvv.c use_hint_rvv.c verify_core_rvv.c \
+  polyt1_pack_rvv.c pack_pk_rvv.c polyeta_pack_rvv.c polyt0_pack_rvv.c pack_sk_rvv.c \
+  polyz_pack_rvv.c pack_hint_rvv.c pack_sig_rvv.c \
+  crypto_sign_keypair_rvv.c crypto_sign_signature_rvv.c crypto_sign_verify_rvv.c \
+  test_crypto_sign_keypair.c fips202.c \
+  -o test_crypto_sign_keypair -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c \
+  rej_eta_rvv.c poly_uniform_eta_rvv.c expand_s_rvv.c \
+  ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c \
+  polyz_unpack_rvv.c poly_uniform_gamma1_rvv.c \
+  sample_in_ball_rvv.c decompose_rvv.c chknorm_rvv.c pw_poly_rvv.c \
+  polyw1_pack_rvv.c vec_wrappers_rvv.c sign_core_rvv.c use_hint_rvv.c verify_core_rvv.c \
+  polyt1_pack_rvv.c pack_pk_rvv.c polyeta_pack_rvv.c polyt0_pack_rvv.c pack_sk_rvv.c \
+  polyz_pack_rvv.c pack_hint_rvv.c pack_sig_rvv.c \
+  crypto_sign_signature_rvv.c crypto_sign_verify_rvv.c \
+  test_crypto_sign_full.c fips202.c \
+  -o test_crypto_sign_full -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+rm -f reduce.c reduce.h ntt.c ntt.h poly.c poly.h polyvec.c polyvec.h rounding.c rounding.h \
+      symmetric-shake.c symmetric.h params.h config.h fips202.c fips202.h packing.c packing.h
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_crypto_sign_keypair
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_crypto_sign_full
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_crypto_sign_keypair
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_crypto_sign_full

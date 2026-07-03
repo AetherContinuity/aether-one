@@ -60,7 +60,8 @@ unsigned int sign_core_rvv(
     int32_t z_out[L][N], uint32_t h_out[K][N], unsigned int *n_hints_out,
     int32_t mat[K][L][N], int32_t s1hat[L][N], int32_t s2hat[K][N], int32_t t0hat[K][N],
     uint8_t rhoprime[CRHBYTES], uint8_t mu[CRHBYTES],
-    gamma1_shake_fn_t gamma1_shake, challenge_hash_fn_t challenge_hash)
+    gamma1_shake_fn_t gamma1_shake, challenge_hash_fn_t challenge_hash,
+    uint8_t ctilde_out[CTILDEBYTES])
 {
     uint16_t nonce = 0;
     unsigned int attempts = 0;
@@ -130,6 +131,7 @@ unsigned int sign_core_rvv(
         if (n_hints > OMEGA) continue;
 
         memcpy(z_out, z, sizeof(z));
+        memcpy(ctilde_out, ctilde, CTILDEBYTES);
         *n_hints_out = n_hints;
         return attempts;
     }

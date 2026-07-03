@@ -142,3 +142,9 @@ hardware/pqc-rtl/rvv-dilithium/test_pack_sig
 hardware/pqc-rtl/rvv-dilithium/sig_ref_golden.txt
 hardware/pqc-rtl/rvv-dilithium/packing.c
 hardware/pqc-rtl/rvv-dilithium/packing.h
+hardware/pqc-rtl/rvv-dilithium/keypair_api_driver
+hardware/pqc-rtl/rvv-dilithium/full_sign_verify_driver
+hardware/pqc-rtl/rvv-dilithium/test_crypto_sign_keypair
+hardware/pqc-rtl/rvv-dilithium/test_crypto_sign_full
+hardware/pqc-rtl/rvv-dilithium/keypair_*.txt
+hardware/pqc-rtl/rvv-dilithium/fullsig_*.txt

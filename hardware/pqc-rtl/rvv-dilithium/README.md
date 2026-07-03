@@ -7,7 +7,43 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
-**KOKO PAKKAUSSUITE VALMIS: `pack_sig`/`unpack_sig`** (`polyz_pack_rvv.c`,
+**KOKO ML-DSA-65-API VALMIS JA BITTITARKKA REFERENSSIIN.**
+(`crypto_sign_keypair_rvv.c`, `crypto_sign_signature_rvv.c`,
+`crypto_sign_verify_rvv.c`):
+
+- `crypto_sign_keypair`: kiinteästä 32-tavuisesta siemenestä (ei
+  `randombytes`-kutsua, deterministinen testattavuus) julkinen avain
+  (1952 tavua) ja salainen avain (4032 tavua), **bittitarkasti
+  referenssin `crypto_sign_keypair`:iä vastaan, ensimmäisellä
+  yrityksellä**.
+- `crypto_sign_signature`: oikea viesti (merkkijono), tyhjä `ctx`,
+  kiinteä `rnd` — allekirjoitus (3309 tavua) **bittitarkasti
+  referenssiin, ensimmäisellä yrityksellä**.
+- `crypto_sign_verify`: hyväksyy juuri tuotetun allekirjoituksen (0),
+  hylkää yhden bitin turmeltuneen viestin (-1) — todellinen
+  negatiivikontrolli, ei keinotekoinen.
+
+Jokainen RVV-funktio saa SHAKE128/SHAKE256-toteutuksensa kutsujalta
+(funktio-osoittimina) — RVV-koodi itsessään ei tiedä mitään hajautuksen
+sisäisestä toteutuksesta, sama periaate kuin koko tämän hakemiston ajan.
+
+**Tämä sulkee koko ML-DSA-65-toteutuksen: avaingenerointi, allekirjoitus,
+verifiointi, ja kaikki koodaus (pk/sk/sig) — kaikki todennettu, suurin
+osa bittitarkasti oikeaa pq-crystals/dilithium-referenssiä vastaan, ei
+vain sisäistä johdonmukaisuutta.** Kolme tietoisesti skalaarista osaa
+(`SampleInBall`, `polyt0_pack`, hint-koodaus) perusteltu erikseen —
+aidosti sekventiaalisia tai epäsäännöllisiä, ei vain jätetty tekemättä.
+
+**Löytyneet ja korjatut virheet koko tämän hakemiston aikana** (katso
+tarkat kuvaukset alempana): väärä Kyber/ML-DSA-parametrisekaannus,
+väärä Montgomery-etumerkkikonventio (2 kertaa), LMUL-narrowing-
+ristiriitoja (3 kertaa eri kohdissa), väärä OpenSSL EVP-XOF-jatkumo-
+oletus, väärä nonce-kaava (`L*n+i` ei juokseva laskuri), väärä
+parametrijärjestys `pack_sk`:ssa (runko vs. nimet), ja vakavin: kaksi
+eri avainparia (`t0` ei ollut sama allekirjoituksessa ja verifioinnissa)
+— jokainen löydetty testauksella ennen kuin se pääsi tuotantoon asti.
+
+**Julkisen JA salaisen avaimen koodaus** (`polyt1_pack_rvv.c`,
 `pack_hint_rvv.c`, `pack_sig_rvv.c`): `polyz_pack` (GAMMA1=2^19-haara,
 sama malli kuin `polyt1_pack`, ristiinvarmistettu jo olemassa olevalla
 `polyz_unpack_rvv`:llä). **Hint-koodaus (`h`) on tahallaan skalaarinen**
@@ -322,13 +358,13 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Matemaattinen ydin (avaingenerointi, allekirjoitus, verifiointi) JA
-  koko koodaus/pakkaus (`pack_pk`, `pack_sk`, `pack_sig`) on nyt
-  todennettu.** Puuttuu: `mu`:n/`rhoprime`:n laskenta oikeasta viestistä/
-  avaimesta/satunnaisluvusta (testattu kiinteillä arvoilla koko tämän
-  hakemiston ajan), varsinaiset `crypto_sign_keypair`/`crypto_sign`/
-  `crypto_sign_open`-tason API-funktiot jotka yhdistäisivät kaiken tämän
-  yhdeksi kutsuksi.
+- **Koko ML-DSA-65: matemaattinen ydin, koodaus, JA API-taso on
+  todennettu.** Jäljellä vain: `randombytes` on aina kutsujan vastuulla
+  (RVV-koodi ottaa siemenen/`rnd`:n parametrina, ei koskaan generoi
+  satunnaisuutta itse — tämä on tarkoituksellinen rajapintapäätös, ei
+  puute). `ctx`-parametri testattu vain tyhjänä (`ctxlen=0`), ei
+  pidemmällä kontekstimerkkijonolla — koodi tukee sitä (`pre[1]=ctxlen`),
+  ei vain testattu.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -343,19 +379,19 @@ erosi tästä väärästä odotusarvosta - testi näytti aluksi epäonnistumisel
 vaikka koodi oli oikein. Korjattu laskemalla oikea arvo itsenäisesti
 Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
+(Täydellinen lista kaikista tässä hakemistossa löydetyistä ja korjatuista
+virheistä on yllä, "Mitä tämä TODISTAA" -osion lopussa.)
+
 ## Seuraava askel jos jatketaan
 
-Matemaattinen ydin ja koodaus ovat molemmat valmiit ja todennetut. Kaksi
-suuntaa jäljellä, ei yksi oikea:
-1. **API-tason kokoonpano**: `crypto_sign_keypair`/`crypto_sign`/
-   `crypto_sign_open` -funktiot jotka kutsuvat kaikkea tähän mennessä
-   rakennettua oikeassa järjestyksessä oikealla `mu`/`rhoprime`-
-   johdannolla (SHAKE256 viestistä/avaimesta/satunnaisluvusta — ei
-   uutta matemaattista logiikkaa, mekaanista ketjutusta).
-2. **Kytkentä `oqs-rvv-provider/`:hen**: nyt on olemassa täysi, toimiva,
-   referenssiin bittitarkasti verrattu ML-DSA-65-toteutus. Provider on
-   yhä NULL-runko kaikelle algoritmille — tämä olisi ensimmäinen kerta
-   jolloin sillä olisi jotain oikeaa tarjottavana.
+Koko ML-DSA-65 on nyt todennettu, matemaattisesta ytimestä API-tasolle.
+Ainoa jäljellä oleva suunta: **kytkentä `oqs-rvv-provider/`:hen.** Nyt on
+olemassa täysi, toimiva, referenssiin bittitarkasti verrattu ML-DSA-65-
+toteutus. Provider on yhä NULL-runko kaikelle algoritmille — tämä olisi
+ensimmäinen kerta jolloin sillä olisi jotain oikeaa tarjottavana.
+Vaatisi OpenSSL:n `OSSL_DISPATCH`-taulukoiden täyttämisen oikeilla
+`OSSL_FUNC_SIGNATURE_*`/`OSSL_FUNC_KEYMGMT_*`-funktio-osoittimilla,
+jotka kutsuvat tämän hakemiston `crypto_sign_*_rvv`-funktioita.
 
 ## Toolchain
 
