@@ -16,3 +16,5 @@ concept/lex-resiliens/docgen/.pytest_cache/
 concept/lex-resiliens/docgen/__pycache__/
 pi5_edge_node/test_client_keys/
 pi5_edge_node/trustcore_keys/
+hardware/pqc-rtl/rvv/mont_rvv
+hardware/pqc-rtl/rvv/vectors.h
