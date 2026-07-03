@@ -7,6 +7,17 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`ExpandS`** (`expand_s_rvv.c`): `s1` (L=5) + `s2` (K=6) = 11 kutsua
+`poly_uniform_eta_rvv`:hen, nonce-järjestys `ref/sign.c`:stä vahvistettu
+(`s1` nonce 0..L-1, `s2` jatkuu nonce L..L+K-1 — ei molemmat nollasta).
+Jokaiselle nonce-arvolle oma, pysyvä Keccak-tila (`shake256_absorb_once`
++ `shake256_squeezeblocks`) — **ei** yksinkertaistettua "alusta uudelleen
+joka squeeze-kutsulla" -adapteria, joka olisi näyttänyt toimivalta tälle
+siemenelle (kaikki 11 nonce-arvoa täyttyivät yhdellä erällä) mutta
+rikkoutunut hiljaa jos jokin nonce olisi tarvinnut uudelleentäytön —
+korjattu ennen testausta, ei sen jälkeen. PASS 2816/2816 kerrointa
+(11×256), molemmilla VLEN-arvoilla, negatiivikontrolli läpi.
+
 **`poly_uniform_eta`** (`poly_uniform_eta_rvv.c`): SHAKE256 + `rej_eta_rvv`
 yhdistettynä, mukaan lukien referenssin uudelleentäyttö. **Todellinen
 uudelleentäyttö löytyi luonnostaan** (seed=56410, nonce=0, ctr=253/256
@@ -107,11 +118,10 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `poly_uniform_eta` todennettu.
-  Puuttuu: `ExpandS`:n silmukka (L+K `poly_uniform_eta`-kutsua kokoamaan
-  `s1`,`s2`), `SampleInBall` (kolmas, eri näytteistyslogiikka), `t=As+e`,
-  `Power2Round`, avaingenerointi, hylkäysnäytteistys allekirjoituksessa,
-  koodaus/pakkaus.
+- **Ei koko ML-DSA:ta.** NTT + `ExpandA` + `ExpandS` todennettu.
+  Puuttuu: `SampleInBall` (kolmas, eri näytteistyslogiikka), `t=As+e`
+  (NTT-pisteittäinen kertolasku + INTT + `s2`:n lisäys), `Power2Round`,
+  avaingenerointi, hylkäysnäytteistys allekirjoituksessa, koodaus/pakkaus.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -128,11 +138,12 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`ExpandS`: silmukka joka kutsuu `poly_uniform_eta_rvv`:tä L+K kertaa eri
-nonce-arvoilla, kokoaa `s1` (L polynomia) ja `s2` (K polynomia). Sen
-jälkeen `t=As+e` (NTT-pisteittäinen kertolasku matriisin ja `s1`:n välillä
-+ INTT + `s2`:n lisäys) ja `Power2Round`. `SampleInBall` on eri, kolmas
-näytteistyslogiikka (τ epänollaa ±1-kerrointa) — ei tehty.
+`t=As+e`: matriisin `A` (ExpandA) ja `s1`:n (ExpandS) NTT-pisteittäinen
+kertolasku, INTT, `s2`:n lisäys, `Power2Round`. Tämä on ensimmäinen
+avaingenerointiaskel joka yhdistää kaikki tähän mennessä rakennetut
+palikat (NTT, ExpandA, ExpandS) yhdeksi laskuksi. `SampleInBall` on
+edelleen erillinen, kolmas näytteistyslogiikka (τ epänollaa
+±1-kerrointa) — tarvitaan vasta allekirjoitukselle, ei avaingeneroinnille.
 
 ## Toolchain
 

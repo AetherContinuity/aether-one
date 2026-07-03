@@ -54,3 +54,7 @@ hardware/pqc-rtl/rvv-dilithium/poly_eta_golden.txt
 hardware/pqc-rtl/rvv-dilithium/poly_eta_seed.txt
 hardware/pqc-rtl/rvv-dilithium/fips202.c
 hardware/pqc-rtl/rvv-dilithium/fips202.h
+hardware/pqc-rtl/rvv-dilithium/expand_s_driver
+hardware/pqc-rtl/rvv-dilithium/test_expand_s
+hardware/pqc-rtl/rvv-dilithium/expand_s_golden.txt
+hardware/pqc-rtl/rvv-dilithium/expand_s_seed.txt

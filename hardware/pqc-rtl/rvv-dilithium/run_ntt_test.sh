@@ -110,3 +110,15 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_uniform_eta
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform_eta
+
+echo "[12/12] ExpandS taydelle (s1: L=5, s2: K=6, ML-DSA-65)..."
+cp "$REF_DIR/ref/fips202.c" "$REF_DIR/ref/fips202.h" .
+gcc -O2 expand_s_driver.c fips202.c -o expand_s_driver
+./expand_s_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 rej_eta_rvv.c poly_uniform_eta_rvv.c expand_s_rvv.c test_expand_s.c fips202.c \
+  -o test_expand_s
+rm -f fips202.c fips202.h
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_expand_s
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_expand_s
