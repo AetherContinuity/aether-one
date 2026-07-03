@@ -44,3 +44,7 @@ hardware/pqc-rtl/rvv-dilithium/expand_a_driver
 hardware/pqc-rtl/rvv-dilithium/test_expand_a
 hardware/pqc-rtl/rvv-dilithium/expand_a_golden.txt
 hardware/pqc-rtl/rvv-dilithium/expand_a_rho.txt
+hardware/pqc-rtl/rvv-dilithium/eta_driver
+hardware/pqc-rtl/rvv-dilithium/test_rej_eta
+hardware/pqc-rtl/rvv-dilithium/eta_input_buf.txt
+hardware/pqc-rtl/rvv-dilithium/eta_golden.txt

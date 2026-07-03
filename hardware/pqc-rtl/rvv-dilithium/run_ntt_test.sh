@@ -87,3 +87,12 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_expand_a
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_expand_a
+
+echo "[10/10] rej_eta (ExpandS:n ydin, ETA=4, RVV nibble-interleave)..."
+gcc -O2 eta_driver.c -o eta_driver -lcrypto
+./eta_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 rej_eta_rvv.c test_rej_eta.c -o test_rej_eta
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_rej_eta
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_rej_eta
