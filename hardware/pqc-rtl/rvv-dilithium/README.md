@@ -7,6 +7,15 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`poly_uniform_gamma1`** (`polyz_unpack_rvv.c` + `poly_uniform_gamma1_rvv.c`):
+allekirjoituksen `y`-näytteen näytteistys. GAMMA1=2^19 ML-DSA-65:lle
+(vahvistettu `ref/params.h`:sta). **Viides eri näytteistyslogiikka tässä
+hakemistossa, ja ensimmäinen ilman hylkäystä** — `polyz_unpack` on puhdas
+bittipurku (5 tavua → 2×20-bittistä kerrointa), jokainen syöte käytetään,
+ei `vcompress`-tarvetta lainkaan. Strided-lataus (offset 0-4, stride 5)
++ bittiyhdistely + `GAMMA1-r`. PASS 256/256 kahdesti (pelkkä unpack +
+koko SHAKE256-ketju), molemmilla VLEN-arvoilla, negatiivikontrolli läpi.
+
 **Täysi keypair-ketju** (`test_keypair_chain.c`): `ExpandA` + `ExpandS` +
 `t=As+e`+`Power2Round` ajettu **peräkkäin, oikealla `rho`/`rhoprime`-
 seedillä**, ei enää erillisinä synteettisin testein. PASS 3072/3072
@@ -165,11 +174,12 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** Koko avaingenerointiketju (`ExpandA`+`ExpandS`+
-  `t=As+e`+`Power2Round`) todennettu päästä päähän, ja `SampleInBall`
-  (allekirjoituksen näytteistys) todennettu erikseen. Puuttuu: `pack_pk`/
-  `pack_sk` (koodaus), koko allekirjoitusalgoritmi (`y`-näytteistys,
-  `w=Ay`, `z=y+cs1`, hylkäysnäytteistys — iso, ei kosketettu), verifiointi.
+- **Ei koko ML-DSA:ta.** Avaingenerointi todennettu päästä päähän.
+  Allekirjoitusalgoritmi ALOITETTU (`poly_uniform_gamma1`, `SampleInBall`)
+  mutta ei valmis: puuttuu `decompose`/`HighBits`/`LowBits`, `chknorm`,
+  `MakeHint`, koko hylkäyssilmukan orkestrointi (`w=Ay`→`z=y+cs1`→
+  useita ehtoja→mahdollinen uusinta). `pack_pk`/`pack_sk`/`pack_sig`
+  (koodaus) ei kosketettu.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -186,14 +196,13 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-Koko avaingenerointi on nyt todennettu päästä päähän. Seuraava iso
-kokonaisuus on allekirjoitusalgoritmi: `y` (`poly_uniform_gamma1`, neljäs
-eri näytteistyslogiikka), `w=Ay`, `w1=HighBits(w)`, `c=H(mu,w1)` →
-`SampleInBall`, `z=y+cs1` (hylätään jos `||z||∞≥GAMMA1-BETA`), `r0=
-LowBits(w-cs2)` (hylätään jos liian suuri), `h=MakeHint`. Isompi kuin
-mikään tähän mennessä tehty yksittäinen askel — sisältää useita
-hylkäysehtoja jotka voivat pakottaa koko allekirjoitusyrityksen
-uusimisen alusta.
+`decompose`/`HighBits`/`LowBits` (`w`:n hajotus korkeisiin/matalabitteihin,
+GAMMA2-riippuvainen, eri kynnys kuin `Power2Round`), sitten `chknorm`
+(yksinkertainen max-itseisarvo-tarkistus, helposti vektoroitavissa
+`vredmax`-tyyppisellä redusoinnilla). Vasta niiden jälkeen koko
+hylkäyssilmukan orkestrointi, joka on isoin jäljellä oleva osa —
+sisältää kolme erillistä hylkäysehtoa jotka voivat pakottaa koko
+allekirjoitusyrityksen alusta.
 
 ## Toolchain
 

@@ -84,3 +84,6 @@ hardware/pqc-rtl/rvv-dilithium/real_*.txt
 hardware/pqc-rtl/rvv-dilithium/sib_driver
 hardware/pqc-rtl/rvv-dilithium/test_sample_in_ball
 hardware/pqc-rtl/rvv-dilithium/sib_*.txt
+hardware/pqc-rtl/rvv-dilithium/gamma1_driver
+hardware/pqc-rtl/rvv-dilithium/test_poly_uniform_gamma1
+hardware/pqc-rtl/rvv-dilithium/gamma1_*.txt

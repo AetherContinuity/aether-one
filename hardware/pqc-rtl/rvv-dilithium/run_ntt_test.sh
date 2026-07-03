@@ -167,4 +167,14 @@ gcc -O2 sib_driver.c fips202.c -o sib_driver
 ./sib_driver
 riscv64-linux-gnu-gcc -march=rv64gcv -O2 sample_in_ball_rvv.c test_sample_in_ball.c fips202.c -o test_sample_in_ball
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_sample_in_ball
+
+echo "[16/16] poly_uniform_gamma1 (allekirjoituksen y-nayte, EI hylkaysta)..."
+gcc -O2 gamma1_driver.c fips202.c -o gamma1_driver
+./gamma1_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyz_unpack_rvv.c poly_uniform_gamma1_rvv.c test_poly_uniform_gamma1.c fips202.c -o test_poly_uniform_gamma1
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_uniform_gamma1
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform_gamma1
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h
