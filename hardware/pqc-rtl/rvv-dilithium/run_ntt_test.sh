@@ -188,4 +188,13 @@ qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu 
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_decompose
 
+echo "[18/18] chknorm (aareton normi -tarkistus, vredmax-pohjainen)..."
+gcc -O2 chknorm_driver.c -o chknorm_driver
+./chknorm_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 chknorm_rvv.c test_chknorm.c -o test_chknorm
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_chknorm
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_chknorm
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

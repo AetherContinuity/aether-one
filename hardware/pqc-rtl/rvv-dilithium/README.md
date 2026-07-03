@@ -7,6 +7,14 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`chknorm`** (`chknorm_rvv.c`): ääretön normi -tarkistus (`||a||∞≥B` →
+1). Referenssi tekee varhaisen paluun ensimmäisestä ylityksestä; RVV-
+versio etsii suurimman itseisarvon koko vektorista (`vredmaxu`) ja
+vertaa kerran lopussa — funktionaalisesti sama tulos, koska paluuarvo
+riippuu vain siitä *onko* ylitystä, ei *missä kohtaa*. Neljä testitapausta
+(kaikki alle rajan, yksi negatiivinen ylitys tasan rajalla molempiin
+suuntiin) — kaikki läpi, negatiivikontrolli läpi.
+
 **`decompose`/`HighBits`/`LowBits` + `make_hint`** (`decompose_rvv.c`,
 GAMMA2=(Q-1)/32 ML-DSA-65:lle — vahvistettu `ref/params.h`:sta): per-
 kerroin-operaatioita, suoraan vektoroitavissa ilman compressia (kuten
@@ -192,11 +200,11 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
 - **Ei koko ML-DSA:ta.** Avaingenerointi valmis. Allekirjoitusalgoritmin
-  osista: `poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`
-  todennettu. Puuttuu: `chknorm`, `polyvecl_pointwise_poly_montgomery`
-  (poly×polyvec-kertolasku, eri kuin `polyvecl_pointwise_acc_montgomery`),
-  koko hylkäyssilmukan orkestrointi. `pack_pk`/`pack_sk`/`pack_sig`
-  (koodaus) ei kosketettu.
+  osista: `poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`,
+  `chknorm` todennettu. Puuttuu:
+  `polyvecl_pointwise_poly_montgomery` (poly×polyvec-kertolasku, eri kuin
+  `polyvecl_pointwise_acc_montgomery`), koko hylkäyssilmukan orkestrointi.
+  `pack_pk`/`pack_sk`/`pack_sig` (koodaus) ei kosketettu.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -213,14 +221,15 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`chknorm` (yksinkertainen max-itseisarvo-tarkistus koko polynomivektorille,
-`vredmax`-tyyppinen redusointi — helppo). Sen jälkeen
-`polyvecl_pointwise_poly_montgomery` (yksi kiinteä `cp`-polynomi kerrottuna
+`polyvecl_pointwise_poly_montgomery`: yksi kiinteä `cp`-polynomi kerrottuna
 jokaiseen `s1`/`s2`/`t0`:n polynomiin — uudelleenkäyttää jo olemassa
-olevaa `poly_pointwise_montgomery_rvv`:tä silmukassa, ei uutta ydintä).
-Isoin jäljellä oleva osa on itse hylkäyssilmukan orkestrointi (`goto rej`
-kolmella eri ehdolla) — ei uusi RVV-primitiivi vaan kontrollivuo joka
-yhdistää kaiken tähän mennessä rakennetun.
+olevaa `poly_pointwise_montgomery_rvv`:tä silmukassa, ei uutta ydintä,
+pieni askel. Isoin jäljellä oleva osa on itse hylkäyssilmukan
+orkestrointi (`goto rej` kolmella eri ehdolla: `chknorm(z)`,
+`chknorm(w0)`, `chknorm(h)`) — ei uusi RVV-primitiivi vaan kontrollivuo
+joka yhdistää kaiken tähän mennessä rakennetun (NTT, INTT, pointwise,
+decompose, chknorm, make_hint) yhdeksi, mahdollisesti toistuvaksi
+laskuksi.
 
 ## Toolchain
 
