@@ -271,4 +271,16 @@ qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu 
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_verify_core
 
+echo "[24/24] polyt1_pack/unpack + pack_pk/unpack_pk (julkisen avaimen koodaus)..."
+gcc -O2 t1pack_driver.c -o t1pack_driver
+./t1pack_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyt1_pack_rvv.c test_polyt1_pack.c -o test_polyt1_pack
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 polyt1_pack_rvv.c pack_pk_rvv.c test_pack_pk.c -o test_pack_pk
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_polyt1_pack
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_pack_pk
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_polyt1_pack
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pack_pk
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h
