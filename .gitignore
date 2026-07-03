@@ -95,3 +95,6 @@ hardware/pqc-rtl/rvv-dilithium/hint_edge.txt
 hardware/pqc-rtl/rvv-dilithium/chknorm_driver
 hardware/pqc-rtl/rvv-dilithium/test_chknorm
 hardware/pqc-rtl/rvv-dilithium/chk_*.txt
+hardware/pqc-rtl/rvv-dilithium/pw_poly_driver
+hardware/pqc-rtl/rvv-dilithium/test_pw_poly
+hardware/pqc-rtl/rvv-dilithium/pw_*.txt

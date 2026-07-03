@@ -197,4 +197,13 @@ qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu 
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_chknorm
 
+echo "[19/19] polyvecl/polyveck_pointwise_poly_montgomery (yksi cp x vektori)..."
+gcc -O2 pw_poly_driver.c -o pw_poly_driver
+./pw_poly_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 poly_ops_rvv.c pw_poly_rvv.c test_pw_poly.c -o test_pw_poly
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_pw_poly
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_pw_poly
+
 rm -f reduce.c reduce.h ntt.c ntt.h params.h config.h fips202.c fips202.h

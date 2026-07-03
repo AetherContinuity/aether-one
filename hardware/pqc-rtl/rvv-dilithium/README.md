@@ -7,6 +7,12 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`polyvecl`/`polyveck_pointwise_poly_montgomery`** (`pw_poly_rvv.c`):
+triviaali silmukka jo todennetun `poly_pointwise_montgomery_rvv`:n
+ympärille — yksi kiinteä `cp`-polynomi kerrottuna jokaiseen vektorin
+polynomiin (L=5 tai K=6 kertaa). Ei uutta ydinlogiikkaa. PASS 2816/2816
+(11×256), molemmilla VLEN-arvoilla, negatiivikontrolli läpi.
+
 **`chknorm`** (`chknorm_rvv.c`): ääretön normi -tarkistus (`||a||∞≥B` →
 1). Referenssi tekee varhaisen paluun ensimmäisestä ylityksestä; RVV-
 versio etsii suurimman itseisarvon koko vektorista (`vredmaxu`) ja
@@ -199,11 +205,12 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** Avaingenerointi valmis. Allekirjoitusalgoritmin
-  osista: `poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`,
-  `chknorm` todennettu. Puuttuu:
-  `polyvecl_pointwise_poly_montgomery` (poly×polyvec-kertolasku, eri kuin
-  `polyvecl_pointwise_acc_montgomery`), koko hylkäyssilmukan orkestrointi.
+- **Ei koko ML-DSA:ta.** Kaikki allekirjoitusalgoritmin YKSITTÄISET
+  primitiivit on nyt todennettu: `poly_uniform_gamma1`, `SampleInBall`,
+  `decompose`/`make_hint`, `chknorm`, `pointwise_poly_montgomery`.
+  Puuttuu vain itse hylkäyssilmukan orkestrointi — ei uusi RVV-
+  primitiivi, vaan kontrollivuo joka ketjuttaa nämä yhdeksi,
+  mahdollisesti toistuvaksi allekirjoitusyritykseksi.
   `pack_pk`/`pack_sk`/`pack_sig` (koodaus) ei kosketettu.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
@@ -221,15 +228,16 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-`polyvecl_pointwise_poly_montgomery`: yksi kiinteä `cp`-polynomi kerrottuna
-jokaiseen `s1`/`s2`/`t0`:n polynomiin — uudelleenkäyttää jo olemassa
-olevaa `poly_pointwise_montgomery_rvv`:tä silmukassa, ei uutta ydintä,
-pieni askel. Isoin jäljellä oleva osa on itse hylkäyssilmukan
-orkestrointi (`goto rej` kolmella eri ehdolla: `chknorm(z)`,
-`chknorm(w0)`, `chknorm(h)`) — ei uusi RVV-primitiivi vaan kontrollivuo
-joka yhdistää kaiken tähän mennessä rakennetun (NTT, INTT, pointwise,
-decompose, chknorm, make_hint) yhdeksi, mahdollisesti toistuvaksi
-laskuksi.
+Kaikki palikat ovat nyt olemassa: `NTT`/`INTT`, `ExpandA`, `ExpandS`,
+`poly_uniform_gamma1`, `SampleInBall`, `decompose`/`make_hint`, `chknorm`,
+`pointwise_montgomery` (molemmat muodot). Jäljellä on `sign_rvv.c`:
+`polyvecl_uniform_gamma1(y)` → `w=Ay` (uudelleenkäyttää `compute_t_rvv`:n
+matriisikertolaskurakennetta) → `decompose(w)` → `c=H(mu,w1)` →
+`SampleInBall` → `z=cs1+y`, `chknorm` → `w0-cs2`, `chknorm` → `cт0`,
+`chknorm`+`MakeHint` → jos mikä tahansa `chknorm` epäonnistuu, `nonce++`
+ja uudestaan alusta. Tämä on ensimmäinen kerta jossa itse silmukka
+(uudelleenyritys) pitää toteuttaa RVV-koodin *ympärille*, ei sisään —
+eri luonteinen tehtävä kuin mikään tähän mennessä.
 
 ## Toolchain
 
