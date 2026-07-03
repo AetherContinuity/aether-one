@@ -39,12 +39,20 @@ cp "$RVV_DIR"/rej_uniform_rvv.c "$RVV_DIR"/poly_uniform_rvv.c "$RVV_DIR"/expand_
    "$RVV_DIR"/sign_core_rvv.c "$RVV_DIR"/use_hint_rvv.c "$RVV_DIR"/verify_core_rvv.c \
    "$RVV_DIR"/polyz_pack_rvv.c "$RVV_DIR"/pack_hint_rvv.c "$RVV_DIR"/pack_sig_rvv.c \
    "$RVV_DIR"/crypto_sign_signature_rvv.c "$RVV_DIR"/crypto_sign_verify_rvv.c .
-cp "$RVV_DIR/zetas.h" .
 
 DILITHIUM_REF=../../../.dilithium-ref
 if [ ! -d "$DILITHIUM_REF" ]; then
   git clone --depth 1 https://github.com/pq-crystals/dilithium.git "$DILITHIUM_REF"
 fi
+python3 - << 'PYEOF'
+import re
+src = open("../../../.dilithium-ref/ref/ntt.c").read()
+m = re.search(r'zetas\[N\] = \{([^}]*)\}', src, re.S)
+nums = [int(x) for x in m.group(1).replace("\n", " ").split(",") if x.strip()]
+assert len(nums) == 256
+with open("zetas.h", "w") as f:
+    f.write("static const int32_t ZETAS[256] = {" + ",".join(map(str, nums)) + "};\n")
+PYEOF
 cp "$DILITHIUM_REF/ref/fips202.c" "$DILITHIUM_REF/ref/fips202.h" .
 
 riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
