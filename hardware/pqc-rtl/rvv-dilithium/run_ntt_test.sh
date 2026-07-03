@@ -67,3 +67,12 @@ echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_rej_uniform
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_rej_uniform
+
+echo "[8/8] poly_uniform (SHAKE128+rej_uniform yhdistettyna, mukaan lukien uudelleentaytto)..."
+gcc -O2 poly_uniform_test_driver.c -o poly_uniform_test_driver
+./poly_uniform_test_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 rej_uniform_rvv.c poly_uniform_rvv.c test_poly_uniform.c -o test_poly_uniform
+echo "-- VLEN=256 (pakotettu uudelleentaytto) --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_poly_uniform
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_poly_uniform

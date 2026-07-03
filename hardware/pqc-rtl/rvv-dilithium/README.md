@@ -7,6 +7,19 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`poly_uniform`** (`poly_uniform_rvv.c`): SHAKE128 + `rej_uniform_rvv`
+yhdistettynä, mukaan lukien referenssin `while(ctr<N)`-uudelleentäyttö.
+Todellinen SHAKE128 ei käytännössä koskaan laukaise uudelleentäyttöä
+näillä parametreilla (~99,9 % hyväksymisaste, 280 ehdokasta/256:ta
+kohti) — haettu 200 000 satunnaisella seed/nonce-parilla, ei löytynyt
+yhtään joka pakottaisi sen. Uudelleentäyttöhaara testattu siis
+**keinotekoisella, kontrolloidulla tavuvirralla** (`poly_uniform_test_driver.c`),
+joka pakottaa osittaisen täytön (ctr=224/256 ensimmäisen erän jälkeen)
+ja tarkistaa että toinen kierros täyttää loput. Tämä testaa kontrollivuon
+oikeellisuuden (puskurin offset/carry-käsittely blokkien välillä), ei
+kryptografista satunnaisuutta. PASS 256/256, molemmilla VLEN-arvoilla,
+negatiivikontrolli läpi.
+
 **`rej_uniform`** (`rej_uniform_rvv.c`): hylkäysnäytteistys RVV:llä —
 strided-lataus (`vlse8`, offset 0/1/2, stride 3) korvaa `vlseg3e8`:n joka
 ei ole tuettu tässä GCC-versiossa, laajennus 8→32-bittiseksi (`vzext_vf4`),
@@ -52,12 +65,11 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** NTT + SHAKE128 + rej_uniform todennettu erikseen,
-  ei vielä yhdistettynä. Puuttuu: avaingenerointi, `poly_uniform` (SHAKE128+
-  rej_uniform yhdistettynä puskurin uudelleentäytöllä jos ensimmäinen erä
-  ei riitä — ei testattu, koska molemmat testisiemenet täyttivät 256:n
-  yhdellä erällä), `ExpandS`/`SampleInBall`, hylkäysnäytteistys
-  allekirjoituksessa, koodaus/pakkaus.
+- **Ei koko ML-DSA:ta.** NTT + `poly_uniform` (=`ExpandA` yhdelle
+  polynomille) todennettu. Puuttuu: `ExpandA` koko matriisille (k×l
+  `poly_uniform`-kutsua eri nonce-arvoilla), `ExpandS`/`SampleInBall`
+  (eri näytteistyskaava, ei sama kuin `rej_uniform`), avaingenerointi,
+  hylkäysnäytteistys allekirjoituksessa, koodaus/pakkaus.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -74,11 +86,9 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-1. Yhdistä SHAKE128 + rej_uniform yhdeksi `poly_uniform`-funktioksi,
-   mukaan lukien referenssin `while(ctr<N)`-uudelleentäyttö jos
-   ensimmäinen erä ei riitä (ei vielä testattu — kummallakin
-   testisiemenellä yksi erä riitti).
-2. Avaingenerointi (`OSSL_OP_KEYMGMT`) NTT+`poly_uniform`:n päälle.
+`ExpandA`: silmukka joka kutsuu `poly_uniform_rvv`:tä k×l kertaa eri
+(i,j)-nonce-arvoilla, kokoaa matriisin. Sen jälkeen `ExpandS` (eri
+näytteistyslogiikka, η-rajattu, ei samat vakiot kuin `rej_uniform`).
 
 ## Toolchain
 
