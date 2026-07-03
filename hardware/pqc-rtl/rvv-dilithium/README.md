@@ -7,14 +7,25 @@ Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tarvitaan tämä hakemisto, ei
 
 ## Mitä tämä TODISTAA
 
+**`rej_uniform`** (`rej_uniform_rvv.c`): hylkäysnäytteistys RVV:llä —
+strided-lataus (`vlse8`, offset 0/1/2, stride 3) korvaa `vlseg3e8`:n joka
+ei ole tuettu tässä GCC-versiossa, laajennus 8→32-bittiseksi (`vzext_vf4`),
+vertailu (`vmsltu`), pakkaus (`vcompress`), määrälaskuri (`vcpop`). Eri
+vektorointimalli kuin NTT:n kiinteä perhonen — data-riippuvainen
+kompaktointi, ei kiinteä kaava.
+
+Golden-data: oikea SHAKE128-puskuri (OpenSSL) + referenssin `rej_uniform`-
+logiikka (`rej_driver.c`, sama algoritmi kuin `ref/poly.c`, tarkistettu
+suoraan lähteestä). PASS 256/256 kahdella riippumattomalla seed/nonce-
+parilla, molemmilla VLEN-arvoilla (128/256). Negatiivikontrolli läpi.
+
 **SHAKE128** (`shake128_test.c`): OpenSSL:n `EVP_DigestFinalXOF`-rajapinta
 oikeaa ristikäännettyä `libcrypto.a`:ta vasten. Kolme testivektoria
 (tyhjä syöte, yksi tavu 0xCC, Dilithium-tyylinen seed+nonce), kaikki
 laskettu itsenäisesti Python `hashlib`:lla — ei muistinvaraisia
 "tunnettuja testivektoreita" (yksi käsin kirjoitettu arvo osoittautui
 vääräksi ennen tätä tarkistusta, katso alla). PASS x86:lla ja RISC-V:llä
-bittitarkasti. Tämä on `ExpandA`:n pohja (SHAKE128-pohjainen
-näytteistys), ei vielä hylkäysnäytteistystä.
+bittitarkasti.
 
 **32-bittinen Montgomery-reduktio** (`mont_dilithium_rvv.c`), pq-crystals/
 dilithium `ref/reduce.c`:n algoritmi (`t32=(int32_t)a*QINV; t=(a-t32*Q)>>32`).
@@ -41,9 +52,12 @@ ajolla, `.dilithium-ref/`, ei committoitu).
 ## Mitä tämä EI todista (tietoinen rajaus)
 
 - **Ei ole ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **Ei koko ML-DSA:ta.** Vain NTT (polynomien kertolaskun ydin). Puuttuu:
-  avaingenerointi, näytteistys (`SampleInBall`, `ExpandA`, `ExpandS`),
-  hylkäysnäytteistys allekirjoituksessa, koodaus/pakkaus.
+- **Ei koko ML-DSA:ta.** NTT + SHAKE128 + rej_uniform todennettu erikseen,
+  ei vielä yhdistettynä. Puuttuu: avaingenerointi, `poly_uniform` (SHAKE128+
+  rej_uniform yhdistettynä puskurin uudelleentäytöllä jos ensimmäinen erä
+  ei riitä — ei testattu, koska molemmat testisiemenet täyttivät 256:n
+  yhdellä erällä), `ExpandS`/`SampleInBall`, hylkäysnäytteistys
+  allekirjoituksessa, koodaus/pakkaus.
 - **Ei kytketty `oqs-rvv-provider/`:hen.** Se on yhä NULL-runko kaikelle
   algoritmille.
 - **`rvv/mont_rvv.c` (Kyber-versio) on erillinen, ei tämän korvaama.**
@@ -60,8 +74,11 @@ Python `hashlib`:lla ennen testin hyväksymistä, ei luottamalla muistiin.
 
 ## Seuraava askel jos jatketaan
 
-Avaingenerointi (`OSSL_OP_KEYMGMT`) NTT:n päälle — vaatii `ExpandA`/
-`ExpandS` (SHAKE-pohjainen näytteistys), ei vain aritmetiikkaa.
+1. Yhdistä SHAKE128 + rej_uniform yhdeksi `poly_uniform`-funktioksi,
+   mukaan lukien referenssin `while(ctr<N)`-uudelleentäyttö jos
+   ensimmäinen erä ei riitä (ei vielä testattu — kummallakin
+   testisiemenellä yksi erä riitti).
+2. Avaingenerointi (`OSSL_OP_KEYMGMT`) NTT+`poly_uniform`:n päälle.
 
 ## Toolchain
 

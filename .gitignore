@@ -33,3 +33,7 @@ hardware/pqc-rtl/rvv-dilithium/ntt_golden.txt
 .dilithium-ref/
 hardware/pqc-rtl/rvv-dilithium/shake128_test
 .openssl-src-riscv/
+hardware/pqc-rtl/rvv-dilithium/rej_driver
+hardware/pqc-rtl/rvv-dilithium/test_rej_uniform
+hardware/pqc-rtl/rvv-dilithium/rej_input_buf.txt
+hardware/pqc-rtl/rvv-dilithium/rej_golden.txt

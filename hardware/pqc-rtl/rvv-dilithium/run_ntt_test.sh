@@ -58,3 +58,12 @@ fi
 riscv64-linux-gnu-gcc -O2 -I "$OPENSSL_SRC/include" shake128_test.c -o shake128_test \
   -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./shake128_test
+
+echo "[7/7] rej_uniform (RVV: strided-lataus + vcompress) - oikeaa SHAKE128-pohjaista golden-dataa vasten..."
+gcc -O2 rej_driver.c -o rej_driver -lcrypto
+./rej_driver
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 rej_uniform_rvv.c test_rej_uniform.c -o test_rej_uniform
+echo "-- VLEN=256 --"
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_rej_uniform
+echo "-- VLEN=128 --"
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_rej_uniform
