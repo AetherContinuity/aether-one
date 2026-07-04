@@ -3,7 +3,7 @@
 **Täysiverinen edge-node joka yhdistää:**
 - TrustCore v1.0 attestation (PQC + TPM)
 - Fyysiset sensorit (MQ-9 kaasu + AetherCam IP-kamera)
-- TrustCore v1.0 deterministic C-kernel (KRI + LR-D)
+- TrustCore v1.0 KRI + LR-D -laskenta (Python — ei C-ydintä, korjattu 2026-07-05, ks. alla)
 - Live dashboard + web UI
 
 ---
@@ -226,9 +226,8 @@ curl http://localhost:8080/attestation
 │  └──────────┬────────────────────┘  │
 │             ▼                        │
 │  ┌───────────────────────────────┐  │
-│  │ TrustCore v1.0 C-kernel      │  │
-│  │  - tc_calculate_kri()        │  │
-│  │  - tc_calculate_dissonance() │  │
+│  │ kri_engine.py (Python)       │  │
+│  │  - compute_kri()             │  │
 │  └──────────┬────────────────────┘  │
 │             ▼                        │
 │  ┌───────────────────────────────┐  │
