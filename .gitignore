@@ -151,3 +151,4 @@ hardware/pqc-rtl/rvv-dilithium/fullsig_*.txt
 hardware/pqc-rtl/oqs-rvv-provider/test_keymgmt_provider
 hardware/pqc-rtl/oqs-rvv-provider/*.o
 hardware/pqc-rtl/oqs-rvv-provider/test_signature_provider
+hardware/pqc-rtl/oqs-rvv-provider/test_full_provider_query

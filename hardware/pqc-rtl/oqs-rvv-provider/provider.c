@@ -1,7 +1,6 @@
-/* provider.c - minimaalinen, spesifikaation mukainen OpenSSL 3.0 provider.
- * Ei vielä ML-DSA/Kyber-algoritmeja - todistaa vain etta provider-runko
- * on validi ja OpenSSL:n oma provider-loader hyvaksyy sen.
- * RVV-kytkenta (mont_rvv.c) seuraava askel, ei tehty tassa. */
+/* provider.c - OpenSSL 3.0 provider ML-DSA-65-RVV:lle.
+ * Rekisteroi KEYMGMT ja SIGNATURE nimella "ML-DSA-65-RVV" -
+ * ks. keymgmt.c ja signature.c toteutuksille, rvv-dilithium/ RVV-ytimelle. */
 #include <openssl/core.h>
 #include <openssl/core_dispatch.h>
 #include <openssl/core_names.h>
@@ -40,18 +39,37 @@ static int provider_get_params(void *provctx, OSSL_PARAM params[]) {
     p = OSSL_PARAM_locate(params, OSSL_PROV_PARAM_VERSION);
     if (p != NULL && !OSSL_PARAM_set_utf8_ptr(p, PROVIDER_VERSION)) return 0;
     p = OSSL_PARAM_locate(params, OSSL_PROV_PARAM_BUILDINFO);
-    if (p != NULL && !OSSL_PARAM_set_utf8_ptr(p, "RVV-skeleton, ei algoritmeja viela")) return 0;
+    if (p != NULL && !OSSL_PARAM_set_utf8_ptr(p, "ML-DSA-65-RVV: KEYMGMT+SIGNATURE rekisteroity")) return 0;
     p = OSSL_PARAM_locate(params, OSSL_PROV_PARAM_STATUS);
     if (p != NULL && !OSSL_PARAM_set_int(p, 1)) return 0;
     return 1;
 }
 
-/* Ei viela yhtaan algoritmia - palautetaan NULL jokaiselle operaatiolle.
- * Tama on rehellinen tila: provider on validi mutta tyhja runko. */
+extern const OSSL_DISPATCH mldsa_rvv_keymgmt_functions[];
+extern const OSSL_DISPATCH mldsa_rvv_signature_functions[];
+
+static const OSSL_ALGORITHM mldsa_rvv_keymgmt_algs[] = {
+    { "ML-DSA-65-RVV", "provider=oqs_rvv", mldsa_rvv_keymgmt_functions,
+      "ML-DSA-65, RVV-kiihdytetty, bittitarkka pq-crystals/dilithium-referenssiin" },
+    { NULL, NULL, NULL, NULL }
+};
+
+static const OSSL_ALGORITHM mldsa_rvv_signature_algs[] = {
+    { "ML-DSA-65-RVV", "provider=oqs_rvv", mldsa_rvv_signature_functions,
+      "ML-DSA-65, RVV-kiihdytetty, bittitarkka pq-crystals/dilithium-referenssiin" },
+    { NULL, NULL, NULL, NULL }
+};
+
+/* Palauttaa KEYMGMT/SIGNATURE ML-DSA-65-RVV:lle. Muille operaatioille
+ * NULL - rehellinen tila, ei teeskennella tukea jota ei ole. */
 static const OSSL_ALGORITHM *provider_query(void *provctx, int operation_id, int *no_cache) {
-    (void)provctx; (void)operation_id;
+    (void)provctx;
     *no_cache = 0;
-    return NULL;
+    switch (operation_id) {
+        case OSSL_OP_KEYMGMT: return mldsa_rvv_keymgmt_algs;
+        case OSSL_OP_SIGNATURE: return mldsa_rvv_signature_algs;
+        default: return NULL;
+    }
 }
 
 static const OSSL_DISPATCH provider_dispatch_table[] = {

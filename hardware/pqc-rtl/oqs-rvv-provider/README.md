@@ -6,7 +6,31 @@ edellisen ristiriitoja.
 
 ## Mitä tämä TODISTAA
 
-**SIGNATURE-kytkentä — TÄMÄ SULKEE KOKO PROJEKTIN.** (`signature.c`):
+**`OSSL_ALGORITHM`-rekisteröinti — VIIMEINEN PALANEN, PROJEKTI VALMIS.**
+(`provider.c`:n `provider_query`): `mldsa_rvv_keymgmt_functions` ja
+`mldsa_rvv_signature_functions` rekisteröity nimellä `"ML-DSA-65-RVV"`
+(`property_definition="provider=oqs_rvv"`) `OSSL_OP_KEYMGMT`- ja
+`OSSL_OP_SIGNATURE`-operaatioille. Muille operaatioille (esim.
+`OSSL_OP_KEYEXCH`) palautetaan yhä `NULL` — rehellisesti, ei teeskennellä
+tukea jota ei ole.
+
+Testattu **`OSSL_provider_init`:sta lähtien**, ei suoraan `mldsa_rvv_*`-
+symboleista: haetaan `provider_query`-funktio dispatch-taulukosta,
+kutsutaan sitä `OSSL_OP_KEYMGMT`/`OSSL_OP_SIGNATURE`:lle, poimitaan
+funktiot palautetusta `OSSL_ALGORITHM`-taulukon `implementation`-
+kentästä — tämä on täsmälleen se reitti jota OpenSSL:n oma ydin kulkisi
+ladattuaan providerin ja etsiessään `EVP_PKEY_CTX_new_from_name`:n
+kautta. `OSSL_OP_KEYEXCH` palauttaa `NULL` oikein (ei väärää positiivista).
+
+Tämä väite oli aiemmin merkitty "mekaaniseksi, ei uutta logiikkaa" — se
+osoittautui todeksi: PASS ensimmäisellä yrityksellä, molemmilla VLEN-
+arvoilla, koko `keygen→sign→verify(oikea)→verify(turmeltu)`-kierto
+`provider_query`-reitin läpi.
+
+**TÄSTÄ ETEENPÄIN KOKO ML-DSA-65-RVV-PROVIDER-PROJEKTI ON VALMIS.**
+Ei jäljellä olevia avoimia palasia tässä hakemistossa.
+
+**SIGNATURE-kytkentä** (`signature.c`):
 `OSSL_FUNC_SIGNATURE_NEWCTX`/`FREECTX`/`SIGN_INIT`/`SIGN`/`VERIFY_INIT`/
 `VERIFY`, signatuurit luettu suoraan `core_dispatch.h`:sta. Testattu
 **täysin OpenSSL:n omalla konventiolla**: ensin kysytään allekirjoituksen
@@ -60,28 +84,23 @@ ajolla, silti aina toimiva.
 
 ## Mitä tämä EI todista (tietoinen rajaus)
 
-- **`provider_query_operation` palauttaa yhä `NULL`.** `KEYMGMT`- ja
-  `SIGNATURE`-dispatch-taulukot on rakennettu ja todennettu suoraan,
-  mutta niitä ei ole rekisteröity `provider.c`:n `OSSL_ALGORITHM`-
-  taulukkoon `OSSL_provider_init`:ssa. Tämä tarkoittaa: oikea
-  `EVP_PKEY_sign`/`openssl pkeyutl` ei vielä löydä algoritmia providerin
-  kautta — testattu suoralla dispatch-taulukon läpikäynnillä, ei
-  todellisella `EVP_PKEY_CTX`-tason API-kutsulla. Rekisteröinti on
-  mekaaninen viimeistely, ei uutta logiikkaa.
+- **`.so`-dynaamista latausta (`dlopen`/`OSSL_PROVIDER_load`) ei ole
+  testattu RISC-V:lla.** Kaikki testit tässä hakemistossa linkitsevät
+  suoraan. x86-testi (`provider_get_params`-koe alussa) käytti oikeaa
+  dynaamista latausta oikealla CLI:lla — RISC-V-puolella `openssl`-CLI:ta
+  ei ristikäännetty.
 - **Ei ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **`.so`-lataustestiä ei ole tehty RISC-V:lla** (dynaaminen `dlopen`,
-  ei suora linkitys) — `openssl`-CLI:ta ei ristikäännetty.
+- **`mu`/`rhoprime` on koko `rvv-dilithium`-hakemiston ajan testattu
+  kiinteillä/johdetuilla arvoilla, ei koskaan mielivaltaisella
+  viestipituudella tai erikoismerkeillä** (vain ASCII-testiviestejä).
 
-## Seuraava askel jos jatketaan
+## Tila
 
-Rekisteröi `mldsa_rvv_keymgmt_functions` ja `mldsa_rvv_signature_functions`
-`provider.c`:n `provider_query_operation`:iin `OSSL_ALGORITHM`-taulukkona
-(`algorithm_name = "ML-DSA-65"` tms.), jolloin oikea `EVP_PKEY_CTX_new_from_name`
-+ `EVP_PKEY_sign`/`EVP_PKEY_verify` löytäisi algoritmin providerin läpi.
-Tämän jälkeen ainoa jäljellä oleva askel olisi `openssl`-CLI:n
-ristikäännös, jotta koko ketjun voisi ajaa yhdellä `openssl pkeyutl`
+Ei jäljellä olevia tunnettuja avoimia palasia tässä hakemistossa. Jos
+jatketaan, seuraava luonnollinen laajennus olisi `openssl`-CLI:n
+ristikäännös jotta koko ketjun voisi ajaa yhdellä `openssl pkeyutl`
 -komennolla — ei enää RVV-logiikkaa, pelkkää OpenSSL-työkaluketjun
-kokoamista.
+kokoamista, eikä sitä ole pyydetty.
 
 ## Toolchain
 
