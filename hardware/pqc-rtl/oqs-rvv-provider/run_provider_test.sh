@@ -69,6 +69,21 @@ riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
   test_keymgmt_provider.c fips202.c \
   -o test_keymgmt_provider -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
 
+echo "[5/5] SIGNATURE-kytkentä: sign+verify OpenSSL-konvention mukaisesti (koon kysely, sign, verify, hylkäys)..."
+riscv64-linux-gnu-gcc -march=rv64gcv -O2 -I "$OPENSSL_SRC/include" \
+  rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c \
+  rej_eta_rvv.c poly_uniform_eta_rvv.c expand_s_rvv.c \
+  ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c \
+  polyt1_pack_rvv.c pack_pk_rvv.c polyeta_pack_rvv.c polyt0_pack_rvv.c pack_sk_rvv.c \
+  crypto_sign_keypair_rvv.c keymgmt.c \
+  polyz_unpack_rvv.c poly_uniform_gamma1_rvv.c \
+  sample_in_ball_rvv.c decompose_rvv.c chknorm_rvv.c pw_poly_rvv.c \
+  polyw1_pack_rvv.c vec_wrappers_rvv.c sign_core_rvv.c use_hint_rvv.c verify_core_rvv.c \
+  polyz_pack_rvv.c pack_hint_rvv.c pack_sig_rvv.c \
+  crypto_sign_signature_rvv.c crypto_sign_verify_rvv.c signature.c \
+  test_signature_provider.c fips202.c \
+  -o test_signature_provider -L "$OPENSSL_SRC" -lcrypto -lpthread -ldl
+
 rm -f rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c rej_eta_rvv.c poly_uniform_eta_rvv.c \
       expand_s_rvv.c ntt_rvv.c invntt_rvv.c poly_ops_rvv.c compute_t_rvv.c polyt1_pack_rvv.c \
       pack_pk_rvv.c polyeta_pack_rvv.c polyt0_pack_rvv.c pack_sk_rvv.c crypto_sign_keypair_rvv.c \
@@ -79,5 +94,7 @@ rm -f rej_uniform_rvv.c poly_uniform_rvv.c expand_a_rvv.c rej_eta_rvv.c poly_uni
 
 echo "-- VLEN=256 --"
 qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_keymgmt_provider
+qemu-riscv64-static -cpu rv64,v=true,vlen=256,elen=64 -L /usr/riscv64-linux-gnu ./test_signature_provider
 echo "-- VLEN=128 --"
 qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_keymgmt_provider
+qemu-riscv64-static -L /usr/riscv64-linux-gnu ./test_signature_provider

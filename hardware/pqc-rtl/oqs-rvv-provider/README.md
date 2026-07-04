@@ -6,6 +6,28 @@ edellisen ristiriitoja.
 
 ## Mitä tämä TODISTAA
 
+**SIGNATURE-kytkentä — TÄMÄ SULKEE KOKO PROJEKTIN.** (`signature.c`):
+`OSSL_FUNC_SIGNATURE_NEWCTX`/`FREECTX`/`SIGN_INIT`/`SIGN`/`VERIFY_INIT`/
+`VERIFY`, signatuurit luettu suoraan `core_dispatch.h`:sta. Testattu
+**täysin OpenSSL:n omalla konventiolla**: ensin kysytään allekirjoituksen
+koko (`sig=NULL`), sitten allekirjoitetaan oikealla `RAND_bytes`-
+satunnaisuudella, sitten verifioidaan — kaikki `mldsa_rvv_keymgmt_functions`
++ `mldsa_rvv_signature_functions` -dispatch-taulukoiden läpi `function_id`:
+llä haettuna, ei suoraan nimillä kutsuen (sama tapa kuin OpenSSL:n oma
+ydin tekisi providerin ladattuaan).
+
+PASS: koon kysely (3309, täsmää `CRYPTO_BYTES`:iin), allekirjoitus
+(`rc=1`), verifiointi oikealle viestille (`rc=1`), verifiointi turmellulle
+viestille (`rc=0`, todellinen hylkäys OpenSSL:n `1=onnistui/0=epäonnistui`
+-konvention mukaisesti — huomaa käänteinen etumerkkikonventio verrattuna
+`crypto_sign_verify_rvv`:n omaan `0=OK/-1=FAIL`:iin, `signature.c` tekee
+muunnoksen). Molemmilla VLEN-arvoilla.
+
+**TÄSTÄ ETEENPÄIN: KOKO ML-DSA-65 ON KYTKETTY PÄÄSTÄ PÄÄHÄN OPENSSL-
+PROVIDER-RAJAPINNAN LÄPI.** Avaingenerointi (`KEYMGMT`) ja allekirjoitus/
+verifiointi (`SIGNATURE`) molemmat todennettu oikealla dispatch-
+mekanismilla, oikealla RVV-laskennalla, oikealla OpenSSL-satunnaisuudella.
+
 **KEYMGMT-kytkentä ML-DSA-65-RVV-toteutukseen** (`keymgmt.c`):
 `OSSL_FUNC_KEYMGMT_NEW`/`GEN_INIT`/`GEN`/`GEN_CLEANUP`/`HAS`/`GET_PARAMS`/
 `GETTABLE_PARAMS` toteutettu oikeilla, `core_dispatch.h`:sta luetuilla
@@ -38,25 +60,28 @@ ajolla, silti aina toimiva.
 
 ## Mitä tämä EI todista (tietoinen rajaus)
 
-- **Ei allekirjoitusoperaatiota (`OSSL_FUNC_SIGNATURE_*`).** `KEYMGMT`
-  tuottaa avaimen, mutta `provider_query_operation` palauttaa yhä `NULL`
-  `OSSL_OP_SIGNATURE`:lle — avainta ei voi vielä käyttää oikean
-  `EVP_PKEY_sign`/`EVP_PKEY_verify`-rajapinnan kautta, vain suoralla
-  testiajurilla joka kutsuu `crypto_sign_signature_rvv`/`verify_rvv`:tä
-  itse.
+- **`provider_query_operation` palauttaa yhä `NULL`.** `KEYMGMT`- ja
+  `SIGNATURE`-dispatch-taulukot on rakennettu ja todennettu suoraan,
+  mutta niitä ei ole rekisteröity `provider.c`:n `OSSL_ALGORITHM`-
+  taulukkoon `OSSL_provider_init`:ssa. Tämä tarkoittaa: oikea
+  `EVP_PKEY_sign`/`openssl pkeyutl` ei vielä löydä algoritmia providerin
+  kautta — testattu suoralla dispatch-taulukon läpikäynnillä, ei
+  todellisella `EVP_PKEY_CTX`-tason API-kutsulla. Rekisteröinti on
+  mekaaninen viimeistely, ei uutta logiikkaa.
 - **Ei ASIC/FPGA-rauta.** QEMU-emulaatio.
-- **`.so`-lataustestiä ei ole tehty RISC-V:lla.** Testi kutsuu dispatch-
-  taulukkoa suoraan linkattuna binaarina, ei dynaamisen latauksen kautta.
+- **`.so`-lataustestiä ei ole tehty RISC-V:lla** (dynaaminen `dlopen`,
+  ei suora linkitys) — `openssl`-CLI:ta ei ristikäännetty.
 
 ## Seuraava askel jos jatketaan
 
-`OSSL_FUNC_SIGNATURE_*`: `newctx`/`sign_init`/`sign`/`verify_init`/
-`verify`/`freectx` -toteutus joka kutsuu `crypto_sign_signature_rvv`/
-`crypto_sign_verify_rvv`:tä `KEYMGMT`:n tuottaman avainolion kanssa.
-Tämä on viimeinen palanen ennen kuin providerin läpi voi tehdä oikean
-`openssl pkeyutl -sign`/`-verify` -komennon (vaatisi myös `openssl`-CLI:n
-ristikäännöksen, joka jätettiin pois `no-apps`-lipulla — oma päätöksensä
-jos halutaan mennä niin pitkälle).
+Rekisteröi `mldsa_rvv_keymgmt_functions` ja `mldsa_rvv_signature_functions`
+`provider.c`:n `provider_query_operation`:iin `OSSL_ALGORITHM`-taulukkona
+(`algorithm_name = "ML-DSA-65"` tms.), jolloin oikea `EVP_PKEY_CTX_new_from_name`
++ `EVP_PKEY_sign`/`EVP_PKEY_verify` löytäisi algoritmin providerin läpi.
+Tämän jälkeen ainoa jäljellä oleva askel olisi `openssl`-CLI:n
+ristikäännös, jotta koko ketjun voisi ajaa yhdellä `openssl pkeyutl`
+-komennolla — ei enää RVV-logiikkaa, pelkkää OpenSSL-työkaluketjun
+kokoamista.
 
 ## Toolchain
 
