@@ -1,0 +1,92 @@
+<!-- KaraokeKoppi™ L6: Decision Matrix panel (paste into your dashboard) -->
+<section class="mt-4">
+  <div class="flex items-center justify-between mb-2">
+    <div>
+      <div class="text-xs text-slate-500">Decision Matrix</div>
+      <div class="text-base font-semibold">Mitä jos teemme X?</div>
+    </div>
+    <div class="text-[10px] text-slate-500">L6</div>
+  </div>
+
+  <div id="actions-list" class="grid gap-2"></div>
+
+  <div id="action-result" class="mt-3 hidden">
+    <div class="bg-slate-900 p-3 rounded border border-slate-700">
+      <div class="flex items-center justify-between">
+        <div class="text-sm font-semibold" id="ar-title">—</div>
+        <div class="text-[10px] text-slate-500" id="ar-cost">—</div>
+      </div>
+      <div class="text-xs text-slate-400 mt-1" id="ar-rationale">—</div>
+
+      <div class="grid grid-cols-2 gap-2 mt-3">
+        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+          <div class="text-[10px] text-slate-500">Ennen</div>
+          <div class="font-mono text-sm" id="ar-before">—</div>
+        </div>
+        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+          <div class="text-[10px] text-slate-500">Jälkeen (simuloitu)</div>
+          <div class="font-mono text-sm" id="ar-after">—</div>
+        </div>
+      </div>
+
+      <div class="text-[10px] text-slate-500 mt-2">
+        Huom: deterministinen “what-if” malli. Kalibroi vaikutukset myöhemmin audit-datalla.
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+async function fetchActions() {
+  const r = await fetch('/api/v2/actions');
+  const j = await r.json();
+  return j.actions || [];
+}
+
+function lockEmoji(level) {
+  if (level === 'OK') return '🟢';
+  if (level === 'WEAK') return '🟡';
+  return '🔴';
+}
+
+function fmtLocks(locks) {
+  const keys = ['Reserve','Inertia','Time','Governance'];
+  return keys.map(k => `${k}:${lockEmoji(locks?.[k]||'WEAK')}${locks?.[k]||'WEAK'}`).join('  ');
+}
+
+async function simulate(actionId) {
+  const r = await fetch(`/api/v2/simulate?action_id=${encodeURIComponent(actionId)}`);
+  const j = await r.json();
+  if (!j.ok) { alert(j.error || 'Simulation failed'); return; }
+
+  document.getElementById('action-result').classList.remove('hidden');
+  document.getElementById('ar-title').innerText = j.action.title;
+  document.getElementById('ar-cost').innerText = `Pol:${j.action.political_cost}/3  Eco:${j.action.economic_cost}/3`;
+  document.getElementById('ar-rationale').innerText = j.action.rationale || j.action.description;
+
+  document.getElementById('ar-before').innerText = `Index ${j.before.resilience_index.toFixed(2)} | ${fmtLocks(j.before.locks)}`;
+  document.getElementById('ar-after').innerText = `Index ${j.after.resilience_index.toFixed(2)} | ${fmtLocks(j.after.locks)}`;
+}
+
+async function renderActions() {
+  const actions = await fetchActions();
+  const root = document.getElementById('actions-list');
+  root.innerHTML = '';
+
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'bg-slate-900 hover:bg-slate-800 p-2 rounded border border-slate-700 text-left';
+    btn.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="text-sm font-semibold">${a.title}</div>
+        <div class="text-[10px] text-slate-500">${(a.tags||[]).join(', ')}</div>
+      </div>
+      <div class="text-xs text-slate-400 mt-1">${a.description}</div>
+    `;
+    btn.onclick = () => simulate(a.id);
+    root.appendChild(btn);
+  });
+}
+
+renderActions();
+</script>
