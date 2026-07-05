@@ -1,0 +1,556 @@
+{
+  "version": "OGAS2-L6-DecisionMatrix-v1.1",
+  "actions": [
+    {
+      "id": "A1",
+      "title": "Korkoriskin suojausohjelma (duration & swaps -kurinalaisuus)",
+      "meta": {
+        "primary_layer": "R_PUBLIC",
+        "cost_band": "LOW",
+        "lead_time_months": 1,
+        "reversibility": "HIGH",
+        "tags": [
+          "finance"
+        ],
+        "profile": "IMMEDIATE",
+        "locks_share": 0.8
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 6
+        },
+        {
+          "op": "add",
+          "path": "/locks/Time",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/R_PUBLIC",
+          "value": -4
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "title": "Investointien priorisointi: adequacy-first (verkot, varastot, säätö)",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "MED",
+        "lead_time_months": 6,
+        "reversibility": "LOW",
+        "tags": [
+          "adequacy",
+          "infra"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.4
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/locks/Inertia",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -6
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "title": "Infrabondit kotimaisille instituutioille (pitkä, inflaatiosid.)",
+      "meta": {
+        "primary_layer": "R_PUBLIC",
+        "cost_band": "LOW",
+        "lead_time_months": 4,
+        "reversibility": "MED",
+        "tags": [
+          "funding"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.6
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/R_PUBLIC",
+          "value": -3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "title": "Automaattinen menokuri korkomenojen kasvaessa (sääntöohjaus)",
+      "meta": {
+        "primary_layer": "R_PUBLIC",
+        "cost_band": "LOW",
+        "lead_time_months": 3,
+        "reversibility": "LOW",
+        "tags": [
+          "fiscal-rule"
+        ],
+        "profile": "IMMEDIATE",
+        "locks_share": 0.8
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 6
+        },
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/R_PUBLIC",
+          "value": -3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "title": "Lämpövarastot + sähkökattilat isoihin kaukolämpöverkkoihin",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "MED",
+        "lead_time_months": 12,
+        "reversibility": "LOW",
+        "tags": [
+          "storage",
+          "district-heating"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.2
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 7
+        },
+        {
+          "op": "add",
+          "path": "/locks/Inertia",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -7
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "title": "Teollisuuden kysyntäjoustosopimukset (firm MW-huipuille)",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "LOW",
+        "lead_time_months": 6,
+        "reversibility": "MED",
+        "tags": [
+          "demand-response"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.4
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/locks/Time",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -5
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "title": "Suurakustot + nopea lupakaista varastoille",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "MED",
+        "lead_time_months": 9,
+        "reversibility": "LOW",
+        "tags": [
+          "batteries",
+          "permitting"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.3
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 6
+        },
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -6
+        }
+      ]
+    },
+    {
+      "id": "B4",
+      "title": "Kapasiteettimaksu inflexible-kuormille (DC, elektrolyysi)",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "LOW",
+        "lead_time_months": 6,
+        "reversibility": "MED",
+        "tags": [
+          "pricing",
+          "adequacy"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.7
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "B5",
+      "title": "Siirtoverkon pullonkaulainvestoinnit (FI–SE + sisäiset)",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "HIGH",
+        "lead_time_months": 24,
+        "reversibility": "LOW",
+        "tags": [
+          "grid"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.1
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Inertia",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -5
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/X_EXTERNAL",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "title": "Sähköintensiivisen teollisuuden pitkät PPA:t (hinta-ankkuri)",
+      "meta": {
+        "primary_layer": "E_REAL",
+        "cost_band": "LOW",
+        "lead_time_months": 6,
+        "reversibility": "MED",
+        "tags": [
+          "industry",
+          "hedging"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.3
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": -4
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "Investointikannustin: flex-first (joustokuorma etusijalle)",
+      "meta": {
+        "primary_layer": "E_REAL",
+        "cost_band": "MED",
+        "lead_time_months": 9,
+        "reversibility": "MED",
+        "tags": [
+          "investment",
+          "flex"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.4
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": -3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "Datakeskusten hukkalämmön velvoite + hyvitysmalli",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "LOW",
+        "lead_time_months": 12,
+        "reversibility": "LOW",
+        "tags": [
+          "datacenters",
+          "waste-heat"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.3
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -4
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "title": "Teollinen vety: tuotanto vain joustomoodissa (spot+curtail)",
+      "meta": {
+        "primary_layer": "S_ENERGY",
+        "cost_band": "LOW",
+        "lead_time_months": 6,
+        "reversibility": "MED",
+        "tags": [
+          "hydrogen",
+          "curtail"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.5
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -5
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "title": "EU-koordinoitu adequacy-mekanismi (Nordics/Baltics)",
+      "meta": {
+        "primary_layer": "X_EXTERNAL",
+        "cost_band": "MED",
+        "lead_time_months": 18,
+        "reversibility": "LOW",
+        "tags": [
+          "eu",
+          "adequacy"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.4
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Governance",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/X_EXTERNAL",
+          "value": -4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/S_ENERGY",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "D2",
+      "title": "LNG/biokaasu varastointisopimukset (talvipiikit)",
+      "meta": {
+        "primary_layer": "X_EXTERNAL",
+        "cost_band": "MED",
+        "lead_time_months": 6,
+        "reversibility": "MED",
+        "tags": [
+          "fuel-buffer"
+        ],
+        "profile": "RAMP",
+        "locks_share": 0.6
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Reserve",
+          "value": 4
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/X_EXTERNAL",
+          "value": -3
+        }
+      ]
+    },
+    {
+      "id": "D3",
+      "title": "Vientimarkkinoiden hajautusohjelma (SE/DE-riippuvuus ↓)",
+      "meta": {
+        "primary_layer": "E_REAL",
+        "cost_band": "MED",
+        "lead_time_months": 18,
+        "reversibility": "LOW",
+        "tags": [
+          "exports"
+        ],
+        "profile": "DELAYED",
+        "locks_share": 0.2
+      },
+      "patch": [
+        {
+          "op": "add",
+          "path": "/locks/Inertia",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/E_REAL",
+          "value": -3
+        },
+        {
+          "op": "add",
+          "path": "/indices/layers/X_EXTERNAL",
+          "value": -2
+        }
+      ]
+    }
+  ]
+}
