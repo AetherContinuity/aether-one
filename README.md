@@ -26,7 +26,7 @@ Reference Implementation
         └── TrustCore NX (Concept / Pre-Silicon)
 ```
 
-Aether One on yksi konkreettinen **Reference Implementation** DCEIN-arkkitehtuurista (Duration-Capable Edge Intelligence Node), ei ainoa mahdollinen toteutus. `hardware/pqc-rtl/` sisältää RISC-V-vektorikiihdytettyä Dilithium/ML-DSA-kehitystyötä, joka on linjassa TrustCore NX -konseptin kanssa ja voi muodostaa sen kryptografisen perustan — tätä ei ole vielä vahvistettu piiksi asti, ja `concept/trustcore-nx/README.md` merkitsee sen avoimesti pre-silicon-konseptiksi.
+Aether One on yksi konkreettinen **Reference Implementation** DCEIN-arkkitehtuurista (Duration-Capable Edge Intelligence Node), ei ainoa mahdollinen toteutus. `hardware/pqc-rtl/` sisältää RISC-V-vektorikiihdytettyä PQC-kehitystyötä kolmella eri kypsyystasolla (ks. "PQC-algoritmi" alempana) — kypsin osa (`rvv-dilithium/`, täysi ML-DSA-65-toteutus) on linjassa TrustCore NX -konseptin kanssa ja voi muodostaa sen kryptografisen perustan, mutta tätä ei ole vahvistettu piiksi asti; `concept/trustcore-nx/README.md` merkitsee sen avoimesti pre-silicon-konseptiksi.
 
 - **WP-006** — [Continuity Computing](https://aethercontinuity.org/papers/wp-006-continuity-computing.html): teoreettinen perusta (päätöskapasiteetti järjestelmäinvarianttina)
 - **WP-007** — [Situational Awareness Persistence](https://aethercontinuity.org/papers/wp-007-situational-awareness-persistence.html): D5-komponentin (Awareness Externalization) perustelu
@@ -77,7 +77,17 @@ curl http://192.168.1.51:8080/attestation
 
 ## PQC-algoritmi
 
-Trust Server käyttää **ML-DSA-65** (Dilithium) allekirjoituksiin `liboqs`-kirjaston kautta (`oqs.Signature("ML-DSA-65")`). `hardware/pqc-rtl/rvv-dilithium/` kehittää saman algoritmiperheen RISC-V-vektorikiihdytystä — ks. Project Context yllä yhteydestä TrustCore NX -konseptiin.
+Trust Server käyttää **ML-DSA-65** (Dilithium) allekirjoituksiin `liboqs`-kirjaston kautta (`oqs.Signature("ML-DSA-65")`).
+
+`hardware/pqc-rtl/` sisältää kolme erillistä, eri kypsyystasoista osaa — ei yhtä yhtenäistä kiihdytintä:
+
+| Alikansio | Algoritmi | Muoto | Tila |
+|---|---|---|---|
+| `rtl/` (M1) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, käyttäytymismalli | Yksi NTT-taso todennettu, **ei synteesikelpoinen**, ei Dilithiumia |
+| `rvv/` | ML-KEM/Kyber (16-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Yksi funktio (Montgomery-reduktio) todennettu |
+| `rvv-dilithium/` | **ML-DSA-65 / Dilithium** (32-bit Montgomery) | C + RVV-intrinsiicit, QEMU | **Koko API valmis**: avaingenerointi + allekirjoitus + verifiointi, bittitarkasti pq-crystals/dilithium-referenssiä vasten |
+
+`rvv-dilithium/` on ainoa osa joka käyttää samaa algoritmia (ML-DSA-65) kuin Trust Server, ja se on selvästi kypsin: koko allekirjoitussuite bittitarkasti todennettu, ei vain käyttäytymismalli. Se on kuitenkin edelleen ohjelmisto (QEMU-emulointi RISC-V-vektorilaajennuksella), ei ASIC/FPGA-rauta — `rtl/`-kansion synteesikelpoinen RTL-työ on toistaiseksi vain Kyberia varten, ei Dilithiumia. Ks. `hardware/pqc-rtl/README.md`, `rvv/README.md` ja `rvv-dilithium/README.md` täydelle rajaukselle mitä kukin osa todistaa ja ei todista.
 
 ---
 *Aether Continuity Institute · 2026*
