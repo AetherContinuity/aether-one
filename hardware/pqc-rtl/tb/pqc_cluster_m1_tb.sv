@@ -1,13 +1,16 @@
 // pqc_cluster_m1_tb.sv
 //
-// Itsekonsistentti M1-testipenkki (kirjoitettu yhdessa RTL:n kanssa,
-// ei peri edellisen session testipenkin osoiteristiriitaa).
+// Itsekonsistentti testipenkki M1 + M2 Vaihe 1:lle (kirjoitettu yhdessa
+// RTL:n kanssa, ei peri edellisen session testipenkin osoiteristiriitaa).
 //
 // Todistaa:
 //   1) Molempien lanejen tulos tasmaa Python-golden-malliin bitille.
 //   2) Round-robin-arbitteri alternoi kun molemmat lanet pyytavat bankkia 0
 //      samana syklina (konflikti oli aito, ei vain lapaisyn nayttely).
 //   3) cluster_error pysyy alhaalla koko ajon.
+//   4) [M2 Vaihe 1] Per-butterfly-zeta-indeksointi todistetusti vaikuttaa:
+//      tulos EROAA siita mita saataisiin jos RTL yha kayttaisi kiinteasti
+//      tw_window[0]:aa jokaiselle butterflylle (M1:n vanha rajaus).
 
 `timescale 1ns/1ps
 
@@ -52,6 +55,7 @@ module pqc_cluster_m1_tb;
 
   logic [COEFF_W-1:0] init_mem   [0:127];
   logic [COEFF_W-1:0] expect_mem [0:127];
+  logic [COEFF_W-1:0] expect_wrong_mem [0:127];
   logic [COEFF_W-1:0] tw_vec     [0:15];
 
   // ---- RR-alternoinnin ja stallien tarkkailu ----
@@ -91,6 +95,7 @@ module pqc_cluster_m1_tb;
 
     $readmemh("vectors/bank0_init.memh", init_mem);
     $readmemh("vectors/bank0_expect.memh", expect_mem);
+    $readmemh("vectors/bank0_expect_wrong_if_idx0_only.memh", expect_wrong_mem);
     $readmemh("vectors/twiddles.memh", tw_vec);
 
     repeat (3) @(posedge clk);
@@ -100,11 +105,14 @@ module pqc_cluster_m1_tb;
     // Esilataa bank0 alkuarvoilla suoraan (simuloinnin hierarkkinen kirjoitus)
     for (int i = 0; i < 128; i++) dut.banked_mem[0][i] = init_mem[i];
 
-    // Syota twiddle-ikkuna (kaytamme vain indeksia 0 tassa skoopissa)
-    @(posedge clk);
-    tw_in_valid <= 1'b1;
-    tw_in_idx   <= 4'd0;
-    tw_in_data  <= tw_vec[0];
+    // Syota koko twiddle-ikkuna: 16 ERI zetaa (M2 Vaihe 1 - ei enaa
+    // vain indeksia 0, kuten M1:ssa)
+    for (int t = 0; t < 16; t++) begin
+      @(posedge clk);
+      tw_in_valid <= 1'b1;
+      tw_in_idx   <= 4'(t);
+      tw_in_data  <= tw_vec[t];
+    end
     @(posedge clk);
     tw_in_valid <= 1'b0;
 
@@ -145,6 +153,26 @@ module pqc_cluster_m1_tb;
       if (dut.banked_mem[0][i] !== expect_mem[i]) begin
         $display("FAIL: banked_mem[0][%0d] = %0d, odotettu %0d", i, dut.banked_mem[0][i], expect_mem[i]);
         error_count++;
+      end
+    end
+
+    // NEGATIIVIKONTROLLI (M2 Vaihe 1): jos idx-indeksointi ei oikeasti
+    // vaikuttaisi (esim. RTL kayttaisi yha kiinteasti tw_window[0]:aa
+    // per-butterfly zetan sijaan), tulos tasmaisi tahan VAARAAN
+    // ennusteeseen. Todellisen tuloksen TAYTYY erota tasta ainakin
+    // yhdessa kohdassa - muuten indeksointi ei oikeasti vaikuta mihinkaan
+    // ja testi lapaisisi vahingossa myos rikkinaisella RTL:lla.
+    begin
+      int wrong_match_count;
+      wrong_match_count = 0;
+      for (int i = 0; i < 128; i++) begin
+        if (dut.banked_mem[0][i] === expect_wrong_mem[i]) wrong_match_count++;
+      end
+      if (wrong_match_count == 128) begin
+        $display("FAIL: tulos tasmaa TAYSIN 'idx0-only'-vaaraan ennusteeseen - per-butterfly-indeksointi EI vaikuta mihinkaan");
+        error_count++;
+      end else begin
+        $display("OK: tulos EROAA idx0-only-vaarasta ennusteesta (%0d/128 sanaa olisi tasmannyt vaarin) - indeksointi todistetusti vaikuttaa", wrong_match_count);
       end
     end
 

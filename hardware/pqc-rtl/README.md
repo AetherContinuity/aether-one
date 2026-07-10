@@ -8,7 +8,9 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | Milestone | Kuvaus | Tila |
 |-----------|--------|------|
 | M1 (skoopattu) | 1 NTT-taso, 16 butterflya/lane, pankkikonflikti | ✅ TODENNETTU 2026-07-02, ks. rajaus alla |
-| M2 | Koko 256-pisteen NTT, monivaiheinen aikataulutin | ⛔ EI ALOITETTU |
+| M2 Vaihe 1 | Per-butterfly zeta-indeksointi | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
+| M2 Vaihe 2 | Koko 256-pisteen NTT, monivaiheinen aikataulutin | ⛔ EI ALOITETTU |
+| M2 Vaihe 3 | Neljä muistipankkia, oikea osoitus, konfliktinhallinta | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -25,10 +27,34 @@ Mitä tämä TODISTAA:
   pankkia (bank0) samana syklina - konflikti on aito, todennettu
   laskemalla alternointien määrä ajon aikana (≥2, tyypillisesti ~30).
 
+**M2 Vaihe 1:n todennettu skoopin rajaus (2026-07-10):**
+`idx` viety ulos `lane_fsm`:sta uutena output-porttina (`idx_out`),
+kumpikin lane indeksoi jaettua `tw_window`-taulukkoa OMALLA idx-arvollaan
+kiinteän `tw_window[0]`:n sijaan. Sama toolchain, sama
+`run_m1_test.sh`. PASS kahdella eri satunnaissiemenella, plus KAKSI
+negatiivikontrollia:
+1. Tahallaan rikottu golden-arvo -> FAIL oikein (peritty M1:sta).
+2. **Uusi:** tahallaan palautettu vanha `tw_window[0]`-kytkentä (M1:n
+   rajaus) -> testi FAILaa oikein 61 virheella, ja testipenkin oma
+   negatiivikontrolli tunnistaa tarkalleen syyn ("tulos tasmaa TAYSIN
+   idx0-only-vaaraan ennusteeseen"). Todistaa etta per-butterfly-
+   indeksointi OIKEASTI vaikuttaa tulokseen, ei vain etta koodi kaantyy.
+
+Mitä M2 Vaihe 1 TODISTAA (M1:n lisaksi):
+- Kumpikin lane käyttää OMAA per-butterfly-zetaansa (16 eri zeta-arvoa,
+  ei enää yhtä yhteistä), bittitarkasti Python-golden-mallia vastaan.
+- Vaarin-indeksoinnin negatiivikontrolli: jos RTL indeksoisi vain
+  `tw_window[0]`:aa (M1:n vanha kayttays), 68/128 sanaa tasmaisi silti
+  sattumalta vaaraan ennusteeseen mutta EI kaikki 128 - testi erottaa
+  taman oikeasta kaytoksesta oikein molemmissa suunnissa.
+
 Mitä tämä EI todista (tietoinen rajaus, ei piilotettu):
 - Ei koko 256-pisteen NTT:tä, vain yksi taso, 16 butterflya per lane.
-- Kaikki saman lanen butterflyt käyttävät SAMAA zeta-arvoa (ei per-
-  butterfly-indeksointia kuten oikea 256-pisteen NTT vaatisi).
+- Lane0 ja lane1 kayttavat SAMAA tw_window-taulukkoa SAMALLA idx-arvolla
+  (molemmat butterfly-indeksit 0..15 per lane kayttavat tw_window[sama
+  idx]) - tama ei viela mallinna oikean 256-pisteen NTT:n globaalia
+  butterfly-asemointia, jossa eri lanet kasittelisivat eri butterfly-
+  alueita eri zetoilla. Tama on M2 Vaihe 2:n laajuus.
 - Malli on **käyttäytymismalli (behavioral), ei synteesikelpoinen RTL**.
   Ei todista piirin ajoitusta, pinta-alaa eikä FPGA/ASIC-synteesikelpoi-
   suutta. `always_comb`/`function automatic` -rakenteet ja hierarkkinen
@@ -38,15 +64,20 @@ Mitä tämä EI todista (tietoinen rajaus, ei piilotettu):
   (base_addr_lane1=16 vs. data sijoitettu osoitteisiin 32-63). Tämä on
   uusi, itsekonsistentti pari - DUT ja testipenkki kirjoitettu yhdessä.
 
-Seuraava askel M2:een: tuo `idx` ulos `lane_fsm`:sta jotta per-butterfly-
-zeta-indeksointi on mahdollinen, laajenna yhdestä NTT-tasosta kahdeksaan
-(level 7..0, Cooley-Tukey), lisää oikea pankinvalinta osoitteesta neljälle
-pankille (tässä versiossa aina bank0).
+Seuraava askel M2 Vaihe 2:een: laajenna yhdestä NTT-tasosta kahdeksaan
+(level 7..0, Cooley-Tukey), toteuta oikea globaali butterfly-asemointi
+molemmille laneille eri zeta-alueilla. Sama testifilosofia (golden-malli
++ RTL + bittitarkka vertailu + positiivinen testi + negatiivikontrolli).
+Vasta tämän jälkeen M2 Vaihe 3 (neljä pankkia, oikea osoitus,
+konfliktinhallinta) - laskennan pitää olla todistetusti oikein ennen
+muistiosajärjestelmän monimutkaistamista, jotta virheen lähde
+(matematiikka vs. muistiohjaus) pysyy erotettavissa.
 
-## Arkkitehtuuri (M1-skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1 -skoopissa toteutettu)
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken
+- Per-butterfly zeta-indeksointi jaetusta tw_window-taulukosta (M2 Vaihe 1)
 - 2-lane FSM: IDLE → REQ_READ → COMPUTE → REQ_WRITE → (seuraava/DONE)
 
 ## Toolchain
@@ -58,8 +89,9 @@ pankille (tässä versiossa aina bank0).
 
 NTT256 tässä käyttää Kyberin (ML-KEM) 16-bittistä Montgomery-reduktiota
 (Q=3329). **Ei ML-DSA/Dilithium** — Dilithiumin Montgomery on 32-bittinen
-(Q=8380417, R=2^32). Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tämä M1 ei
-kelpaa sellaisenaan; tarvitaan erillinen 32-bittinen Dilithium-Montgomery
+(Q=8380417, R=2^32). Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tämä M1/
+M2 Vaihe 1 ei kelpaa sellaisenaan (sama Kyber-parametrisointi molemmissa);
+tarvitaan erillinen 32-bittinen Dilithium-Montgomery
 (ks. hardware/pqc-rtl/rvv/README.md).
 Tämä RTL siirtyy suoraan TrustCore NX ASIC:iin — synteesikelpoisen
 uudelleenkirjoituksen jälkeen (M3/M4).

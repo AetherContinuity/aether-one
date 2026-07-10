@@ -2,14 +2,20 @@
 //
 // KAYTTAYTYMISMALLI (behavioral), EI synteesikelpoinen RTL.
 // Todistaa: (1) Montgomery-perhosen bittitarkkuuden Python-golden-mallia
-// vastaan, (2) round-robin-pankkikonfliktin ratkaisun kahden lanen valilla.
+// vastaan, (2) round-robin-pankkikonfliktin ratkaisun kahden lanen valilla,
+// (3) [M2 Vaihe 1] per-butterfly-zeta-indeksoinnin: idx viety ulos
+// lane_fsm:sta, kumpikin lane kayttaa OMAA idx-arvoaan indeksoidakseen
+// jaettua tw_window-taulukkoa - ei enaa kiinteaa tw_window[0]:aa.
 // Ei todista: piirin ajoitusta, pinta-alaa, synteesikelpoisuutta.
 //
-// SKOOPIN RAJAUS (tietoinen): yksi NTT-taso, COUNT butterflya per lane,
-// KAIKKI saman lanen butterflyt kayttavat samaa zeta-arvoa (tw_window[0]).
+// SKOOPIN RAJAUS (tietoinen): yksi NTT-taso, COUNT butterflya per lane.
 // Molemmat lanet pakotettu bankkiin 0 konfliktin pakottamiseksi.
-// Ei toteuta: monivaiheista NTT-aikataulutinta eika per-butterfly-zeta-
-// indeksointia (M2-tyon laajuus, ei talla).
+// Lane0 ja lane1 kayttavat SAMAA tw_window-taulukkoa samalla idx:lla -
+// tama ei viela mallinna oikeaa 256-pisteen NTT:n globaalia butterfly-
+// asemointia (jossa eri lanet kasittelisivat eri butterfly-alueita eri
+// zetoilla) - se on M2 Vaihe 2:n (koko Cooley-Tukey) laajuus, ei talla.
+// Ei toteuta: monivaiheista NTT-aikataulutinta eika useampaa muistipankkia
+// (M2 Vaihe 3:n laajuus, ei talla).
 
 `timescale 1ns/1ps
 
@@ -39,7 +45,8 @@ module lane_fsm #(
     input  logic grant,
 
     output logic [2:0] state,
-    output logic done
+    output logic done,
+    output logic [7:0] idx_out
 );
 
   localparam logic [2:0]
@@ -50,6 +57,7 @@ module lane_fsm #(
     S_DONE      = 3'd4;
 
   logic [7:0] idx;
+  assign idx_out = idx;
   logic [COEFF_W-1:0] a_reg, b_reg;
   logic [COEFF_W-1:0] ap_reg, bp_reg;
 
@@ -189,15 +197,17 @@ module pqc_rvv_cluster_2lane #(
   logic [2:0] state0_w, state1_w;
   logic done0, done1;
 
+  logic [7:0] idx0, idx1;
+
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane0 (
     .clk(clk), .reset(reset), .start(start),
     .base_addr(base_addr_lane0), .stride(stride), .count(count),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
-    .zeta_in(tw_window[0]),
+    .zeta_in(tw_window[idx0]),
     .req(req0), .is_write(is_write0), .grant(grant0),
-    .state(state0_w), .done(done0)
+    .state(state0_w), .done(done0), .idx_out(idx0)
   );
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane1 (
@@ -206,9 +216,9 @@ module pqc_rvv_cluster_2lane #(
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),
-    .zeta_in(tw_window[0]),
+    .zeta_in(tw_window[idx1]),
     .req(req1), .is_write(is_write1), .grant(grant1),
-    .state(state1_w), .done(done1)
+    .state(state1_w), .done(done1), .idx_out(idx1)
   );
 
   // ---- Round-robin arbiter bankille 0 ----
