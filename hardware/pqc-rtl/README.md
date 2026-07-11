@@ -16,7 +16,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 3a | Muodollinen SAT-todistus 4-pankkiselle kuvaukselle | ✅ TODENNETTU 2026-07-10, ks. [BANK_MAPPING_PROOF.md](BANK_MAPPING_PROOF.md) |
 | M2 Vaihe 3b | Yksi taso (6), oikea 4-pankkinen muisti RTL:ssä | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
-| M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ⛔ EI ALOITETTU |
+| M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -154,7 +154,7 @@ ei ajonaikaista aikataulutinta LAITTEISTOSSA (aikataulu ajetaan
 testipenkin/ohjelmiston toimesta, ei RTL:n omalla tilakoneella -
 "hardware scheduler" olisi oma, myöhempi laajennus).
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b/3c -skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b/3c/3d -skoopissa toteutettu)
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
@@ -207,6 +207,29 @@ satunnaissiementä. Ajonaikainen konfliktintunnistus: 0 konfliktia
 kaikkien 448 nelikön yli (7 tasoa). Negatiivikontrolli: ROM rikottu
 -> 10 konfliktia havaittu, laskenta todistetusti hajoaa. PASS toistuu
 korjauksen palautuksen jälkeen.
+
+**M2 Vaihe 3d:n mittaustulokset (2026-07-11):** `tb/pqc_ntt_full_banked_perf_tb.sv`,
+puhtaasti testipenkin puoleista instrumentointia (ei muuta RTL:ää).
+
+- **Jokainen 7 tasosta vie täsmälleen 192 sykliä** ydinlaskentaan
+  (64 butterflya/lane × 3 sykliä/butterfly), riippumatta montako
+  erillistä ryhmää se tasolla jaetaan useammaksi peräkkäiseksi
+  askeleeksi - teoreettinen ennuste piti paikkansa jokaisella tasolla.
+- Ylikustannus per taso kasvaa lineaarisesti askelmäärän mukaan
+  (2 sykliä/käynnistys: level6/5 1×2, level4 2×4, level3 4×8,
+  level2 8×16, level1 16×32, level0 32×64).
+- **Pankkien käyttöaste täydellisesti tasan**: 896/896/896/896 luku+
+  kirjoitusta koko 7-tason ajon yli - vahvistaa 3a:n todistaman
+  64/64/64/64-tasapainon käytännössä koko NTT:n laajuudelta, ei vain
+  osoitejakauman rakenteena.
+- Kokonaissykliä: 1540 (2 eri satunnaissiementä, identtiset - sykliajat
+  eivät riipu datasta, vain ohjausrakenteesta, kuten odotettu).
+- **Rehellisesti dokumentoitu jäännös**: yksittäisten tasojen
+  ylikustannusten summa (2+2+4+8+16+32+64=128) EI täsmää mitattuun
+  kokonaisylikustannukseen (196) - 68 syklin ero jää selittämättä
+  (todennäköisesti resetointijakso ja/tai tasosiirtymien välinen aika,
+  joita ei seurattu erikseen). Ei korjattu eikä piiloteltu - raportoitu
+  sellaisenaan.
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken
