@@ -15,7 +15,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 2c-ii | Kaikki 7 tasoa, koko Kyber-NTT | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
 | M2 Vaihe 3a | Muodollinen SAT-todistus 4-pankkiselle kuvaukselle | ✅ TODENNETTU 2026-07-10, ks. [BANK_MAPPING_PROOF.md](BANK_MAPPING_PROOF.md) |
 | M2 Vaihe 3b | Yksi taso (6), oikea 4-pankkinen muisti RTL:ssä | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
-| M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ⛔ EI ALOITETTU |
+| M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
@@ -154,7 +154,7 @@ ei ajonaikaista aikataulutinta LAITTEISTOSSA (aikataulu ajetaan
 testipenkin/ohjelmiston toimesta, ei RTL:n omalla tilakoneella -
 "hardware scheduler" olisi oma, myöhempi laajennus).
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b -skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b/3c -skoopissa toteutettu)
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
@@ -190,6 +190,23 @@ sisällä luettua.
 
 Mitä 3b EI todista: ei kaikkia 7 tasoa (M2 Vaihe 3c:n laajuus), ei
 suorituskykyä/syklimääriä (M2 Vaihe 3d).
+
+**M2 Vaihe 3c:n todennus (2026-07-11):** Kaikki 7 tasoa, oikea
+4-pankkinen muisti kaikilla. `rtl/pqc_ntt_stage_banked.sv` - YKSI
+yleinen moduuli (yhdistää 2c-ii:n ajonaikaisen parametroinnin ja 3b:n
+4-pankkisen muistin + `always_comb`-korjauksen alusta asti). Käsittelee
+myös tason 6 samalla yleisellä rajapinnalla (base0=0, base1=64,
+pair_dist=128, molemmat lanet sama zeta) - ei enää erillistä
+level6-erikoismoduulia. YKSI moduuli-instanssi koko 7-tason ajolle -
+pankit säilyvät instanssin sisällä, ei tarvitse siirtää dataa kahden
+DUT:in välillä (toisin kuin 2c-ii, joka käytti kahta erillistä
+muistia). Sama aikataulutiedosto kuin 2c-ii:ssä.
+
+Todennus: kaikki 256 sanaa täsmäävät golden-malliin, 2 eri
+satunnaissiementä. Ajonaikainen konfliktintunnistus: 0 konfliktia
+kaikkien 448 nelikön yli (7 tasoa). Negatiivikontrolli: ROM rikottu
+-> 10 konfliktia havaittu, laskenta todistetusti hajoaa. PASS toistuu
+korjauksen palautuksen jälkeen.
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken
