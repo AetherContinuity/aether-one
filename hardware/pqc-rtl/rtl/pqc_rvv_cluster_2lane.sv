@@ -31,12 +31,14 @@ module lane_fsm #(
     input  logic [SPAD_AW-1:0] base_addr,
     input  logic [7:0] stride,
     input  logic [7:0] count,
-    input  logic [7:0] pair_dist = 8'd1,  // M2 Vaihe 2c: ajonaikainen
+    input  logic [7:0] pair_dist,  // M2 Vaihe 2c: ajonaikainen
         // paritusetaisyys (esim. 128/64/32/... eri NTT-tasoille).
-        // MUUTETTU parametrista portiksi 2026-07-10 - iverilog ei tue
-        // parametririippuvaista porttien oletusarvoa, siksi vakio-
-        // oletus 8'd1 (sailyttaa M1/M2 Vaihe 1:n instanssit muuttumattomina
-        // ilman eksplisiittista kytkentaa).
+        // MUUTETTU parametrista portiksi 2026-07-10 (ei enaa
+        // oletusarvoa 2026-07-11): Verilator EI TUE oletusarvoja
+        // moduulin porteille lainkaan (Unsupported: Default value on
+        // module input) - synteesikelpoisuustarkistuksessa loydetty.
+        // Kaikki instanssit (myos M1/M2 Vaihe 1) kytkevat pair_dist:n
+        // nyt eksplisiittisesti.
 
     output logic [SPAD_AW-1:0] mem_addr_a,
     output logic [SPAD_AW-1:0] mem_addr_b,
@@ -228,7 +230,7 @@ module pqc_rvv_cluster_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane0 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane0), .stride(stride), .count(count),
+    .base_addr(base_addr_lane0), .stride(stride), .count(count), .pair_dist(8'd1),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
@@ -239,7 +241,7 @@ module pqc_rvv_cluster_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane1 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane1), .stride(stride), .count(count),
+    .base_addr(base_addr_lane1), .stride(stride), .count(count), .pair_dist(8'd1),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),
