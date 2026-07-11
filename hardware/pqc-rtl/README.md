@@ -13,7 +13,10 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 2b | Yksi taso (level 6, 128 butterflya) RTL:ssa | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
 | M2 Vaihe 2c-i | Kaksi peräkkäistä tasoa (6→5), sama muisti, tasojen ketjutus | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
 | M2 Vaihe 2c-ii | Kaikki 7 tasoa, koko Kyber-NTT | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
-| M2 Vaihe 3 | Neljä muistipankkia, oikea osoitus, konfliktinhallinta | ⛔ EI ALOITETTU |
+| M2 Vaihe 3a | Muodollinen SAT-todistus 4-pankkiselle kuvaukselle | ✅ TODENNETTU 2026-07-10, ks. [BANK_MAPPING_PROOF.md](BANK_MAPPING_PROOF.md) |
+| M2 Vaihe 3b | Yksi taso (6), oikea 4-pankkinen muisti RTL:ssä | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
+| M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ⛔ EI ALOITETTU |
+| M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -151,7 +154,42 @@ ei ajonaikaista aikataulutinta LAITTEISTOSSA (aikataulu ajetaan
 testipenkin/ohjelmiston toimesta, ei RTL:n omalla tilakoneella -
 "hardware scheduler" olisi oma, myöhempi laajennus).
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii -skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b -skoopissa toteutettu)
+
+**M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
+(`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
+ROM-kuvausta (`m2-golden/bank_rom_4banks.memh` + `bank_local_4banks.memh`).
+Ei muuta `lane_fsm`:aa (`pqc_rvv_cluster_2lane.sv`) - käyttää sitä
+muuttumattomana. Sama laskenta kuin 2b:ssä, uusi asia on itse
+muistireititys.
+
+**Todennus kolmiosaisena:**
+1. Kaikki 256 sanaa täsmäävät 2b:n omaan golden-malliin (sama laskenta,
+   eri muistireititys), 2 eri satunnaissiementä.
+2. **Ajonaikainen konfliktintunnistus**: jokaisella syklillä tarkistetaan
+   erikseen (ei vain oleteta 3a:n todistuksen perusteella) etteivät
+   molemmat lanet koskaan osu samaan pankkiin. Nolla konfliktia koko
+   ajon aikana - 3a:n offline (Z3) todistus vahvistuu myös oikeasti
+   ajetussa RTL:ssä.
+3. Negatiivikontrolli: ROM tahallaan rikottu (pakotettu osoite 64
+   samaan pankkiin kuin osoite 0) -> ajonaikainen tarkistus havaitsee
+   2 konfliktia, ja laskenta todistetusti hajoaa (5 väärää tulosta) -
+   konfliktintunnistus ei ole vain koriste, se havaitsee aidon virheen.
+
+**Matkalla löytyi ja korjattiin Icarus Verilog -spesifinen ongelma**
+(ei looginen suunnitteluvirhe): alkuperäinen lukulogiikka käytti
+jatkuvaa sijoitusta (`assign rdata_a0 = read_bank(...)`) automaattista
+funktiota kutsuen. Tämä EI päivittynyt oikein kun VAIN pankkitaulukon
+sisältö muuttui (esim. toisen lanen kirjoitus) - iverilog seurasi vain
+funktion omien argumenttien (pankki-indeksi, paikallinen osoite)
+muutoksia, ei niiden SISÄLLÄ luettuja taulukkoalkioita. Aiheutti sen
+että ensimmäisen butterflyn (idx=0) lukema jäi `x`:ksi koko sen
+käsittelyn ajan, tuottaen väärän (nolla) tuloksen juuri niille neljälle
+osoitteelle. Korjattu `always_comb`-lohkolla, joka seuraa oikein kaikkea
+sisällä luettua.
+
+Mitä 3b EI todista: ei kaikkia 7 tasoa (M2 Vaihe 3c:n laajuus), ei
+suorituskykyä/syklimääriä (M2 Vaihe 3d).
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken
