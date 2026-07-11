@@ -152,3 +152,6 @@ hardware/pqc-rtl/oqs-rvv-provider/test_keymgmt_provider
 hardware/pqc-rtl/oqs-rvv-provider/*.o
 hardware/pqc-rtl/oqs-rvv-provider/test_signature_provider
 hardware/pqc-rtl/oqs-rvv-provider/test_full_provider_query
+hardware/pqc-rtl/vectors/chain_zetas.txt
+hardware/pqc-rtl/sim/*
+!hardware/pqc-rtl/sim/.gitkeep
