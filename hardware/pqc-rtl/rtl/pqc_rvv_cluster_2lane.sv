@@ -23,7 +23,10 @@ module lane_fsm #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 15,
     parameter int Q       = 3329,
-    parameter int QINV    = 62209
+    parameter int QINV    = 62209,
+    parameter int PAIR_DIST = 1  // M2 Vaihe 2b: oikean NTT-tason parietaisyys
+                                  // (esim. 128 tasolle 6) - oletus 1 sailyttaa
+                                  // M1/M2 Vaihe 1:n kayttayksen muuttumattomana
 )(
     input  logic clk,
     input  logic reset,
@@ -62,18 +65,31 @@ module lane_fsm #(
   logic [COEFF_W-1:0] ap_reg, bp_reg;
 
   assign mem_addr_a  = base_addr + idx * stride;
-  assign mem_addr_b  = mem_addr_a + 1;
+  assign mem_addr_b  = mem_addr_a + PAIR_DIST;
   assign mem_wdata_a = ap_reg;
   assign mem_wdata_b = bp_reg;
 
+  // Tasmalleen pq-crystals/kyber ref/reduce.c:
+  //   t = (int16_t)a*QINV;
+  //   t = (a - (int32_t)t*KYBER_Q) >> 16;
+  // KORJATTU 2026-07-10: alkuperainen versio kaytti VAARAA operaattoria
+  // (yhteenlasku, etumerkiton tulkinta) - QINV=62209 oli aina oikea
+  // Kyberin omalle referenssikaavalle, mutta kaava itse ei tasmannyt.
+  // Todennettu tayden Kyber-referenssin ("QINV" GitHub) tekstia vasten
+  // ennen korjausta, ei vain paateltyna.
   function automatic [COEFF_W-1:0] montgomery_reduce(input int unsigned a);
-    int unsigned u, t;
+    logic signed [15:0] a_lo;
+    logic signed [15:0] t16;
+    logic signed [31:0] prod;
+    logic signed [31:0] result;
     begin
-      u = (a & 16'hFFFF) * QINV;
-      u = u & 16'hFFFF;
-      t = (a + u * Q) >> 16;
-      if (t >= Q) t = t - Q;
-      montgomery_reduce = t[COEFF_W-1:0];
+      a_lo   = a[15:0];
+      t16    = a_lo * $signed(16'(QINV));
+      prod   = $signed(t16) * Q;
+      result = ($signed({1'b0, a}) - prod) >>> 16;
+      if (result < 0) result = result + Q;
+      else if (result >= Q) result = result - Q;
+      montgomery_reduce = result[COEFF_W-1:0];
     end
   endfunction
 

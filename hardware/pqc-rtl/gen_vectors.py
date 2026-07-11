@@ -17,11 +17,15 @@ QINV = 62209
 COUNT = 16
 
 def montgomery_reduce(a: int) -> int:
-    u = ((a & (R - 1)) * QINV) & (R - 1)
-    t = (a + u * Q) >> 16
-    if t >= Q:
-        t -= Q
-    return t
+    """Tasmalleen pq-crystals/kyber ref/reduce.c (t=(int16_t)a*QINV;
+    t=(a-(int32_t)t*KYBER_Q)>>16). KORJATTU 2026-07-10: alkuperainen
+    versio kaytti vaaraa operaattoria (yhteenlasku), QINV=62209 oli
+    aina oikea mutta kaava ei tasmannyt referenssiin."""
+    t16 = (a * QINV) & 0xFFFF
+    if t16 >= 32768:
+        t16 -= 65536
+    t = (a - t16 * Q) >> 16
+    return t % Q
 
 def butterfly(a: int, b: int, zeta: int):
     t = montgomery_reduce(b * zeta)

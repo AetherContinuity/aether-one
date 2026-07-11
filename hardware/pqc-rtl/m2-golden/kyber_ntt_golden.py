@@ -184,3 +184,19 @@ if __name__ == "__main__":
     else:
         print(f"FAIL: {errors} testijoukkoa epaonnistui")
         exit(1)
+
+
+def ntt_level6_only(f: list[int]) -> list[int]:
+    """Eristetty YKSI taso (level 6, length=128) taydesta ntt()-funktiosta.
+    FIPS 203:n paasilmukan ENSIMMAINEN iteraatio (length=128, k=1..1,
+    yksi ryhma start=0). Sama koodi kuin ntt():n alku, mutta pysahtyy
+    yhden tason jalkeen - M2 Vaihe 2b:n RTL-tason pitaa tuottaa
+    TASMALLEEN tama valitulos."""
+    f = list(f)
+    length = 128
+    zeta = pow(ZETA, bitrev7(1), Q)  # k=1, ainoa zeta talla tasolla
+    for j in range(0, length):
+        t = (zeta * f[j + length]) % Q
+        f[j + length] = (f[j] - t) % Q
+        f[j] = (f[j] + t) % Q
+    return f, zeta

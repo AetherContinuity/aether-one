@@ -43,6 +43,11 @@ python3 kyber_ntt_golden.py
 
 ## Seuraava askel (M2 Vaihe 2b)
 
+**VALMIS 2026-07-10**, ks. `../rtl/pqc_ntt_level6_2lane.sv` ja
+`../README.md`:n "M2 Vaihe 2b" -osio. Matkalla löytyi ja korjattiin
+merkittävä Montgomery-aritmetiikkavirhe M1:n perustasta - ks.
+`../MONTGOMERY_FIX_NOTE.md`.
+
 Laajennus M2 Vaihe 1:n toimivasta yhden-tason-16-butterflyn RTL-
 rakenteesta: yksi taso (level 6, 128 butterflya, ensimmäinen taso)
 tästä 7-tasoisesta mallista, testattuna tätä golden-mallia vasten.
