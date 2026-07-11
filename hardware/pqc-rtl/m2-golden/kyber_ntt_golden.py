@@ -200,3 +200,22 @@ def ntt_level6_only(f: list[int]) -> list[int]:
         f[j + length] = (f[j] - t) % Q
         f[j] = (f[j] + t) % Q
     return f, zeta
+
+
+def ntt_level5_only(f: list[int]):
+    """Eristetty taso 5 (length=64) - KAKSI ryhmaa (start=0, start=128),
+    ERI zeta kummallekin (k=2 ja k=3). Sovelletaan tason 6 tuloksen
+    paalle (kutsujan vastuulla antaa oikea syote)."""
+    f = list(f)
+    length = 64
+    zeta_g0 = pow(ZETA, bitrev7(2), Q)
+    zeta_g1 = pow(ZETA, bitrev7(3), Q)
+    for j in range(0, length):
+        t = (zeta_g0 * f[j + length]) % Q
+        f[j + length] = (f[j] - t) % Q
+        f[j] = (f[j] + t) % Q
+    for j in range(128, 128 + length):
+        t = (zeta_g1 * f[j + length]) % Q
+        f[j + length] = (f[j] - t) % Q
+        f[j] = (f[j] + t) % Q
+    return f, zeta_g0, zeta_g1

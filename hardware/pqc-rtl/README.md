@@ -11,7 +11,8 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 1 | Per-butterfly zeta-indeksointi | ✅ TODENNETTU 2026-07-10, ks. rajaus alla. Sama Montgomery-korjaus koskee tata |
 | M2 Vaihe 2a | Python-golden-malli: 7-tason Kyber-NTT + BaseCaseMultiply | ✅ TODENNETTU 2026-07-10, ks. `m2-golden/README.md` |
 | M2 Vaihe 2b | Yksi taso (level 6, 128 butterflya) RTL:ssa | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
-| M2 Vaihe 2c | Kaikki 7 tasoa RTL:ssa | ⛔ EI ALOITETTU |
+| M2 Vaihe 2c-i | Kaksi peräkkäistä tasoa (6→5), sama muisti, tasojen ketjutus | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
+| M2 Vaihe 2c-ii | Kaikki 7 tasoa | ⛔ EI ALOITETTU |
 | M2 Vaihe 3 | Neljä muistipankkia, oikea osoitus, konfliktinhallinta | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
@@ -93,14 +94,40 @@ Mitä 2b EI todista: ei toisen lanen omaa zeta-aluetta (molemmat
 käyttävät samaa vakiozetaa, oikein tälle tasolle), ei muita 6 tasoa,
 ei muistin banking-järjestelmää.
 
-Seuraava askel M2 Vaihe 2c:hen: laajenna kaikkiin 7 tasoon (level 6..0),
+**M2 Vaihe 2c-i:n todennus (2026-07-10):** Kaksi peräkkäistä tasoa
+(level 6 → level 5), sama muisti, `rtl/pqc_ntt_stage_2lane.sv` - UUSI,
+YLEINEN moduuli (ei muuta `pqc_rvv_cluster_2lane.sv`:a eika
+`pqc_ntt_level6_2lane.sv`:a). `pair_dist` muutettu `lane_fsm`:n
+compile-time-parametrista AJONAIKAISEKSI PORTIKSI (oletus 8'd1,
+sailyttaa kaikki aiemmat instanssit muuttumattomina ilman eksplisiittista
+kytkentaa - iverilog ei tue parametririippuvaista porttien oletusarvoa,
+siksi vakio-oletus).
+
+**Matkalla loytyi toinen merkittava, aiemmin piilossa ollut bugi:**
+`lane_fsm`:n `S_DONE`-tila oli pysyva lopputila - ei koskaan palannut
+`S_IDLE`:hen, joten toinen `start`-pulssi ei koskaan kaynnistanyt uutta
+ajoa samassa simulaatiossa. Ei huomattu aiemmin koska M1/Vaihe 1/2b
+kayttivat moduulia vain KERRAN per simulaatio - 2c-i on ensimmainen
+testi joka ajaa saman moduulin kahdesti peräkkäin. Korjattu:
+`S_DONE` palaa nyt `S_IDLE`:hen yhden syklin jalkeen.
+
+Todennus: (1) VALITILA tarkistettu erikseen heti tason 6 jalkeen ennen
+tason 5 ajoa (ei vain lopputulosta - deterministinen ketju voisi
+teoriassa nayttaa oikealta lopussa vaikka valivaihe olisi vaara), (2)
+LOPPUTILA tason 5 jalkeen, molemmat bittitarkkoja 2a:n golden-malliin
+nahden, 2 eri satunnaissiementa. Negatiivikontrolli: tason 5 kahden
+ryhman zeta-arvot vaihdettu tahallaan ristiin lanejen valilla ->
+256/256 sanaa vaarin - lane<->ryhma<->zeta-yhdistys on todistetusti
+merkityksellinen.
+
+Seuraava askel M2 Vaihe 2c-ii:hen: laajenna kaikkiin 7 tasoon (level 6..0),
 kukin tasolla oma zeta-avaruus ja globaali butterfly-asemointi. Sama
 testifilosofia. Vasta tämän jälkeen M2 Vaihe 3 (neljä pankkia, oikea
 osoitus, konfliktinhallinta) - laskennan pitää olla todistetusti oikein
 ennen muistiosajärjestelmän monimutkaistamista, jotta virheen lähde
 (matematiikka vs. muistiohjaus) pysyy erotettavissa.
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b -skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i -skoopissa toteutettu)
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken

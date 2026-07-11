@@ -23,10 +23,7 @@ module lane_fsm #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 15,
     parameter int Q       = 3329,
-    parameter int QINV    = 62209,
-    parameter int PAIR_DIST = 1  // M2 Vaihe 2b: oikean NTT-tason parietaisyys
-                                  // (esim. 128 tasolle 6) - oletus 1 sailyttaa
-                                  // M1/M2 Vaihe 1:n kayttayksen muuttumattomana
+    parameter int QINV    = 62209
 )(
     input  logic clk,
     input  logic reset,
@@ -34,6 +31,12 @@ module lane_fsm #(
     input  logic [SPAD_AW-1:0] base_addr,
     input  logic [7:0] stride,
     input  logic [7:0] count,
+    input  logic [7:0] pair_dist = 8'd1,  // M2 Vaihe 2c: ajonaikainen
+        // paritusetaisyys (esim. 128/64/32/... eri NTT-tasoille).
+        // MUUTETTU parametrista portiksi 2026-07-10 - iverilog ei tue
+        // parametririippuvaista porttien oletusarvoa, siksi vakio-
+        // oletus 8'd1 (sailyttaa M1/M2 Vaihe 1:n instanssit muuttumattomina
+        // ilman eksplisiittista kytkentaa).
 
     output logic [SPAD_AW-1:0] mem_addr_a,
     output logic [SPAD_AW-1:0] mem_addr_b,
@@ -65,7 +68,7 @@ module lane_fsm #(
   logic [COEFF_W-1:0] ap_reg, bp_reg;
 
   assign mem_addr_a  = base_addr + idx * stride;
-  assign mem_addr_b  = mem_addr_a + PAIR_DIST;
+  assign mem_addr_b  = mem_addr_a + pair_dist;
   assign mem_wdata_a = ap_reg;
   assign mem_wdata_b = bp_reg;
 
@@ -162,7 +165,15 @@ module lane_fsm #(
           end
         end
 
-        S_DONE: done <= 1'b1;
+        S_DONE: begin
+          done  <= 1'b1;
+          state <= S_IDLE;  // KORJATTU 2026-07-10: S_DONE oli pysyva
+              // lopputila, ei koskaan palannut S_IDLE:hen - toinen
+              // start-pulssi ei koskaan kaynnistanyt uutta ajoa. Ei
+              // huomattu aiemmin koska M1/Vaihe1/2b kayttivat moduulia
+              // vain kerran per simulaatio (ks. M2 Vaihe 2c-i, jossa
+              // sama moduuli ajetaan kahdesti peräkkäin).
+        end
 
         default: state <= S_IDLE;
       endcase
