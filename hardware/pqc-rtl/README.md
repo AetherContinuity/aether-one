@@ -12,7 +12,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 2a | Python-golden-malli: 7-tason Kyber-NTT + BaseCaseMultiply | ✅ TODENNETTU 2026-07-10, ks. `m2-golden/README.md` |
 | M2 Vaihe 2b | Yksi taso (level 6, 128 butterflya) RTL:ssa | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
 | M2 Vaihe 2c-i | Kaksi peräkkäistä tasoa (6→5), sama muisti, tasojen ketjutus | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
-| M2 Vaihe 2c-ii | Kaikki 7 tasoa | ⛔ EI ALOITETTU |
+| M2 Vaihe 2c-ii | Kaikki 7 tasoa, koko Kyber-NTT | ✅ TODENNETTU 2026-07-10, ks. rajaus alla |
 | M2 Vaihe 3 | Neljä muistipankkia, oikea osoitus, konfliktinhallinta | ⛔ EI ALOITETTU |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
@@ -127,7 +127,31 @@ osoitus, konfliktinhallinta) - laskennan pitää olla todistetusti oikein
 ennen muistiosajärjestelmän monimutkaistamista, jotta virheen lähde
 (matematiikka vs. muistiohjaus) pysyy erotettavissa.
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i -skoopissa toteutettu)
+**M2 Vaihe 2c-ii:n todennus (2026-07-10):** Koko 7-tasoinen Kyber-NTT.
+Arkkitehtoninen periaate: `m2-golden/gen_full_ntt_vectors.py` generoi
+TARKAN AIKATAULUN (taso, ryhmäpari, osoitteet, zetat) suoraan samasta
+silmukkarakenteesta jota jo riippumattomasti todennettu `ntt()`-funktio
+kayttaa - ei erillista, käsin johdettua osoite/zeta-logiikkaa RTL-
+testipenkin puolella, jotta kaksi kielta eivät voi laskea samaa asiaa
+hienovaraisesti eri tavalla. Taso 6 (1 ryhmä, pariton) ajetaan olemassa
+olevalla `pqc_ntt_level6_2lane`-moduulilla (ei muuteta). Tasot 5..0
+(kaikki parilliset ryhmämäärät: 2/4/8/16/32/64) ajetaan
+`pqc_ntt_stage_2lane`-moduulilla TOISTUVASTI, 63 ryhmäparia yhteensä,
+lukien parametrit (`pair_dist`, `base_addr`, `zeta`) suoraan
+aikataulutiedostosta.
+
+Todennus: kaikki 256 sanaa täsmäävät `ntt()`-golden-malliin bittitarkasti,
+2 eri satunnaissiementä. Negatiivikontrolli: taso 6 ohitettu tahallaan
+(tasot 5..0 ajettu suoraan raa'alle syötteelle) -> 256/256 sanaa väärin -
+taso 6 on todistetusti välttämätön osa ketjua, ei redundantti.
+
+Mitä 2c-ii EI todista: ei muistin banking-järjestelmää (M2 Vaihe 3:n
+laajuus - tässä käytetään yhtä isoa muistitaulukkoa, ei neljää pankkia),
+ei ajonaikaista aikataulutinta LAITTEISTOSSA (aikataulu ajetaan
+testipenkin/ohjelmiston toimesta, ei RTL:n omalla tilakoneella -
+"hardware scheduler" olisi oma, myöhempi laajennus).
+
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii -skoopissa toteutettu)
 
 - Montgomery-reduktio (behavioral, ei pipelinoitu)
 - Yksi jaettu pankki (bank0), round-robin-arbitroitu 2 lanen kesken

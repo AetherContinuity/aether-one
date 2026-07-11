@@ -155,3 +155,5 @@ hardware/pqc-rtl/oqs-rvv-provider/test_full_provider_query
 hardware/pqc-rtl/vectors/chain_zetas.txt
 hardware/pqc-rtl/sim/*
 !hardware/pqc-rtl/sim/.gitkeep
+hardware/pqc-rtl/vectors/full_schedule.txt
+hardware/pqc-rtl/vectors/full_level6_zeta.txt
