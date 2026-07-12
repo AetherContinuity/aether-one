@@ -115,3 +115,41 @@ Toteuta Vaihtoehto A ensin YHDELLE d-arvolle (esim. d=1, pienin ja
 yksinkertaisin) taydellisella todennuksella (golden-malli, negatiivi-
 kontrolli) ennen muiden d-arvojen lisaamista - sama pienten askelten
 periaate kuin M2/M3:ssa muutenkin.
+
+## 7. LOPPUTULOS (2026-07-12) — todellinen juurisyy loydetty, ei arvailu
+
+d=1 toteutettiin Vaihtoehto A:n mukaisesti (genvar/generate), mutta
+EPAONNISTUI TAYSIN samalla tavalla kuin yritys 1 - KAIKKI ulostulot
+'x':aa jopa yksinkertaisimmalla testitapauksella. Tama oli yllattavaa
+(§5:n oletus oli etta genvar valttaisi ongelman) ja johti taydelliseen
+eristykseen:
+
+**Todistettu, EI enaa hypoteesi:** Icarus Verilog (tama versio) EI
+valita unpacked-taulukkoa ("logic x [0:N]") oikein moduulin PORTIN lapi
+- vastaanottava puoli saa AINA 'x':n, riippumatta sisaisesta logiikasta
+(assign, generate, always_comb - kaikki testattu erikseen minimi-
+esimerkilla) tai elementin leveydesta (testattu seka 1-bittisella
+etta 16-bittisella elementilla). SAMASSA scopessa (ei porttia) TAI
+hierarkkisen pistoksen kautta (`dut.signal[i] = ...`, kuten M2:n
+testipenkit tekevat) unpacked-taulukko toimii TAYDELLISESTI.
+
+Tama selittaa TAYDELLISESTI seka yritys 1:n etta d=1-genvar-yrityksen
+epaonnistumisen - molemmat kayttivat unpacked-taulukkoa PORTTINA.
+Selittaa myos miksi mikaan M2:n moduuli ei koskaan tormannyt tahan:
+M2 kaytti joko yksittaisia leveita arvoja portteina (esim.
+pqc_basecasemul.sv) TAI piti taulukot sisaisina signaaleina joihin
+testipenkki pistaa hierarkkisesti (pqc_ntt_stage_banked.sv:n bank0
+jne.) - ei koskaan unpacked-taulukkoa suoraan porttina.
+
+**Korjaus, todistettu toimivaksi:** portit PAKATTUINA vektoreina
+("logic [N-1:0]"), ei unpacked-taulukkoina. d=1:lle: `logic [255:0]
+f_in` (256 bittia yhtena bussina), viipaloituna tarvittaessa
+`[i +: 1]` tai `[i*8 +: 8]`. Toteutettu `pqc_byteencode_d1.sv`:ssa,
+todennettu 10 testitapauksella + negatiivikontrollilla (seka
+porttiyhteyden etta itse logiikan rikkomiskoe).
+
+**Yleinen periaate jatkoa varten (kaikki tuleva RTL, ei vain
+ByteEncode/Decode):** kun moduulin portti tarvitsee kuljettaa useamman
+elementin taulukon, kayta PAKATTUA vektoria ("logic [N-1:0]") ja
+viipaloi sisaisesti - ala kayta unpacked-taulukkoa ("logic x [0:N]")
+porttina tassa iverilog-versiossa.

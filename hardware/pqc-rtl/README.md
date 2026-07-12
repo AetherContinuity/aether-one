@@ -19,6 +19,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
+| **M3 · Issue #7** | ByteEncode1 / ByteDecode1 RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla (vain d=1 - d=4,5,10,11,12 avoinna) |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -190,6 +191,32 @@ Todennus: 1000 Compress- ja 3122 Decompress-testitapausta (Decompress:
 TAYDELLINEN kattavuus jokaiselle d:lle, ei satunnaisotos), kaikki
 bittitarkkoja. Negatiivikontrolli: Compress/Decompress-kaavat vaihdettu
 tahallaan ristiin -> 4120/4122 virhetta, testi kaatuu oikein.
+
+**M3 Issue #7:n todennus (2026-07-12) — ByteEncode1/ByteDecode1 RTL:ssä,
+d=1 (d=4,5,10,11,12 avoinna):** `rtl/pqc_byteencode_d1.sv`.
+
+**TARKEA, TAYDELLISESTI TODISTETTU LOYDOS:** Icarus Verilog EI valita
+unpacked-taulukkoa ("logic x [0:N]") oikein moduulin PORTIN lapi -
+vastaanottava puoli saa AINA 'x':n riippumatta sisaisesta logiikasta
+tai elementin leveydesta. Todistettu taydellisesti eristetylla
+minimiesimerkilla (8 alkion kopiointi, assign/generate/always_comb,
+1-bittinen ja 16-bittinen elementti - kaikki epaonnistuivat samoin).
+SAMASSA scopessa tai hierarkkisen pistoksen kautta (kuten M2:n
+testipenkit tekevat) unpacked-taulukko toimii taydellisesti - ongelma
+on spesifisesti porttiyhteydessa. Tama selittaa TAYDELLISESTI kaikki
+taman session ByteEncode/Decode-epaonnistumiset. Ks.
+M3_BYTEENCODE_DESIGN_NOTE.md §7 taydelliselle analyysille.
+
+**Korjaus:** portit PAKATTUINA vektoreina ("logic [N-1:0]"), ei
+unpacked-taulukkoina. **Yleinen periaate kaikelle tulevalle RTL:lle**:
+kun portin pitaa kuljettaa useamman elementin taulukko, kayta pakattua
+vektoria, ei unpacked-taulukkoa, tassa iverilog-versiossa.
+
+Todennus: 10 testitapausta golden-mallista, bittitarkkoja.
+Negatiivikontrolli (kaksiosainen): (1) porttiyhteyden oma toimivuus
+todistettu erillisella minimiesimerkilla ennen korjausta, (2)
+itse logiikka rikottu tahallaan (invertoitu ByteEncode1:n tulos)
+-> 10/10 virhetta, testi kaatuu oikein.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
