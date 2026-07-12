@@ -167,3 +167,4 @@ hardware/pqc-rtl/vectors/byteencode_d10_packed_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d11_packed_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d12_packed_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d12_edge_vectors.txt
+hardware/pqc-rtl/vectors/multiplyntts_vectors.txt

@@ -20,6 +20,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #7** | ByteEncode_d / ByteDecode_d RTL:ssä | ✅ TODENNETTU 2026-07-12 kaikille d=1,4,5,10,11,12 - ks. rajaus alla |
+| **M3 · Issue #8 (esityo)** | MultiplyNTTs RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -242,6 +243,24 @@ d=12:n ByteDecodesta -> 11 virhetta, testi kaatuu oikein.
 
 **Issue #7 kokonaisuudessaan valmis: kaikki 6 tarvittavaa d-arvoa
 (1,4,5,10,11,12) todennettu.**
+
+**M3 Issue #8:n esityo (2026-07-12) — MultiplyNTTs:** `rtl/pqc_multiplyntts.sv`.
+Uudelleenkayttaa jo todennetun `pqc_basecasemul`-moduulin (Issue #1)
+suoraan, 128 genvar-generoitua instanssia, gamma-arvot ROM:ista
+(m2-golden/multiplyntts_gamma_rom.memh, generoitu golden-mallista -
+gamma_i = zeta^(2*BitRev7(i)+1) mod q, FIPS 203 Appendix A toinen
+taulukko). Portit PAKATTUINA vektoreina (Issue #7:n oma korjattu
+periaate).
+
+Todennus: 5 testitapausta golden-mallista (kayttaa suoraan jo
+konvoluutiolauseella todennettua `multiply_ntts`-funktiota, M2 Vaihe
+2a:sta), bittitarkkoja. Negatiivikontrolli (kaksiosainen): (1) yksi
+f_hat-alkio muutettu, h_hat muuttuu todistetusti, (2) yksi gamma-arvo
+ROM:ssa rikottu tahallaan -> 6 virhetta, testi kaatuu oikein.
+
+Tama on valmis rakennuspalikka K-PKE.Decryptin kokoonpanolle (Issue #8
+paaosa) - kaikki tarvittavat palikat (NTT, BaseCaseMultiply/MultiplyNTTs,
+Compress/Decompress, ByteEncode/Decode) ovat nyt olemassa ja todennettu.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
