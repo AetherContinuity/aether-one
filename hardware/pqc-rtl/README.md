@@ -18,6 +18,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
+| **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -176,6 +177,19 @@ Mita talla EI todisteta: ei synteesikelpoisuutta (`%`-operaattori ei
 synteesoidu suoraan taksi jaollisena piirina - synteesikelpoinen
 Barrett/Montgomery-reduktio on erillinen, myohempi tyo). Ei viela
 kytketty NTT-putken paahaan (encapsulation/decapsulation).
+
+**M3 Issue #6:n todennus (2026-07-12) — Compress_d/Decompress_d RTL:ssä:**
+`rtl/pqc_compress.sv`. Pyoristys FIPS 203:n lopullisen tekstin
+(ei .ipd-luonnoksen, jossa oli dokumentoitu epaselvyys reunatapauksissa
+- ks. M3_DESIGN_NOTE.md) mukainen round-half-up-maaritelma, vahvistettu
+FIPS 203:n oman dokumentoidun ominaisuuden (Compress_d(Decompress_d(y))==y)
+kautta TAYDELLISESTI (ei otanta) kaikilla d=1,4,5,10,11 ja kaikilla
+mahdollisilla y-arvoilla ennen RTL:n kirjoittamista.
+
+Todennus: 1000 Compress- ja 3122 Decompress-testitapausta (Decompress:
+TAYDELLINEN kattavuus jokaiselle d:lle, ei satunnaisotos), kaikki
+bittitarkkoja. Negatiivikontrolli: Compress/Decompress-kaavat vaihdettu
+tahallaan ristiin -> 4120/4122 virhetta, testi kaatuu oikein.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua

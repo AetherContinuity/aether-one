@@ -18,17 +18,20 @@ Jarjestyksessä spesifikaation oman rakenteen mukaan:
 
 | # | Algoritmi | Riippuvuus | Tila |
 |---|---|---|---|
-| 4 | ByteEncode_d | ei mitaan (puhdas bittipakkaus) | EI ALOITETTU |
-| 5 | ByteDecode_d | ei mitaan (puhdas bittipurku) | EI ALOITETTU |
-| — | Compress_d / Decompress_d | ei mitaan (puhdas skaalaus+pyoristys) | EI ALOITETTU |
-| 6 | SampleNTT(B) | XOF (SHAKE128) ulostulo | **RIIPPUU KECCAKISTA** |
-| 7 | SamplePolyCBD_eta(B) | PRF (SHAKE256) ulostulo | **RIIPPUU KECCAKISTA** |
+| 3 | BitsToBytes(b) | ei mitaan | EI ALOITETTU (pieni apufunktio) |
+| 4 | BytesToBits(B) | ei mitaan | EI ALOITETTU (pieni apufunktio) |
+| 5 | ByteEncode_d(F) | BitsToBytes | EI ALOITETTU |
+| 6 | ByteDecode_d(B) | BytesToBits | EI ALOITETTU |
+| — | Compress_d / Decompress_d | ei mitaan (round-half-up: FIPS 203:n oma maaritelma, x=y+1/2 -> y+1) | EI ALOITETTU |
+| 7 | SampleNTT(B) | XOF (SHAKE128) ulostulo | **RIIPPUU KECCAKISTA** |
+| 8 | SamplePolyCBD_eta(B) | PRF (SHAKE256) ulostulo | **RIIPPUU KECCAKISTA** |
 | 9 | NTT(f) | - | ✅ VALMIS (M2) |
 | 10 | NTT^-1(f_hat) | - | ✅ VALMIS (M2) |
-| — | BaseCaseMultiply | - | ✅ VALMIS (M3 #1) |
+| 11 | MultiplyNTTs(f_hat,g_hat) | BaseCaseMultiply x128 | osittain valmis (rakennuspalikka valmis, kokoonpano ei) |
+| 12 | BaseCaseMultiply | - | ✅ VALMIS (M3 #1) |
 | 13 | K-PKE.KeyGen(d) | SampleNTT, SamplePolyCBD, NTT, G (SHA3-512) | RIIPPUU KECCAKISTA |
-| 14 | K-PKE.Encrypt(ek,m,r) | SampleNTT, SamplePolyCBD, NTT, BaseCaseMultiply, Compress | RIIPPUU KECCAKISTA |
-| 15 | K-PKE.Decrypt(dk,c) | NTT, BaseCaseMultiply, Decompress | EI RIIPU KECCAKISTA (!) |
+| 14 | K-PKE.Encrypt(ek,m,r) | SampleNTT, SamplePolyCBD, NTT, MultiplyNTTs, Compress | RIIPPUU KECCAKISTA |
+| 15 | K-PKE.Decrypt(dk,c) | ByteDecode, Decompress, ByteDecode12, NTT, MultiplyNTTs(xK)+summaus, NTT^-1, Compress1, ByteEncode1 | EI RIIPU KECCAKISTA (!) |
 | 16 | ML-KEM.KeyGen_internal | K-PKE.KeyGen, H (SHA3-256) | RIIPPUU KECCAKISTA |
 | — | ML-KEM.Encaps/Decaps_internal | K-PKE.*, G, H, J (SHAKE256) | RIIPPUU KECCAKISTA |
 
@@ -36,6 +39,15 @@ Jarjestyksessä spesifikaation oman rakenteen mukaan:
 SHAKE128, SHAKE256** (kaikki Keccak-permutaation paalle rakennettuja).
 Tata ei ole viela toteutettu missaan muodossa taman projektin RTL-
 puolella.
+
+**Tarkennus K-PKE.Decryptin laajuudesta** (vahvistettu FIPS 203:n
+lopullisesta tekstista, Algoritmi 15): "pistetulo" `s^T ∘ NTT(u')` ei
+ole yksi BaseCaseMultiply-kutsu, vaan K:n (parametrista riippuen 2,3
+tai 4) MultiplyNTTs-tuloksen (kukin 128 BaseCaseMultiply-kutsua)
+YHTEENLASKU Tq-renkaassa (koordinaatittainen yhteenlasku, triviaali
+kun NTT-domain-vektorit ovat olemassa) ennen yhta NTT^-1-kutsua. Tama
+kokoonpano (K:n MultiplyNTTs + summaus) on oma pieni tyonsa, ei
+automaattisesti mukana BaseCaseMultiplyn (M3 #1) omassa laajuudessa.
 
 ## 3. Kaksi riippumatonta tyohaaraa
 
