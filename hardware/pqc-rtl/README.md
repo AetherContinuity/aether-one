@@ -20,7 +20,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #7** | ByteEncode_d / ByteDecode_d RTL:ssä | ✅ TODENNETTU 2026-07-12 kaikille d=1,4,5,10,11,12 - ks. rajaus alla |
-| **M3 · Issue #8 (esityo)** | MultiplyNTTs RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #8** | K-PKE.Decrypt kokonaisuudessaan (k=2, du=10, dv=4) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -261,6 +261,29 @@ ROM:ssa rikottu tahallaan -> 6 virhetta, testi kaatuu oikein.
 Tama on valmis rakennuspalikka K-PKE.Decryptin kokoonpanolle (Issue #8
 paaosa) - kaikki tarvittavat palikat (NTT, BaseCaseMultiply/MultiplyNTTs,
 Compress/Decompress, ByteEncode/Decode) ovat nyt olemassa ja todennettu.
+
+**M3 Issue #8:n loppuunsaattaminen (2026-07-12) — koko K-PKE.Decrypt
+paasta paahan:** `tb/pqc_kpke_decrypt_full_tb.sv`. Yhdistaa kaikki
+neljä vaihetta (kayttajan ehdottama vaiheistus):
+- Vaihe 1: ByteDecode+Decompress -> u', v'
+- Vaihe 2: NTT(u') + MultiplyNTTs + polyadd -> sum_hat
+- Vaihe 3: NTT^-1 + final_scale -> inner (ks. NTT_INVERSE_DESIGN_NOTE.md)
+- Vaihe 4: polysub (w=v'-inner), Compress1, ByteEncode1 -> m
+
+Kaksi uutta pientä rakennuspalikkaa: `pqc_polysub.sv` (mod-q-vahennys,
+sama rakenne kuin polyadd) ja `pqc_batch_compress.sv` (256 rinnakkaista
+pqc_compress-instanssia Compress-suuntaan, taydentaa Vaihe 1:n
+pqc_batch_decompress.sv:n).
+
+Testattu k=2, du=10, dv=4 (ML-KEM-512) kiintealla testiavaimella (ei
+KeyGen/Encrypt - vaativat Keccakia, Issue #9). PASS ENSIMMAISELLA
+YRITYKSELLA jokaiselle valivaiheelle (w, w_compressed, lopullinen m).
+Negatiivikontrolli: yksi s_hat-arvo rikottu -> kaikki kolme tarkistusta
+(w, w_compressed, m) kaatuvat oikein. Taysi regressio: kaikki 9 aiempaa
+testia (M1, 2b, 2c-i, 2c-ii, 3b, 3c, Vaihe 2, NTT^-1 round-trip,
+NTT^-1 stage-debug) PASS muuttumattomana.
+
+**Issue #8 kokonaisuudessaan valmis.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
