@@ -19,7 +19,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
-| **M3 · Issue #7** | ByteEncode1 / ByteDecode1 RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla (vain d=1 - d=4,5,10,11,12 avoinna) |
+| **M3 · Issue #7** | ByteEncode_d / ByteDecode_d RTL:ssä | ✅ TODENNETTU 2026-07-12 kaikille d=1,4,5,10,11,12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -217,6 +217,31 @@ Negatiivikontrolli (kaksiosainen): (1) porttiyhteyden oma toimivuus
 todistettu erillisella minimiesimerkilla ennen korjausta, (2)
 itse logiikka rikottu tahallaan (invertoitu ByteEncode1:n tulos)
 -> 10/10 virhetta, testi kaatuu oikein.
+
+**M3 Issue #7:n loppuunsaattaminen (2026-07-12) — d=4,5,10,11,12:**
+`rtl/pqc_byteencode_dparam.sv`, D kaannosaikaisena parametrina.
+
+**Matemaattinen oivallus** (vahvistettu golden-mallissa ennen RTL:aa):
+ByteEncode/ByteDecode on pelkkaa SAMAN LINEAARISEN BITTIJONON
+uudelleenryhmittelyä - digit-splittaus (d bittia/arvo) ja tavupakkaus
+(8 bittia/tavu) ovat kaksi tapaa ryhmitella sama 256*d-bittinen jono,
+ei mitaan permutaatiota. Tasta seuraa: suora bittikopiointi (`assign`)
+on TAYSIN OIKEA operaatio seka Encodelle etta Decodelle KAIKILLA
+d<12:lla - ei tarvita mitaan laskentaa. d=12 tarvitsee YHDEN
+lisavaiheen ByteDecode12:ssa: kunkin 12-bittisen segmentin oma
+mod Q -reduktio (FIPS 203:n oma dokumentoitu erikoistapaus - segmentti
+voi olla 0..4095, mutta Z_q on 0..3328).
+
+Todennus: 5 testitapausta per d (d=4,5,10,11), PASS kaikilla
+ensimmaisella yrityksella (pakattu vektori -korjauksen ansiosta).
+d=12 lisaksi oma reunatapaustesti (10 testitapausta, kaikki 12-
+bittiset segmentit valilla [Q,4095] - EI satu olemaan jo < Q, joten
+testi aidosti todistaa etta mod Q -reduktio aktivoituu, ei vain
+sattumalta oikein). Negatiivikontrolli: mod Q poistettu tahallaan
+d=12:n ByteDecodesta -> 11 virhetta, testi kaatuu oikein.
+
+**Issue #7 kokonaisuudessaan valmis: kaikki 6 tarvittavaa d-arvoa
+(1,4,5,10,11,12) todennettu.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua

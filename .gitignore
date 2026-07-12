@@ -161,3 +161,9 @@ hardware/pqc-rtl/vectors/basecasemul_vectors.txt
 hardware/pqc-rtl/vectors/compress_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d1_packed_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d1_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d4_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d5_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d10_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d11_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d12_packed_vectors.txt
+hardware/pqc-rtl/vectors/byteencode_d12_edge_vectors.txt
