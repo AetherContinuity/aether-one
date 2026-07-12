@@ -159,3 +159,52 @@ tama commit dokumentoi tarkan, rajatun tilanteen ennen seuraavaa
 tutkimuskierrosta, valttaakseen useamman muutoksen sekoittumisen
 keskenaan (sama periaate joka johti Montgomery-virheen loytamiseen
 aiemmin: rajaa tarkasti ennen kuin korjaat).
+
+## 6. JUURISYY LOYDETTY JA KORJATTU (2026-07-12) - testipenkin bugi, ei RTL-bugi
+
+**Differentiaalinen, taso kerrallaan -vertailu (kayttajan oma ehdotus)
+paljasti valittomasti:** poikkeama alkoi jo TASOLLA 0 (kaikki 256
+kerrointa vaarin), ei vasta tasolla 6 kuten alkuperainen round-trip-
+testi antoi ymmartaa. Tama oli ratkaiseva vihje - round-trip-testin
+OMA lopputulos (nayttaen virheita vain lane1/taso6-alueella) oli
+harhaanjohtava, koska NTT on globaali muunnos: valitason virheet
+EIVAT nay tasaisesti lopputuloksessa, ne voivat "peruuntua" osittain
+matkalla.
+
+**Todellinen juurisyy:** `run_one_level`-apufunktiossa (kirjoitettu
+uutta inverse-testausta varten) kaytettiin `count <= 8'(length)`
+KAIKILLE tasoille yhtenaisesti. Tama on OIKEIN tasoille 0-5 (useita
+ryhmia per taso, molemmat lanet kasittelevat ERI ryhmia rinnakkain -
+count=length oikein kummallekin). MUTTA taso 6:lla (VAIN 1 ryhma,
+length=128) M2:n oma, todistetusti toimiva alkuperainen testipenkki
+(`pqc_ntt_full_banked_tb.sv`) kayttaa `count <= 8'd64` - koska taman
+YHDEN ryhman 128 j-arvoa JAETAAN kahden lanen kesken (64 kumpikin),
+ei molemmat lanet toista SAMAA 128:aa redundantisti.
+
+Loydettiin vertaamalla oma testipenkki suoraan, rivi riviltä, M2:n
+jo todistetusti toimivaan `pqc_ntt_full_banked_tb.sv`:aan (`diff`) -
+kayttajan oma ehdotus "tarkista lane1:n ohjaus ensin" osui lahelle
+oikeaa (ohjaus, ei aritmetiikka), vaikkei ihan lane-spesifinen vaan
+count-parametrin oma virhe joka sattui aiheuttamaan lane1:n alueella
+nakyvan asymmetrian LOPPUTULOKSESSA (vaikka virhe oli lasna alusta
+asti, molemmilla laneilla, jo ennen tasoa 6).
+
+**Vahvistus juurisyyn korjauksen jalkeen:**
+- Eteenpain-NTT (LCG-testidata) tasmaa golden-malliin TAYDELLISESTI
+  (0/256 poikkeamaa) - ensimmainen kertaa taman uuden testin historiassa.
+- KAIKKI 7 kaanteis-NTT-tasoa tasmaavat golden-malliin TAYDELLISESTI.
+- Taydellinen round-trip-testi (`NTT^-1(NTT(f))==f`) PASS aidolla
+  RTL:lla molempiin suuntiin.
+- Negatiivikontrolli: inverse-kaavan `mod_sub(b_reg,a_reg)` vaihdettu
+  tahallaan vaaraan jarjestykseen (`mod_sub(a_reg,b_reg)`) -> 1
+  poikkeama havaittu (idx 255), testi kaatuu oikein.
+- Taysi regressio: KAIKKI 8 testia (M1, 2b, 2c-i, 2c-ii, 3b, 3c, Vaihe 2,
+  round-trip) PASS, 0 FAIL-mainintaa.
+
+**Opetus jatkoa varten:** kun kirjoitetaan uusi, yleistetty apufunktio
+joka korvaa aiemmin KASIN TOISTETUN, todistetusti toimivan koodin
+(tassa: 4 eri paikkaa jotka kukin toistivat saman "aja yksi NTT-taso"
+-logiikan), on tarkistettava ETTA KAIKKI erikoistapaukset (tassa:
+taso 6:n count != length) sailyvat yleistyksessa - suora `diff`
+vanhaan, todistetusti toimivaan versioon olisi loytanyt taman
+valittomasti, ennen kuin RTL:aa alettiin edes epailla.

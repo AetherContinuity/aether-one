@@ -54,7 +54,7 @@ module pqc_ntt_inverse_roundtrip_tb;
   endfunction
 
   task automatic run_one_level(input int length, input int base0, input int zeta0_int,
-                                 input int base1, input int zeta1_int);
+                                 input int base1, input int zeta1_int, input int count_val);
     int c;
     begin
       pair_dist       <= 8'(length);
@@ -62,7 +62,7 @@ module pqc_ntt_inverse_roundtrip_tb;
       base_addr_lane1 <= 9'(base1);
       zeta_lane0      <= zeta0_int[15:0];
       zeta_lane1      <= zeta1_int[15:0];
-      count           <= 8'(length);
+      count           <= 8'(count_val);
       @(posedge clk);
       start <= 1'b1;
       @(posedge clk);
@@ -79,13 +79,13 @@ module pqc_ntt_inverse_roundtrip_tb;
       fh2 = $fopen("vectors/full_level6_zeta.txt", "r");
       scan_ok2 = $fscanf(fh2, "%d\n", zeta0);
       $fclose(fh2);
-      run_one_level(128, 0, zeta0, 64, zeta0);
+      run_one_level(128, 0, zeta0, 64, zeta0, 64);
 
       fh2 = $fopen("vectors/full_schedule.txt", "r");
       scan_ok2 = 5;
       while (!$feof(fh2) && scan_ok2 == 5) begin
         scan_ok2 = $fscanf(fh2, "%d %d %d %d %d\n", length, base0, zeta0, base1, zeta1);
-        if (scan_ok2 == 5) run_one_level(length, base0, zeta0, base1, zeta1);
+        if (scan_ok2 == 5) run_one_level(length, base0, zeta0, base1, zeta1, length);
       end
       $fclose(fh2);
     end
@@ -99,14 +99,14 @@ module pqc_ntt_inverse_roundtrip_tb;
       scan_ok2 = 5;
       while (!$feof(fh2) && scan_ok2 == 5) begin
         scan_ok2 = $fscanf(fh2, "%d %d %d %d %d\n", length, base0, zeta0, base1, zeta1);
-        if (scan_ok2 == 5) run_one_level(length, base0, zeta0, base1, zeta1);
+        if (scan_ok2 == 5) run_one_level(length, base0, zeta0, base1, zeta1, length);
       end
       $fclose(fh2);
 
       fh2 = $fopen("vectors/ntt_inverse_level6_zeta.txt", "r");
       scan_ok2 = $fscanf(fh2, "%d\n", zeta0);
       $fclose(fh2);
-      run_one_level(128, 0, zeta0, 64, zeta0);
+      run_one_level(128, 0, zeta0, 64, zeta0, 64);
     end
   endtask
 

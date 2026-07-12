@@ -1,0 +1,208 @@
+// pqc_ntt_inverse_stage_debug_tb.sv
+//
+// M3 Issue #8 / NTT_INVERSE: differentiaalinen, taso kerrallaan
+// -vertailu golden-malliin JOKAISEN kaanteis-NTT-tason (0..6) jalkeen,
+// loytaakseen ENSIMMAISEN poikkeavan tason (kayttajan oma ehdotus).
+// Raportoi taulukkomuodossa: ensimmainen poikkeava indeksi,
+// poikkeamien maara, esimerkkiarvo.
+
+`timescale 1ns/1ps
+
+module pqc_ntt_inverse_stage_debug_tb;
+
+  localparam int COEFF_W = 16;
+  localparam int SPAD_AW = 9;
+
+  logic clk, reset, start, stage_done, bank_conflict_detected;
+  logic [7:0] count, pair_dist;
+  logic mode;
+  logic [SPAD_AW-1:0] base_addr_lane0, base_addr_lane1;
+  logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+
+  always #5 clk = ~clk;
+
+  pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+    .clk(clk), .reset(reset), .start(start), .count(count),
+    .pair_dist(pair_dist), .mode(mode),
+    .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+    .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+    .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected)
+  );
+
+  logic [1:0] bank_rom_tb  [0:255];
+  logic [5:0] local_rom_tb [0:255];
+
+  function automatic void write_bank(input [1:0] b, input [5:0] l, input [COEFF_W-1:0] val);
+    case (b)
+      2'd0: dut.bank0[l] = val;
+      2'd1: dut.bank1[l] = val;
+      2'd2: dut.bank2[l] = val;
+      default: dut.bank3[l] = val;
+    endcase
+  endfunction
+
+  function automatic [COEFF_W-1:0] read_bank_tb(input [1:0] b, input [5:0] l);
+    case (b)
+      2'd0: read_bank_tb = dut.bank0[l];
+      2'd1: read_bank_tb = dut.bank1[l];
+      2'd2: read_bank_tb = dut.bank2[l];
+      default: read_bank_tb = dut.bank3[l];
+    endcase
+  endfunction
+
+  task automatic run_one_level(input int length, input int base0, input int zeta0_int,
+                                 input int base1, input int zeta1_int, input int count_val);
+    int c;
+    begin
+      pair_dist       <= 8'(length);
+      base_addr_lane0 <= 9'(base0);
+      base_addr_lane1 <= 9'(base1);
+      zeta_lane0      <= zeta0_int[15:0];
+      zeta_lane1      <= zeta1_int[15:0];
+      count           <= 8'(count_val);
+      @(posedge clk);
+      start <= 1'b1;
+      @(posedge clk);
+      start <= 1'b0;
+      c = 0;
+      while (!stage_done && c < 3000) begin
+        if (bank_conflict_detected) begin
+          $display("  !!! bank_conflict_detected AKTIIVINEN (length=%0d, base0=%0d, base1=%0d, sykli %0d)",
+                    length, base0, base1, c);
+          conflict_count++;
+        end
+        @(posedge clk); c++;
+      end
+    end
+  endtask
+
+  logic [256*COEFF_W-1:0] f_orig, f_hat_rtl;
+  logic [256*COEFF_W-1:0] snapshot_expect [0:6];
+  int snapshot_length [0:6];
+  int Q;
+  int total_errors;
+  int conflict_count;
+
+  task automatic dump_and_compare(input int level_idx, input string label);
+    logic [256*COEFF_W-1:0] cur;
+    int mismatch_count;
+    int first_mismatch;
+    int got_val, exp_val;
+    begin
+      for (int i = 0; i < 256; i++) cur[i*COEFF_W +: COEFF_W] = read_bank_tb(bank_rom_tb[i], local_rom_tb[i]);
+      mismatch_count = 0;
+      first_mismatch = -1;
+      for (int i = 0; i < 256; i++) begin
+        if (cur[i*COEFF_W +: COEFF_W] !== snapshot_expect[level_idx][i*COEFF_W +: COEFF_W]) begin
+          mismatch_count++;
+          if (first_mismatch == -1) first_mismatch = i;
+        end
+      end
+      if (mismatch_count == 0) begin
+        $display("| %0d (len=%0d) | - | 0 | PASS |", level_idx, snapshot_length[level_idx]);
+      end else begin
+        got_val = cur[first_mismatch*COEFF_W +: COEFF_W];
+        exp_val = snapshot_expect[level_idx][first_mismatch*COEFF_W +: COEFF_W];
+        $display("| %0d (len=%0d) | %0d | %0d | %0d -> %0d |", level_idx, snapshot_length[level_idx],
+                  first_mismatch, mismatch_count, exp_val, got_val);
+        total_errors++;
+      end
+    end
+  endtask
+
+  initial begin
+    total_errors = 0;
+    conflict_count = 0;
+    Q = 3329;
+    clk = 0; reset = 1; start = 0; count = 0; pair_dist = 0; mode = 0;
+    base_addr_lane0 = 0; base_addr_lane1 = 0; zeta_lane0 = 0; zeta_lane1 = 0;
+
+    $readmemh("m2-golden/bank_rom_4banks.memh", bank_rom_tb);
+    $readmemh("m2-golden/bank_local_4banks.memh", local_rom_tb);
+
+    begin
+      int seed;
+      seed = 12345;
+      for (int i = 0; i < 256; i++) begin
+        seed = (seed * 1103515245 + 12345) & 32'h7FFFFFFF;
+        f_orig[i*COEFF_W +: COEFF_W] = (seed % Q);
+      end
+    end
+
+    begin
+      int fh2, scan_ok2, length_read;
+      fh2 = $fopen("vectors/ntt_inverse_stage_snapshots.txt", "r");
+      for (int lvl = 0; lvl < 7; lvl++) begin
+        scan_ok2 = $fscanf(fh2, "%d %h\n", length_read, snapshot_expect[lvl]);
+        snapshot_length[lvl] = length_read;
+      end
+      $fclose(fh2);
+    end
+
+    repeat (3) @(posedge clk);
+    reset = 0;
+    repeat (2) @(posedge clk);
+
+    // --- Eteenpain-NTT ensin (sama kuin round-trip-testissa) ---
+    for (int i = 0; i < 256; i++) write_bank(bank_rom_tb[i], local_rom_tb[i], f_orig[i*COEFF_W +: COEFF_W]);
+    mode = 1'b0;
+    begin
+      int fh2, zeta0, length, base0, base1, zeta1, scan_ok2;
+      fh2 = $fopen("vectors/full_level6_zeta.txt", "r");
+      scan_ok2 = $fscanf(fh2, "%d\n", zeta0);
+      $fclose(fh2);
+      run_one_level(128, 0, zeta0, 64, zeta0, 64);
+
+      fh2 = $fopen("vectors/full_schedule.txt", "r");
+      scan_ok2 = 5;
+      while (!$feof(fh2) && scan_ok2 == 5) begin
+        scan_ok2 = $fscanf(fh2, "%d %d %d %d %d\n", length, base0, zeta0, base1, zeta1);
+        if (scan_ok2 == 5) run_one_level(length, base0, zeta0, base1, zeta1, length);
+      end
+      $fclose(fh2);
+    end
+    for (int i = 0; i < 256; i++) f_hat_rtl[i*COEFF_W +: COEFF_W] = read_bank_tb(bank_rom_tb[i], local_rom_tb[i]);
+
+    reset = 1; @(posedge clk); reset = 0; @(posedge clk);
+    for (int i = 0; i < 256; i++) write_bank(bank_rom_tb[i], local_rom_tb[i], f_hat_rtl[i*COEFF_W +: COEFF_W]);
+
+    // --- KAANTEINEN NTT, TASO KERRALLAAN, VERTAILU JOKAISEN TASON JALKEEN ---
+    mode = 1'b1;
+    $display("| Taso | Eka poikkeava idx | Poikkeamien maara | Esimerkki (odotettu -> saatu) |");
+    $display("|------|--------------------|--------------------|--------------------------------|");
+    begin
+      int fh2, scan_ok2;
+      int level_idx;
+      int n_groups, length_hdr;
+      int b0, z0, b1, z1;
+      string tag;
+
+      fh2 = $fopen("vectors/ntt_inverse_schedule_by_level.txt", "r");
+      level_idx = 0;
+      scan_ok2 = 1;
+      while (!$feof(fh2) && scan_ok2 >= 1) begin
+        scan_ok2 = $fscanf(fh2, "%s %d %d\n", tag, length_hdr, n_groups);
+        if (scan_ok2 >= 1) begin
+          for (int g = 0; g < n_groups; g++) begin
+            scan_ok2 = $fscanf(fh2, "%d %d %d %d\n", b0, z0, b1, z1);
+            if (length_hdr == 128)
+              run_one_level(length_hdr, b0, z0, b1, z1, 64);
+            else
+              run_one_level(length_hdr, b0, z0, b1, z1, length_hdr);
+          end
+          dump_and_compare(level_idx, "");
+          level_idx++;
+        end
+      end
+      $fclose(fh2);
+    end
+
+    $display("--------------------------------------------------");
+    $display("bank_conflict_detected aktivoitui yhteensa %0d kertaa koko ajon aikana", conflict_count);
+    if (total_errors == 0) $display("Kaikki 7 tasoa tasmaavat golden-malliin - NTT^-1 toimii oikein");
+    else $display("Ensimmainen poikkeava taso loytyi ylla olevasta taulukosta - %0d/7 tasoa poikkesi", total_errors);
+    $display("--------------------------------------------------");
+    $finish;
+  end
+
+endmodule
