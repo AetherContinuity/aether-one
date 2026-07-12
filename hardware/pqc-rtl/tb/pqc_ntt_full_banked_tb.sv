@@ -30,7 +30,7 @@ module pqc_ntt_full_banked_tb;
 
   pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
     .clk(clk), .reset(reset), .start(start), .count(count),
-    .pair_dist(pair_dist),
+    .pair_dist(pair_dist), .mode(1'b0),
     .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
     .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
     .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected)

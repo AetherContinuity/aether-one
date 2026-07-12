@@ -56,7 +56,7 @@ module pqc_ntt_stage_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane0 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane0), .stride(8'd1), .count(count), .pair_dist(pair_dist),
+    .base_addr(base_addr_lane0), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(1'b0),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
@@ -67,7 +67,7 @@ module pqc_ntt_stage_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane1 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist),
+    .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(1'b0),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),

@@ -27,6 +27,7 @@ module pqc_ntt_stage_banked #(
     input  logic start,
     input  logic [7:0] count,
     input  logic [7:0] pair_dist,
+    input  logic mode,  // M3 Issue #8 Vaihe 3: 0=FORWARD, 1=INVERSE (ks. NTT_INVERSE_DESIGN_NOTE.md)
     input  logic [SPAD_AW-1:0] base_addr_lane0,
     input  logic [SPAD_AW-1:0] base_addr_lane1,
     input  logic [COEFF_W-1:0] zeta_lane0,
@@ -64,7 +65,7 @@ module pqc_ntt_stage_banked #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane0 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane0), .stride(8'd1), .count(count), .pair_dist(pair_dist),
+    .base_addr(base_addr_lane0), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(mode),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
@@ -75,7 +76,7 @@ module pqc_ntt_stage_banked #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane1 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist),
+    .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(mode),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),

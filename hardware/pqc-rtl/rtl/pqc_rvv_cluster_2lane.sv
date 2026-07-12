@@ -39,6 +39,11 @@ module lane_fsm #(
         // module input) - synteesikelpoisuustarkistuksessa loydetty.
         // Kaikki instanssit (myos M1/M2 Vaihe 1) kytkevat pair_dist:n
         // nyt eksplisiittisesti.
+    input  logic mode,  // M3 Issue #8 Vaihe 3: 0=FORWARD (NTT, Alg. 9),
+        // 1=INVERSE (NTT^-1, Alg. 10). Butterfly-kaava eroaa aidosti,
+        // ei vain silmukkajarjestys - ks. NTT_INVERSE_DESIGN_NOTE.md §2.
+        // Kaikki olemassa olevat instanssit kytkevat mode=1'b0
+        // (muuttumaton kayttaytyminen).
 
     output logic [SPAD_AW-1:0] mem_addr_a,
     output logic [SPAD_AW-1:0] mem_addr_b,
@@ -145,8 +150,20 @@ module lane_fsm #(
         end
 
         S_COMPUTE: begin
-          ap_reg   <= mod_add(a_reg, montgomery_reduce(b_reg * zeta_in));
-          bp_reg   <= mod_sub(a_reg, montgomery_reduce(b_reg * zeta_in));
+          if (mode == 1'b0) begin
+            // FORWARD (NTT, Algoritmi 9): t=zeta*b ENSIN, sama t
+            // molemmissa ulostuloissa.
+            ap_reg   <= mod_add(a_reg, montgomery_reduce(b_reg * zeta_in));
+            bp_reg   <= mod_sub(a_reg, montgomery_reduce(b_reg * zeta_in));
+          end else begin
+            // INVERSE (NTT^-1, Algoritmi 10): EI zetaa a+b-ulostulossa;
+            // zeta vasta (b-a):n jalkeen TOISESSA ulostulossa. Ks.
+            // NTT_INVERSE_DESIGN_NOTE.md §2/§3 - vahvistettu
+            // golden-mallista (kyber_ntt_golden.py:n ntt_inv) ennen
+            // tata koodia.
+            ap_reg   <= mod_add(a_reg, b_reg);
+            bp_reg   <= montgomery_reduce(mod_sub(b_reg, a_reg) * zeta_in);
+          end
           req      <= 1'b1;
           is_write <= 1'b1;
           state    <= S_REQ_WRITE;
@@ -230,7 +247,7 @@ module pqc_rvv_cluster_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane0 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane0), .stride(stride), .count(count), .pair_dist(8'd1),
+    .base_addr(base_addr_lane0), .stride(stride), .count(count), .pair_dist(8'd1), .mode(1'b0),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
@@ -241,7 +258,7 @@ module pqc_rvv_cluster_2lane #(
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) lane1 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane1), .stride(stride), .count(count), .pair_dist(8'd1),
+    .base_addr(base_addr_lane1), .stride(stride), .count(count), .pair_dist(8'd1), .mode(1'b0),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),

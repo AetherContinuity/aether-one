@@ -73,7 +73,7 @@ module pqc_ntt_level6_2lane #(
     .COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)
   ) lane0 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(9'd0), .stride(8'd1), .count(count), .pair_dist(8'd128),
+    .base_addr(9'd0), .stride(8'd1), .count(count), .pair_dist(8'd128), .mode(1'b0),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
     .mem_rdata_a(rdata_a0), .mem_rdata_b(rdata_b0),
     .mem_wdata_a(wdata_a0), .mem_wdata_b(wdata_b0),
@@ -86,7 +86,7 @@ module pqc_ntt_level6_2lane #(
     .COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)
   ) lane1 (
     .clk(clk), .reset(reset), .start(start),
-    .base_addr(9'd64), .stride(8'd1), .count(count), .pair_dist(8'd128),
+    .base_addr(9'd64), .stride(8'd1), .count(count), .pair_dist(8'd128), .mode(1'b0),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
     .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
     .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),
