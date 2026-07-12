@@ -113,3 +113,49 @@ moduulia butterflylle itselleen.** Erillinen, pieni "final scale"
 
 Jokainen vaihe todennetaan erikseen ennen seuraavaan siirtymista,
 sama kurinalaisuus kuin koko projektissa tahan asti.
+
+## 5. Vaihe 1/4 valmis, Vaihe 4 (round-trip) EPAONNISTUI - tarkasti rajattu loydos (2026-07-12)
+
+**Tehty:** `mode`-portti lisatty `lane_fsm`:aan (kaikki 10 instanssia
+paivitetty, regressio: 7/7 aiempaa testia PASS muuttumattomana).
+`pqc_ntt_final_scale.sv` (lopullinen *3303) todennettu ITSENAISESTI,
+PASS. Kaanteinen aikataulu (`ntt_inverse_schedule.txt` +
+`ntt_inverse_level6_zeta.txt`) generoitu suoraan `ntt_inv()`:n omasta
+silmukkarakenteesta.
+
+**Round-trip-testi (`NTT^-1(NTT(f)) == f`, AIDOLLA RTL:lla molempiin
+suuntiin) EPAONNISTUI - mutta tarkasti rajatulla tavalla:**
+
+- **Vaikutusalue: TASMALLEEN indeksit 64-127 ja 192-255** - ei mitaan
+  muuta. Nama ovat juuri lane1:n oma osoitealue tasolla 6 (base=64,
+  pair_dist=128 -> osoitteet 64-127 ja 192-255).
+- **Lane0:n alue (0-63, 128-191) on TAYSIN OIKEIN** kaikissa 256
+  testatuissa kertoimessa.
+- **Monissa (ei kaikissa) virheellisissa arvoissa tasmalleen 2x-kerroin**:
+  esim. odotettu 1125 -> saatu 2250; odotettu 225 -> saatu 450;
+  odotettu 1218 -> saatu 2436; odotettu 672 -> saatu 1344; odotettu
+  244 -> saatu 488. Ei kaikki virheet ole tasan 2x (esim. odotettu
+  2730 -> saatu 2131 ei ole selvaa kerrannaista), mutta riittavan moni
+  on tasan 2x etta se on todennakoisesti merkityksellinen johtolanka,
+  ei sattumaa.
+
+**Tutkimussuunnitelma seuraavalle kierrokselle (EI aloitettu viela):**
+
+1. Vaihekohtainen vertailu golden-malliin: tallenna muisti-tila
+   JOKAISEN tason (0..6) jalkeen seka golden-mallista etta RTL:sta,
+   ei vain lopputulosta. Jos taso 5 tasmaa ja taso 6 ei, bugi on
+   kaytannossa paikallistettu yhteen butterfly-vaiheeseen.
+2. Tarkista ENSIN lane1:n OHJAUS (ei viela itse butterfly-aritmetiikka):
+   twiddle/zeta-valinta, pankkiosoite, lane-select-signaali, tason 6:n
+   ajoitus lane1:lla - koska lane0 kayttaa TASMALLEEN samaa logiikkaa
+   ja toimii oikein, ero on todennakoisemmin ohjauksessa (esim. vaara
+   zeta tai vaara osoite lane1:lle) kuin itse laskentakaavassa
+   (joka on sama molemmille laneille).
+3. Vasta taman jalkeen tarkista butterfly-operaation aritmetiikka
+   itsessaan, jos ohjaus osoittautuu oikeaksi.
+
+**Ei tehty mitaan uusia RTL-muutoksia taman loydoksen jalkeen** -
+tama commit dokumentoi tarkan, rajatun tilanteen ennen seuraavaa
+tutkimuskierrosta, valttaakseen useamman muutoksen sekoittumisen
+keskenaan (sama periaate joka johti Montgomery-virheen loytamiseen
+aiemmin: rajaa tarkasti ennen kuin korjaat).

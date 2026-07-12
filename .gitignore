@@ -169,3 +169,5 @@ hardware/pqc-rtl/vectors/byteencode_d12_packed_vectors.txt
 hardware/pqc-rtl/vectors/byteencode_d12_edge_vectors.txt
 hardware/pqc-rtl/vectors/multiplyntts_vectors.txt
 hardware/pqc-rtl/vectors/kpke_*.txt
+hardware/pqc-rtl/vectors/ntt_inverse_schedule.txt
+hardware/pqc-rtl/vectors/ntt_inverse_level6_zeta.txt
