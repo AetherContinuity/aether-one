@@ -157,3 +157,4 @@ hardware/pqc-rtl/sim/*
 !hardware/pqc-rtl/sim/.gitkeep
 hardware/pqc-rtl/vectors/full_schedule.txt
 hardware/pqc-rtl/vectors/full_level6_zeta.txt
+hardware/pqc-rtl/vectors/basecasemul_vectors.txt

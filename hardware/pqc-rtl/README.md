@@ -17,6 +17,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | M2 Vaihe 3b | Yksi taso (6), oikea 4-pankkinen muisti RTL:ssä | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M2 Vaihe 3c | Kaikki 7 tasoa 4-pankkisella muistilla | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
 | M2 Vaihe 3d | Suorituskykymittaus (syklit, pankkien käyttöaste) | ✅ TODENNETTU 2026-07-11, ks. rajaus alla |
+| **M3 · Issue #1** | BaseCaseMultiply RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -154,7 +155,27 @@ ei ajonaikaista aikataulutinta LAITTEISTOSSA (aikataulu ajetaan
 testipenkin/ohjelmiston toimesta, ei RTL:n omalla tilakoneella -
 "hardware scheduler" olisi oma, myöhempi laajennus).
 
-## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b/3c/3d -skoopissa toteutettu)
+## Arkkitehtuuri (M1 + M2 Vaihe 1/2a/2b/2c-i/2c-ii/3a/3b/3c/3d/M3#1 -skoopissa toteutettu)
+
+**M3 Issue #1:n todennus (2026-07-12) — BaseCaseMultiply RTL:ssä:**
+`rtl/pqc_basecasemul.sv`. Uusi, erillinen kombinatorinen moduuli - ei
+kosketa lane_fsm:aa eika NTT-putkea. Kayttaa SUORAA modulaarilaskentaa
+(SystemVerilogin oma `%`), EI Montgomery-reduktiota - sama konventio
+kuin golden-mallin oma `base_case_multiply` (plain-domain, gamma ei ole
+esiskaalattu, toisin kuin NTT:n zeta-arvot). Kolmiosainen todennus:
+
+1. 20 testitapausta suoraan golden-mallista (`m2-golden/kyber_ntt_golden.py`,
+   jo todistettu 2a:ssa konvoluutiolauseella), kaikki bittitarkkoja,
+   2 eri satunnaissiementa (2026, 13579)
+2. Sisainen negatiivikontrolli: gamma muutettu ajon aikana (100->101),
+   tulos todistetusti muuttuu - moduuli reagoi gammaan
+3. Ulkoinen negatiivikontrolli: c0/c1-kaavat vaihdettu tahallaan ristiin
+   -> 40 virhetta (2x20), testi kaatuu oikein
+
+Mita talla EI todisteta: ei synteesikelpoisuutta (`%`-operaattori ei
+synteesoidu suoraan taksi jaollisena piirina - synteesikelpoinen
+Barrett/Montgomery-reduktio on erillinen, myohempi tyo). Ei viela
+kytketty NTT-putken paahaan (encapsulation/decapsulation).
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
