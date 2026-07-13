@@ -125,6 +125,25 @@ def pad_message(message: bytes, rate_bytes: int, domain_suffix: int) -> bytes:
     return bytes(msg)
 
 
+def absorb_instrumented(message: bytes, rate_bytes: int, domain_suffix: int):
+    """M3 Issue #11 Vaihe B: absorbointi, tallentaen tilan JOKAISEN
+    lohkon (XOR + permutaatio) jalkeen - mahdollistaa lohkokohtaisen
+    vertailun RTL:aa vastaan, sama periaate kuin permutaatioytimen
+    oma kierroskohtainen tallennus (Issue #10)."""
+    state = [[0] * 5 for _ in range(5)]
+    msg = pad_message(message, rate_bytes, domain_suffix)
+    snapshots = []
+    for i in range(0, len(msg), rate_bytes):
+        block = msg[i:i + rate_bytes]
+        block_lanes = bytes_to_state(block + b"\x00" * (168 - len(block)))
+        for x in range(5):
+            for y in range(5):
+                state[x][y] ^= block_lanes[x][y]
+        state, _ = keccak_f1600(state)
+        snapshots.append([row[:] for row in state])
+    return state, snapshots
+
+
 def keccak_sponge(message: bytes, rate_bytes: int, capacity_bits: int,
                    out_bytes: int, domain_suffix: int) -> bytes:
     """KECCAK[c](N,d), N = message || domain_suffix-bitit || pad10*1.
