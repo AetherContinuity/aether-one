@@ -21,6 +21,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #6** | Compress_d / Decompress_d RTL:ssä | ✅ TODENNETTU 2026-07-12, ks. rajaus alla |
 | **M3 · Issue #7** | ByteEncode_d / ByteDecode_d RTL:ssä | ✅ TODENNETTU 2026-07-12 kaikille d=1,4,5,10,11,12 - ks. rajaus alla |
 | **M3 · Issue #8** | K-PKE.Decrypt kokonaisuudessaan (k=2, du=10, dv=4) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #10** | Keccak-p[1600,24] permutaatioydin RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -284,6 +285,32 @@ testia (M1, 2b, 2c-i, 2c-ii, 3b, 3c, Vaihe 2, NTT^-1 round-trip,
 NTT^-1 stage-debug) PASS muuttumattomana.
 
 **Issue #8 kokonaisuudessaan valmis.**
+
+**M3 Issue #10:n todennus (2026-07-12) — Keccak-p[1600,24]
+permutaatioydin RTL:ssa:** `rtl/pqc_keccak_f1600.sv`. Iteratiivinen
+(1 kierros/sykli, laskuri 0..23) - ks. KECCAK_DESIGN_NOTE.md 3.4
+arkkitehtuuripaatokselle. RHO_OFFSETS ja RC-vakiot ROM:eista, generoitu
+SUORAAN golden-mallista (keccak_golden.py) - ei kasin transkriboitu.
+
+Todennus kahdella tasolla (kayttajan oma ehdotus): (1) toiminnallinen -
+lopputila (24 kierroksen jalkeen) oikea, (2) RAKENTEELLINEN - kaikki
+24 valitilaa tasmaavat jaadytettyyn referenssiin (vectors/
+keccak_round_snapshots.json) jokaiselle kolmelle testitapaukselle
+(all_zero, sha3_256_abc_block, all_ff). PASS kaikilla molemmilla
+tasoilla, kaikilla kolmella testitapauksella.
+
+Matkalla loytyi ja korjattiin testipenkin oma ajoituskilpa-ajo (NBA-
+region race: hierarkkinen tilan luku heti `@(posedge clk)`:n jalkeen
+nappasi rekisterin VANHAN arvon, koska testipenkin oma luku ja DUT:n
+always_ff-paivitys kilpailivat samasta delta-syklista) - EI RTL-bugi,
+sama oppitunti kuin NTT^-1:n omassa juurisyyanalyysissa: tarkista
+testipenkki ensin. Korjaus: `#1`-viive `@(posedge clk)`:n jalkeen
+ennen tilan lukua.
+
+Negatiivikontrolli: chi-vaiheen operandien jarjestys vaihdettu
+tahallaan ristiin -> virhe havaitaan tasolla 23 (viimeinen kierros,
+kun epalineaarinen virhe on ehtinyt levita koko tilaan) seka
+lopputuloksessa, testi kaatuu oikein.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
