@@ -144,6 +144,21 @@ def absorb_instrumented(message: bytes, rate_bytes: int, domain_suffix: int):
     return state, snapshots
 
 
+def squeeze_instrumented(state, rate_bytes: int, out_bytes: int):
+    """M3 Issue #11 Vaihe C: puristus, tallentaen tilan JOKAISEN
+    lisapermutaation jalkeen (jos ulostuloa tarvitaan enemman kuin
+    yksi rate-lohko - SHAKE:n oma tarve)."""
+    cur_state = [row[:] for row in state]
+    out = b""
+    snapshots = []
+    out = state_to_bytes(cur_state, rate_bytes)
+    while len(out) < out_bytes:
+        cur_state, _ = keccak_f1600(cur_state)
+        snapshots.append([row[:] for row in cur_state])
+        out += state_to_bytes(cur_state, rate_bytes)
+    return out[:out_bytes], snapshots
+
+
 def keccak_sponge(message: bytes, rate_bytes: int, capacity_bits: int,
                    out_bytes: int, domain_suffix: int) -> bytes:
     """KECCAK[c](N,d), N = message || domain_suffix-bitit || pad10*1.

@@ -22,6 +22,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #7** | ByteEncode_d / ByteDecode_d RTL:ssä | ✅ TODENNETTU 2026-07-12 kaikille d=1,4,5,10,11,12 - ks. rajaus alla |
 | **M3 · Issue #8** | K-PKE.Decrypt kokonaisuudessaan (k=2, du=10, dv=4) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #10** | Keccak-p[1600,24] permutaatioydin RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #11** | Sponge-kehys (pad10*1, absorbointi, puristus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -311,6 +312,32 @@ Negatiivikontrolli: chi-vaiheen operandien jarjestys vaihdettu
 tahallaan ristiin -> virhe havaitaan tasolla 23 (viimeinen kierros,
 kun epalineaarinen virhe on ehtinyt levita koko tilaan) seka
 lopputuloksessa, testi kaatuu oikein.
+
+**M3 Issue #11:n todennus (2026-07-12) — sponge-kehys (pad10*1,
+absorbointi, puristus):** kolme erillista vaihetta (kayttajan oma
+ehdotus), kukin testattu itsenaisesti ennen seuraavaa.
+
+- **Vaihe A** (`rtl/pqc_keccak_pad.sv`): pad10*1 + domain-suffiksi,
+  testattu TAYSIN IRRALLAAN permutaatiosta. Kolme kriittista
+  reunatapausta: tyhja viesti, rate-1 tavua (domain-suffiksi ja
+  0x80-paatosbitti YHDESSA tavussa, 0x86), tasan rate tavua
+  (domain-suffiksi ja 0x80 ERI lohkoissa). PASS kaikilla kolmella.
+- **Vaihe B** (`rtl/pqc_keccak_absorb.sv`): ajaa pqc_keccak_f1600:aa
+  lohko kerrallaan, XORaten kunkin RATE_BYTES-lohkon tilaan ennen
+  permutaatiota. Testattu 'abc' (1 lohko) ja 'A'*136 (2 lohkoa),
+  LOHKOKOHTAISESTI (ei vain lopputulosta) - PASS ensimmaisella
+  yrityksella, Issue #10:n oma NBA-region-race-oppitunti (#1-viive)
+  sovellettu suoraan alusta asti.
+- **Vaihe C** (`rtl/pqc_keccak_squeeze.sv`): puristus, seka yhden
+  lohkon (32 tavua, ei lisapermutaatiota) etta useamman lohkon (200
+  tavua, 1 lisapermutaatio - SHAKE:n oma tarve) tapaus testattu
+  erikseen. PASS molemmilla ensimmaisella yrityksella.
+
+Kaikki kolme vaihetta: negatiivikontrollit (0x80-XOR poistettu,
+XOR-kytkenta poistettu, take-rajoitus poistettu) havaitsevat
+virheet oikein, testit kaatuvat oikein.
+
+**Issue #11 kokonaisuudessaan valmis.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
