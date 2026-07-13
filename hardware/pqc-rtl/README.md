@@ -24,6 +24,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #10** | Keccak-p[1600,24] permutaatioydin RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #11** | Sponge-kehys (pad10*1, absorbointi, puristus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #12** | SHA3-256 kokonaisuudessaan + NIST-ankkurointi | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #13** | SHA3-512 (parametrisointi) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -366,6 +367,24 @@ squeeze-vaiheen ulostulopituus muutettu tahallaan (32->31 tavua) ->
 kaikki neljä testitapausta kaatuvat oikein.
 
 **Issue #12 kokonaisuudessaan valmis.**
+
+**M3 Issue #13:n todennus (2026-07-12) — SHA3-512 (parametrisointi):**
+`rtl/pqc_sha3_512.sv`. Tasmalleen sama pad+absorb+squeeze-kehys kuin
+SHA3-256:ssa (Issue #12), vain RATE_BYTES=72 (576 bittia, capacity
+1024 bittia) ja 64 tavun ulostulo - EI uutta aritmetiikkaa, kayttajan
+oma ennakointi ("pääasiassa parametrisointia") osui tarkalleen oikeaan.
+
+Nelja testitapausta (sama rakenne kuin SHA3-256): tyhja viesti, "abc",
+150 tavua (3 lohkoa - rate=72:lla enemman lohkoja tarvitaan lyhyemmalle-
+kin viestille kuin SHA3-256:ssa), ja 32 tavun ML-KEM-tyylinen API-
+testi (G(c)-funktion oma kayttotapa). PASS KAIKILLA NELJALLA
+ENSIMMAISELLA YRITYKSELLA.
+
+Negatiivikontrolli: domain-suffiksi vaihdettu tahallaan 0x06->0x1F
+(SHAKE:n oma suffiksi) -> kaikki 4 testitapausta kaatuvat oikein.
+Taysi regressio (SHA3-256, koko K-PKE.Decrypt-ketju) pysyi PASS:na.
+
+**Issue #13 kokonaisuudessaan valmis.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
