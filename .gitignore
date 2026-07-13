@@ -186,3 +186,4 @@ hardware/pqc-rtl/vectors/samplentt_full_vectors.txt
 hardware/pqc-rtl/vectors/samplepolycbd_eta2_vectors.txt
 hardware/pqc-rtl/vectors/samplepolycbd_eta3_vectors.txt
 hardware/pqc-rtl/vectors/prf_samplepolycbd_vectors.txt
+hardware/pqc-rtl/vectors/amatrix_k2_vectors.txt
