@@ -27,6 +27,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #13** | SHA3-512 (parametrisointi) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #14** | SHAKE128 / SHAKE256 (muuttuva ulostulopituus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #15 (osa)** | SampleNTT (XOF+hylkaysnaytteenotto) | ✅ TODENNETTU 2026-07-13 - ks. rajaus alla |
+| **M3 · Issue #15 (osa)** | SamplePolyCBD (eta=2,3) | ✅ TODENNETTU 2026-07-13 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -461,6 +462,31 @@ toteutustesti - eri kayttotarkoitus, ei ristiriita.
 SampleNTT valmis. Jaljella Issue #15:ssa: SamplePolyCBD, sitten
 K-PKE.KeyGen/Encrypt taydella Keccak-pohjaisella satunnaisuudella,
 sitten koko ML-KEM.
+
+**M3 Issue #15:n toinen osa (2026-07-13) — SamplePolyCBD (FIPS 203
+Algoritmi 8):** `rtl/pqc_samplepolycbd.sv`. Rakenteellisesti
+yksinkertaisempi kuin SampleNTT - EI hylkaysta, EI silmukkaa tarvita,
+TAYSIN KOMBINATORINEN datapolku (kayttajan oma ohje: valta tarpeeton
+FSM kun rinnakkainen rakenne riittaa).
+
+Golden-malli vahvistettu kasin laskettavilla ääritapauksilla ENNEN
+RTL:aa: B=kaikki nollat -> f=kaikki nollat (x=0,y=0), B=kaikki ykkoset
+-> f=kaikki nollat (x=eta,y=eta, x-y=0) - molemmat todistettavissa
+paperilla, ei vain golden-mallin oman ulostulon hyvaksymista sellaisenaan.
+
+Testattu molemmat eta-arvot (eta=2: k=2/3 parametrisarjat, eta=3:
+k=4-parametrisarja): 3 testitapausta eta=2:lle (kaikki nollat, kaikki
+ykkoset, jarjesteinen sekvenssi), 2 testitapausta eta=3:lle. PASS
+KAIKILLA VIIDELLA ENSIMMAISELLA YRITYKSELLA.
+
+Negatiivikontrolli: x-y-vahennyksen jarjestys vaihdettu tahallaan
+(y-x) -> havaittiin OIKEIN VAIN jarjesteisessa sekvenssi-testitapauksessa
+(ei kaikki-nolla/kaikki-ykkonen-tapauksissa, koska niissa x==y jolloin
+jarjestyksella ei ole vaikutusta) - looginen, odotettu tulos joka
+vahvistaa testikattavuuden mielekkyyden.
+
+SamplePolyCBD valmis. Jaljella Issue #15:ssa: K-PKE.KeyGen/Encrypt
+taydella Keccak-pohjaisella satunnaisuudella, sitten koko ML-KEM.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
