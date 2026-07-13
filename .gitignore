@@ -187,3 +187,5 @@ hardware/pqc-rtl/vectors/samplepolycbd_eta2_vectors.txt
 hardware/pqc-rtl/vectors/samplepolycbd_eta3_vectors.txt
 hardware/pqc-rtl/vectors/prf_samplepolycbd_vectors.txt
 hardware/pqc-rtl/vectors/amatrix_k2_vectors.txt
+hardware/pqc-rtl/vectors/se_vectors_k2.txt
+hardware/pqc-rtl/vectors/layer2_regression_vectors.txt
