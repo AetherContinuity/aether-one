@@ -177,3 +177,4 @@ hardware/pqc-rtl/vectors/keccak_f1600_test_vectors.txt
 hardware/pqc-rtl/vectors/keccak_pad_vectors.txt
 hardware/pqc-rtl/vectors/keccak_absorb_vectors.txt
 hardware/pqc-rtl/vectors/keccak_squeeze_vectors.txt
+hardware/pqc-rtl/vectors/sha3_256_vectors.txt

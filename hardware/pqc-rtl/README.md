@@ -23,6 +23,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #8** | K-PKE.Decrypt kokonaisuudessaan (k=2, du=10, dv=4) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #10** | Keccak-p[1600,24] permutaatioydin RTL:ssä | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #11** | Sponge-kehys (pad10*1, absorbointi, puristus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #12** | SHA3-256 kokonaisuudessaan + NIST-ankkurointi | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -338,6 +339,33 @@ XOR-kytkenta poistettu, take-rajoitus poistettu) havaitsevat
 virheet oikein, testit kaatuvat oikein.
 
 **Issue #11 kokonaisuudessaan valmis.**
+
+**M3 Issue #12:n todennus (2026-07-12) — SHA3-256 kokonaisuudessaan:**
+`rtl/pqc_sha3_256.sv`. Puhdas kokoonpano (pqc_keccak_pad + pqc_keccak_absorb
++ pqc_keccak_squeeze), EI uutta aritmetiikkaa - vain FSM joka jarjestaa
+vaiheet peräkkäin.
+
+**Kaksinkertainen ulkoinen ankkurointi golden-mallille ennen tata
+Issueta:** (1) Pythonin hashlib (riippumaton OpenSSL-pohjainen
+toteutus, jo aiemmin Issue #9:ssa), (2) NIST:n oma julkaistu
+"SHA3-256_Msg0" esimerkki (csrc.nist.gov:n toolkit-esimerkit, tyhja
+viesti) - haettu GitHub-peilista (coruus/nist-testvectors) ja
+tarkistettu tasmalleen taydelliseksi (mukaan lukien alkutilan
+XOR'd-tavut ja kaikkien 24 kierroksen valiarvot).
+
+Nelja testitapausta: tyhja viesti (NIST-ankkuroitu), "abc" (klassinen
+julkaistu vektori), 200 tavua (monilohko-absorbointi), ja **32 tavun
+kiintea syote joka vastaa TASMALLEEN miten ML-KEM:n H(s)-funktio
+kutsuu SHA3-256:ta myohemmin (Issue #15)** - kayttajan oma ehdotus,
+toimii jo nyt API-tason regressiotestina tulevaa integraatiota varten.
+
+PASS KAIKILLA NELJALLA ENSIMMAISELLA YRITYKSELLA - puhtaan kokoonpanon
+etu: kaikki rakennuspalikat olivat jo erikseen todennettu (Issue
+#10/#11), yhdistaminen ei tuonut uusia virhelahteita. Negatiivikontrolli:
+squeeze-vaiheen ulostulopituus muutettu tahallaan (32->31 tavua) ->
+kaikki neljä testitapausta kaatuvat oikein.
+
+**Issue #12 kokonaisuudessaan valmis.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
