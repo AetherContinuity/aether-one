@@ -26,6 +26,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #12** | SHA3-256 kokonaisuudessaan + NIST-ankkurointi | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #13** | SHA3-512 (parametrisointi) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #14** | SHAKE128 / SHAKE256 (muuttuva ulostulopituus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #15 (osa)** | SampleNTT (XOF+hylkaysnaytteenotto) | ✅ TODENNETTU 2026-07-13 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -421,6 +422,45 @@ kattavuudessa (ei RTL-bugi). Korjattu kayttamalla ERI negatiivikontrollia
 tarkistetun alueen -> kaikki 6 testitapausta kaatuvat oikein.
 
 **Issue #14 kokonaisuudessaan valmis.**
+
+**M3 Issue #15:n ensimmainen osa (2026-07-13) — SampleNTT (FIPS 203
+Algoritmi 7):** `rtl/pqc_samplentt.sv` (XOF+hylkaysnaytteenotto,
+kokoonpano) ja `rtl/pqc_samplentt_reject.sv` (itse hylkaysnaytteenotto-
+logiikka, uusi RTL - EI vain kokoonpano). Ks. SAMPLENTT_DESIGN_NOTE.md
+taydelliselle taustalle.
+
+**Tarkistettu FIPS 203:n lopullisesta tekstista, Liite B mukaan
+lukien:** jos silmukka rajataan, raja ei saa olla alle 280 iteraation
+(840 tavua). XOF_BYTES=1008 (reilusti yli minimin).
+
+**Golden-malli kaksinkertaisesti ulkoisesti ankkuroitu:** (1) tyypilliset
+satunnaiset siemenet (~150-170 iteraatiota, dokumentoitu ero Liite B:n
+280:n turvamarginaaliin), (2) C2SP/CCTV:n (github.com/C2SP/CCTV)
+julkaisemat "unlucky" testisiemenet - TAYDELLINEN tasmays kolmella
+tunnetulla vaikealla tapauksella (380, 381, 384 "samples" - tasmalleen).
+
+Instrumentoitu kayttajan oman ohjeen mukaisesti (sama periaate kuin
+NTT:n ja Keccakin kierros-/lohkokohtainen tallennus): paitsi lopullinen
+256 kertoimen taulukko, myos hyvaksyttyjen/hylattyjen maara ja
+kulutetut XOF-tavut verrataan golden-malliin.
+
+Todennus: 5 testitapausta (2 kiinteaa perustapausta + 3 C2SP-ankkuroitua
+unlucky-tapausta), KAIKKI PASS ENSIMMAISELLA YRITYKSELLA seka
+hylkaysnaytteenotto-osamoduulille etta koko SampleNTT:lle (XOF+
+hylkaysnaytteenotto yhdessa). Negatiivikontrolli: d1<Q-vertailu
+muutettu tahallaan d1<=Q:ksi -> havaittiin (yhdessa viidesta
+testitapauksesta, koska raja-arvo d1==Q ei esiinny kaikissa
+tapauksissa) - riittava todiste etta testi havaitsee virheen kun
+raja-arvo esiintyy.
+
+**Tarkea rajaus (dokumentoitu SAMPLENTT_DESIGN_NOTE.md:ssa):** Issue
+#14:n oma "ML_KEM_XOF_style"-testi (504 tavua) oli XOF-primitiivin
+toiminnallinen testi, EI SampleNTT-algoritmin normatiivinen
+toteutustesti - eri kayttotarkoitus, ei ristiriita.
+
+SampleNTT valmis. Jaljella Issue #15:ssa: SamplePolyCBD, sitten
+K-PKE.KeyGen/Encrypt taydella Keccak-pohjaisella satunnaisuudella,
+sitten koko ML-KEM.
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua

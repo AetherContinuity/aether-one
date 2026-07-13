@@ -181,3 +181,5 @@ hardware/pqc-rtl/vectors/sha3_256_vectors.txt
 hardware/pqc-rtl/vectors/sha3_512_vectors.txt
 hardware/pqc-rtl/vectors/shake128_vectors.txt
 hardware/pqc-rtl/vectors/shake256_vectors.txt
+hardware/pqc-rtl/vectors/samplentt_reject_vectors.txt
+hardware/pqc-rtl/vectors/samplentt_full_vectors.txt
