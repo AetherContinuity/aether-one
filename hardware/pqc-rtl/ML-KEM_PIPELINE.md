@@ -95,7 +95,7 @@ dkPKE, c  ->  u', v' (Vaihe 1)  ->  NTT+MultiplyNTTs+polyadd (Vaihe 2)
 | Compress / Decompress | pqc_compress.sv, pqc_batch_compress/decompress.sv | #6 | Valmis |
 | ByteEncode / ByteDecode | pqc_byteencode_*.sv | #7 | Valmis |
 | K-PKE.Decrypt (kokonaan) | tb/pqc_kpke_decrypt_full_tb.sv | #8 | Valmis |
-| **K-PKE.KeyGen** | tb/pqc_layer2_regression_tb.sv (A,s,e osa) | **#15 (jatko)** | **Kerros 1-2 valmis, Kerros 3 (t=A.s+e) jaljella** |
+| **K-PKE.KeyGen** | tb/pqc_kpke_keygen_t_tb.sv (t=A.s+e osa) | **#15 (jatko)** | **Kerros 1-3 valmis, ByteEncode-koodaus jaljella** |
 | **K-PKE.Encrypt** | - | **#15 (jatko)** | **Ei viela** |
 | ML-KEM.KeyGen/Encaps/Decaps (ulompi kuori) | - | #15 (jatko) | Ei viela |
 
