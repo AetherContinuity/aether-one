@@ -199,3 +199,4 @@ hardware/pqc-rtl/vectors/kpke_roundtrip_vectors.txt
 hardware/pqc-rtl/vectors/isolated_ntt_inv_test.txt
 hardware/pqc-rtl/vectors/isolated_ntt_inv_stage_snapshots.txt
 hardware/pqc-rtl/vectors/mlkem_keygen_vectors.txt
+hardware/pqc-rtl/vectors/mlkem_encaps_vectors.txt
