@@ -195,3 +195,6 @@ hardware/pqc-rtl/vectors/kpke_encrypt_u0_vectors.txt
 hardware/pqc-rtl/vectors/kpke_encrypt_u1_vectors.txt
 hardware/pqc-rtl/vectors/kpke_encrypt_v_vectors.txt
 hardware/pqc-rtl/vectors/kpke_encrypt_full_vectors.txt
+hardware/pqc-rtl/vectors/kpke_roundtrip_vectors.txt
+hardware/pqc-rtl/vectors/isolated_ntt_inv_test.txt
+hardware/pqc-rtl/vectors/isolated_ntt_inv_stage_snapshots.txt
