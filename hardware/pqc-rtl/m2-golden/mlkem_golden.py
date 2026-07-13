@@ -114,4 +114,23 @@ if __name__ == "__main__":
     print(f"    (!= alkuperainen K_bob = {K_bob.hex()})")
 
     print()
-    print("KAIKKI TARKISTUKSET OK - seka normaali polku etta implisiittinen hylkays toimivat oikein")
+    print("=== Yhden BITIN muutos (kayttajan oma ehdotus) ===")
+    c_bitflip = bytearray(c)
+    c_bitflip[50] ^= 0x01  # tasan yksi bitti, ei koko tavu
+    c_bitflip = bytes(c_bitflip)
+
+    K_alice_bitflip = mlkem_decaps_internal(dk, c_bitflip, K_dim, ETA1, ETA2, DU, DV)
+    z_from_dk2 = dk[768 * K_dim + 64:768 * K_dim + 96]
+    K_bar_bitflip_expect = shake256(z_from_dk2 + c_bitflip, 32)
+
+    assert K_alice_bitflip != K_bob, "VIRHE: yhden bitin muutos ei laukaissut hylkaysta!"
+    assert K_alice_bitflip == K_bar_bitflip_expect, "VIRHE: hylkays ei anna J(z||c_bitflip):ta!"
+    print(f"OK: yhden bitin muutos (tavu 50, bitti 0) laukaisee implisiittisen hylkayksen oikein")
+    print(f"    K_alice (bitflip) = {K_alice_bitflip.hex()}")
+    print(f"    (!= alkuperainen K_bob = {K_bob.hex()})")
+    print(f"    Sama ohjauspolku kuin tavun-hylkays-testi (Decaps_internal rivit 9-11 suoritetaan),")
+    print(f"    vain ERI lopputulos (K_bar riippuu c:sta) - todistaa etta vertailu on herkka")
+    print(f"    yhdellekin bitille, ei vain koko tavun muutokselle.")
+
+    print()
+    print("KAIKKI TARKISTUKSET OK - normaali polku, tavun hylkays, JA yhden bitin hylkays toimivat oikein")
