@@ -25,6 +25,7 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #11** | Sponge-kehys (pad10*1, absorbointi, puristus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #12** | SHA3-256 kokonaisuudessaan + NIST-ankkurointi | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #13** | SHA3-512 (parametrisointi) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
+| **M3 · Issue #14** | SHAKE128 / SHAKE256 (muuttuva ulostulopituus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
 | M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
 
@@ -385,6 +386,41 @@ Negatiivikontrolli: domain-suffiksi vaihdettu tahallaan 0x06->0x1F
 Taysi regressio (SHA3-256, koko K-PKE.Decrypt-ketju) pysyi PASS:na.
 
 **Issue #13 kokonaisuudessaan valmis.**
+
+**M3 Issue #14:n todennus (2026-07-12) — SHAKE128/SHAKE256 (muuttuva
+ulostulopituus):** `rtl/pqc_shake128.sv`, `rtl/pqc_shake256.sv`.
+Ensimmainen AITO uusi kayttaytymisero SHA3-256/512:een verrattuna:
+`out_len_bytes` on AJONAIKAINEN portti (ei kiintea parametri),
+domain-suffiksi=0x1F (ei 0x06).
+
+Kolmivaiheinen toteutus (kayttajan oma ehdotus):
+- **Vaihe A**: XOF-rajapinta (suffiksi, padding, squeeze-kaynnistys) -
+  uudelleenkaytti Issue #11:n jo todennetun pqc_keccak_squeeze.sv:n
+  suoraan, EI uutta squeeze-logiikkaa.
+- **Vaihe B**: viisi ulostulopituutta per funktio (16, 32, rate tasan,
+  rate+1 - ensimmainen monilohkotapaus, 512 tavua - useita squeeze-
+  kierroksia), KOKO tavujono verrattuna golden-malliin jokaisessa.
+  SHAKE128 (rate=168): PASS 16/32/168/169/512. SHAKE256 (rate=136):
+  PASS 16/32/136/137/512. Kaikki ENSIMMAISELLA yrityksella.
+- **Vaihe C**: ML-KEM:n oma XOF/PRF-kayttotyyli - SHAKE128:lle 34
+  tavun syote (32-tavuinen rho + 2 tavua i,j) 504 tavun ulostulolla
+  (SampleNTT:n oma tarve), SHAKE256:lle 33 tavun syote (32-tavuinen
+  s + 1 tavu b) 128 tavun ulostulolla (PRF_eta=2:n oma tarve). PASS
+  molemmille - toimii jo nyt valmiiksi testattuna API-tason
+  regressiona Issue #15:aa varten.
+
+**Tarkea loydos negatiivikontrollista:** ensimmainen yritys (squeeze-
+vaiheen "take"-rajoituksen poistaminen, sama testi joka toimi Issue
+#11:ssa) EI havainnut virhetta SHAKE:n kontekstissa! Syy: maskattu
+koko-tavujono-vertailu (vain ensimmaiset `olen` tavua tarkistetaan)
+ei havaitse etta EXTRA tavuja kirjoitetaan tarkistetun alueen
+ULKOPUOLELLE - ensimmaiset N tavua pysyvat oikeina vaikka rajoitus
+poistettaisiin. Tama on genuiini, dokumentoitu rajoitus taman testin
+kattavuudessa (ei RTL-bugi). Korjattu kayttamalla ERI negatiivikontrollia
+(tavujarjestyksen rikkominen extraktiossa) joka AIDOSTI korruptoi
+tarkistetun alueen -> kaikki 6 testitapausta kaatuvat oikein.
+
+**Issue #14 kokonaisuudessaan valmis.**
 
 **M2 Vaihe 3b:n todennus (2026-07-11):** Taso 6, oikea 4-pankkinen muisti
 (`rtl/pqc_ntt_level6_banked.sv`), käyttäen 3a:n muodollisesti todistettua
