@@ -174,3 +174,4 @@ hardware/pqc-rtl/vectors/ntt_inverse_level6_zeta.txt
 hardware/pqc-rtl/vectors/ntt_inverse_schedule_by_level.txt
 hardware/pqc-rtl/vectors/ntt_inverse_stage_snapshots.txt
 hardware/pqc-rtl/vectors/keccak_f1600_test_vectors.txt
+hardware/pqc-rtl/vectors/keccak_pad_vectors.txt

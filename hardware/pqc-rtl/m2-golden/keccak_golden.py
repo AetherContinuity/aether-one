@@ -112,6 +112,19 @@ def state_to_bytes(state, n):
     return out[:n]
 
 
+def pad_message(message: bytes, rate_bytes: int, domain_suffix: int) -> bytes:
+    """Pad10*1 + domain-suffiksi, tavutasolla (FIPS 202:n oma tavutason
+    konventio). Palauttaa TAYDEN, rate_bytes:n monikertaisen pehmennetyn
+    viestin. Itsenainen funktio - testataan ERIKSEEN ennen absorbointia
+    (kayttajan oma ehdotus, Issue #11 Vaihe A)."""
+    msg = bytearray(message)
+    msg.append(domain_suffix)
+    while len(msg) % rate_bytes != 0:
+        msg.append(0x00)
+    msg[-1] ^= 0x80
+    return bytes(msg)
+
+
 def keccak_sponge(message: bytes, rate_bytes: int, capacity_bits: int,
                    out_bytes: int, domain_suffix: int) -> bytes:
     """KECCAK[c](N,d), N = message || domain_suffix-bitit || pad10*1.
@@ -119,12 +132,7 @@ def keccak_sponge(message: bytes, rate_bytes: int, capacity_bits: int,
     assert capacity_bits % 8 == 0
     state = [[0] * 5 for _ in range(5)]
 
-    # --- Pehmennys: domain_suffix + pad10*1, tavutasolla ---
-    msg = bytearray(message)
-    msg.append(domain_suffix)
-    while len(msg) % rate_bytes != 0:
-        msg.append(0x00)
-    msg[-1] ^= 0x80
+    msg = pad_message(message, rate_bytes, domain_suffix)
 
     # --- Absorbointi ---
     for i in range(0, len(msg), rate_bytes):
