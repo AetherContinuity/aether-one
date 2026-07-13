@@ -96,7 +96,7 @@ dkPKE, c  ->  u', v' (Vaihe 1)  ->  NTT+MultiplyNTTs+polyadd (Vaihe 2)
 | ByteEncode / ByteDecode | pqc_byteencode_*.sv | #7 | Valmis |
 | K-PKE.Decrypt (kokonaan) | tb/pqc_kpke_decrypt_full_tb.sv | #8 | Valmis |
 | **K-PKE.KeyGen** | tb/pqc_kpke_keygen_full_tb.sv | **#15** | **✅ KOKONAAN VALMIS (d -> ekPKE+dkPKE)** |
-| **K-PKE.Encrypt** | - | **#15 (jatko)** | **Ei viela** |
+| **K-PKE.Encrypt** | tb/pqc_kpke_encrypt_full_tb.sv | **#15** | **✅ KOKONAAN VALMIS (ekPKE+m+r -> c)** |
 | ML-KEM.KeyGen/Encaps/Decaps (ulompi kuori) | - | #15 (jatko) | Ei viela |
 
 ## Integraatioperiaate (kayttajan oma ohje, kirjattu talteen)
