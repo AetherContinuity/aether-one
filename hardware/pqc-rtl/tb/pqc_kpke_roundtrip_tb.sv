@@ -40,7 +40,8 @@ module pqc_kpke_roundtrip_tb;
     .pair_dist(pair_dist), .mode(mode),
     .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
     .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
-    .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected)
+    .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+    .load_valid(1'b0), .load_addr(8'd0), .load_data(16'd0), .read_en(1'b0), .read_addr(8'd0), .read_valid(), .read_data()
   );
 
   logic [1:0] bank_rom_tb  [0:255];

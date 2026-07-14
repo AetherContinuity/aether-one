@@ -14,12 +14,26 @@
 // yleinen moduuli) MUTTA oikealla 4-pankkisella muistilla jokaisella
 // tasolla, ei yhdella isolla taulukolla. Ajonaikainen konfliktin-
 // tunnistus jokaisella syklilla jokaisella tasolla.
+//
+// M4-FPGA-001 (2026-07-14): lisatty VALINNAINEN FPGA_BRINGUP-parametri
+// (oletus 0 - EI vaikuta olemassa olevaan kayttoon/testeihin lainkaan).
+// Tausta: Yosysin/SystemVerilog-tuen nykyiset rajoitukset estavat
+// hierarkkisten viittausten JA bind-rakenteen kayton pankkien sisallon
+// paljastamiseen ulkopuolelle synteesissa (molemmat kokeiltu ja
+// todettu toimimattomiksi, ks. M4_FPGA_BRINGUP_NOTE.md) - siksi
+// lisatty EKSPLISIITTINEN, valinnainen porttirajapinta. TARKEA RAJAUS:
+// nama portit paljastavat VAIN olemassa olevan tilan (muistien
+// alkuarvojen kirjoitus + lopputulosten luku) - EIVAT muuta
+// butterfly-laskentaa, FSM:aa, osoitelaskentaa tai mitaan NTT-
+// operaatiota. Kun FPGA_BRINGUP=0 (oletus), bring-up-logiikka
+// synteesoituu kokonaan pois - taysin identtinen aiempaan nahden.
 
 `timescale 1ns/1ps
 
 module pqc_ntt_stage_banked #(
     parameter int COEFF_W = 16,
-    parameter int SPAD_AW = 9
+    parameter int SPAD_AW = 9,
+    parameter bit FPGA_BRINGUP = 1'b0  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
 )(
     input  logic clk,
     input  logic reset,
@@ -34,7 +48,16 @@ module pqc_ntt_stage_banked #(
     input  logic [COEFF_W-1:0] zeta_lane1,
 
     output logic stage_done,
-    output logic bank_conflict_detected
+    output logic bank_conflict_detected,
+
+    // --- M4-FPGA-001 bring-up-portit (kaytossa VAIN jos FPGA_BRINGUP=1) ---
+    input  logic load_valid,
+    input  logic [7:0] load_addr,           // looginen kerroinindeksi 0..255
+    input  logic [COEFF_W-1:0] load_data,
+    input  logic read_en,
+    input  logic [7:0] read_addr,           // looginen kerroinindeksi 0..255
+    output logic read_valid,
+    output logic [COEFF_W-1:0] read_data
 );
 
   // --- ROMit: looginen osoite (0..255) -> (pankki, paikallinen_osoite) ---
@@ -163,5 +186,53 @@ module pqc_ntt_stage_banked #(
   end
 
   assign stage_done = done0 && done1;
+
+  // --- M4-FPGA-001 bring-up-logiikka (VAIN jos FPGA_BRINGUP=1) ---
+  // EI kosketa mitaan yllaolevaa: butterfly-laskenta, FSM, osoite-
+  // laskenta ja NTT-operaatiot pysyvat TASMALLEEN samoina. Tama
+  // lohko VAIN paljastaa pankkien olemassa olevan sisallon load/read-
+  // porttien kautta, uudelleenkayttaen jo olemassa olevaa bank_rom/
+  // local_rom-kartoitusta (sama muodollisesti todistettu kuvaus,
+  // ei uutta logiikkaa). Kun FPGA_BRINGUP=0 (oletus), tama koko
+  // lohko synteesoituu pois - taysin identtinen aiempaan nahden.
+  generate
+    if (FPGA_BRINGUP) begin : g_bringup
+      // Kirjoitus: synkroninen, yksi kirjoitusportti (kuten aiemmin)
+      always_ff @(posedge clk) begin
+        if (load_valid) begin
+          case (bank_rom[load_addr])
+            2'd0: bank0[local_rom[load_addr]] <= load_data;
+            2'd1: bank1[local_rom[load_addr]] <= load_data;
+            2'd2: bank2[local_rom[load_addr]] <= load_data;
+            default: bank3[local_rom[load_addr]] <= load_data;
+          endcase
+        end
+      end
+
+      // Luku: REKISTEROITY, YHDEN SYKLIN viive read_en:sta read_data:an
+      // (osoitteen dekoodaus bank_rom/local_rom:sta on kombinatorinen,
+      // mutta TULOS rekisteroidaan - standardi synkronisen muistin
+      // lukukuvio, BRAM-inferoinnille "luonnollinen" muoto). read_valid
+      // tasmaa TASMALLEEN read_data:n saatavuuden kanssa (sama viive).
+      always_ff @(posedge clk) begin
+        if (reset) begin
+          read_valid <= 1'b0;
+        end else begin
+          read_valid <= read_en;
+          if (read_en) begin
+            case (bank_rom[read_addr])
+              2'd0: read_data <= bank0[local_rom[read_addr]];
+              2'd1: read_data <= bank1[local_rom[read_addr]];
+              2'd2: read_data <= bank2[local_rom[read_addr]];
+              default: read_data <= bank3[local_rom[read_addr]];
+            endcase
+          end
+        end
+      end
+    end else begin : g_no_bringup
+      assign read_data = '0;
+      assign read_valid = 1'b0;
+    end
+  endgenerate
 
 endmodule
