@@ -1,9 +1,9 @@
 // pqc_shake256.sv
 //
-// M3 Issue #14, Vaihe A/B: SHAKE128, ensimmainen AITO uusi
-// kayttaytymisero SHA3-256/512:een verrattuna (Issue #12/#13) -
-// MUUTTUVA ulostulopituus (XOF). rate=168 tavua (1344 bittia,
-// capacity=256 bittia), domain-suffiksi=0x1F (EI 0x06).
+// M3 Issue #14, Vaihe A/B: SHAKE256, sama uusi kayttaytymisero kuin
+// SHAKE128:lla (Issue #12/#13:een verrattuna) - MUUTTUVA ulostulopituus
+// (XOF). rate=136 tavua (1088 bittia, capacity=512 bittia),
+// domain-suffiksi=0x1F (EI 0x06).
 //
 // out_len_bytes on AJONAIKAINEN portti (ei kiintea parametri kuten
 // SHA3-256/512:ssa) - tama on SHAKE:n oma keskeinen ominaisuus.

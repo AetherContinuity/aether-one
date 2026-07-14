@@ -98,7 +98,27 @@ dkPKE, c  ->  u', v' (Vaihe 1)  ->  NTT+MultiplyNTTs+polyadd (Vaihe 2)
 | **K-PKE taydellinen round-trip** | tb/pqc_kpke_roundtrip_tb.sv | Issue #15 | **✅ KOKONAAN VALMIS (Seed->KeyGen->Encrypt->Decrypt->m)** |
 | **K-PKE.KeyGen** | tb/pqc_kpke_keygen_full_tb.sv | **#15** | **✅ KOKONAAN VALMIS (d -> ekPKE+dkPKE)** |
 | **K-PKE.Encrypt** | tb/pqc_kpke_encrypt_full_tb.sv | **#15** | **✅ KOKONAAN VALMIS (ekPKE+m+r -> c)** |
-| ML-KEM.KeyGen/Encaps/Decaps (ulompi kuori) | - | #15 (jatko) | Ei viela |
+| ML-KEM.KeyGen_internal | tb/pqc_mlkem_keygen_tb.sv | #15 | Valmis |
+| ML-KEM.Encaps_internal | tb/pqc_mlkem_encaps_tb.sv | #15 | Valmis |
+| ML-KEM.Decaps_internal | - | #15 (jatko) | Golden-malli valmis (3 tapausta), RTL kesken - ks. alla |
+
+**Huomio (2026-07-14):** Yksi yhdistetty ML-KEM.Decaps_internal-testipenkki
+(kaikki 4 vaihetta + 3 testitapausta yhdessa tiedostossa) aiheutti
+Icarus Verilogin oman segmentointivirheen VVP-ajon aikana - EI looginen
+RTL/testipenkkivirhe, vaan tyokalun oma rajoitus/bugi erittain suuren
+integraatiotestipenkin kanssa. Useita kohdennettuja korjausyrityksia
+(task vs. inline, 2D-taulukon skooppi) eivat ratkaisseet ongelmaa.
+
+Suunnitelma seuraavalle kierrokselle (kayttajan oma ehdotus): jaa
+kahteen pienempaan RTL-integraatiotestiin:
+- **Decaps TB A**: K-PKE.Decrypt -> m', G(m'||H(ek)) -> (K',r')
+- **Decaps TB B**: (m',r',ek,z syotteina) -> K-PKE.Encrypt -> c',
+  vertailu c==c', FO-valinta (K' tai J(z||c))
+
+Golden-malli JA jaadytetty referenssi (mlkem_frozen_vectors.json,
+3 tapausta: valid/byte_corrupted/bit_corrupted) ovat jo taysin
+valmiit ja odottavat vain RTL:aa - ei toistoa tarvita algoritmisella
+tasolla, vain RTL-integraation oma pilkkominen.
 
 ## Integraatioperiaate (kayttajan oma ohje, kirjattu talteen)
 
