@@ -232,3 +232,34 @@ jobs:
         run: |
           cd hardware/pqc-rtl
           yosys -q -p "read_verilog -sv rtl/pqc_keccak_f1600.sv; hierarchy -check -top pqc_keccak_f1600; proc; opt; stat"
+
+  test-pqc-rtl-frozen-vectors-immutable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify frozen reference JSONs still match current golden model (NOT regenerated, only checked)
+        run: |
+          cd hardware/pqc-rtl
+          python3 m2-golden/gen_keccak_round_snapshots.py
+          python3 m2-golden/gen_mlkem_frozen_vectors.py
+          python3 m2-golden/gen_samplentt_frozen_reference.py
+          python3 m2-golden/gen_samplepolycbd_frozen_reference.py
+      - name: Fail if any frozen vector file was accidentally modified by the checks above
+        run: git diff --exit-code hardware/pqc-rtl/vectors/
+
+  test-pqc-rtl-fips203-coverage-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify FIPS203_COVERAGE.md mentions every expected algorithm number
+        run: |
+          cd hardware/pqc-rtl
+          python3 check_fips203_coverage.py

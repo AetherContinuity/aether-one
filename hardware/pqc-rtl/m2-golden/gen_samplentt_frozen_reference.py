@@ -29,26 +29,27 @@ test_cases = {
     "second_index_j1_i2": {"j": 1, "i": 2},
 }
 
-frozen = {}
-for name, params in test_cases.items():
-    a_hat, info = sample_ntt(FIXED_RHO, params["j"], params["i"], instrument=True)
-    assert all(0 <= x < Q for x in a_hat), f"{name}: kerroin ulkona valilta [0,Q)!"
-    frozen[name] = {
-        "rho_hex": FIXED_RHO.hex(),
-        "j": params["j"],
-        "i": params["i"],
-        "a_hat": a_hat,
-        "info": info,
-    }
+if "--regenerate" in sys.argv:
+    frozen = {}
+    for name, params in test_cases.items():
+        a_hat, info = sample_ntt(FIXED_RHO, params["j"], params["i"], instrument=True)
+        assert all(0 <= x < Q for x in a_hat), f"{name}: kerroin ulkona valilta [0,Q)!"
+        frozen[name] = {
+            "rho_hex": FIXED_RHO.hex(),
+            "j": params["j"],
+            "i": params["i"],
+            "a_hat": a_hat,
+            "info": info,
+        }
 
-with open(os.path.join(outdir, "samplentt_frozen_reference.json"), "w") as f:
-    json.dump(frozen, f, indent=1)
+    with open(os.path.join(outdir, "samplentt_frozen_reference.json"), "w") as f:
+        json.dump(frozen, f, indent=1)
 
-print(f"Tallennettu {len(test_cases)} jaadytettya testitapausta")
-for name, data in frozen.items():
-    print(f"  {name}: iteraatioita={data['info']['iterations']}, "
-          f"hylkayksia={data['info']['rejected_count']}, "
-          f"a_hat[0:5]={data['a_hat'][:5]}")
+    print(f"Tallennettu {len(test_cases)} jaadytettya testitapausta")
+    for name, data in frozen.items():
+        print(f"  {name}: iteraatioita={data['info']['iterations']}, "
+              f"hylkayksia={data['info']['rejected_count']}, "
+              f"a_hat[0:5]={data['a_hat'][:5]}")
 
 
 def verify_frozen():
@@ -73,3 +74,6 @@ if __name__ == "__main__":
     ok = verify_frozen()
     print()
     print("Jaadytetyn referenssin oma itsetarkistus:", "OK" if ok else "FAIL")
+    if not ok:
+        import sys
+        sys.exit(1)

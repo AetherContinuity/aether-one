@@ -33,22 +33,23 @@ _abc_block = bytearray(b"abc" + b"\x06" + b"\x00" * (168 - 4))
 _abc_block[-1] ^= 0x80
 TEST_CASES["sha3_256_abc_block"] = bytes(_abc_block)
 
-snapshots_out = {}
-for name, block in TEST_CASES.items():
-    assert len(block) == 168, f"{name}: lohkon pituus vaarin ({len(block)})"
-    state = bytes_to_state(block)
-    final, rounds = keccak_f1600(state, capture_rounds=True)
+if "--regenerate" in sys.argv:
+    snapshots_out = {}
+    for name, block in TEST_CASES.items():
+        assert len(block) == 168, f"{name}: lohkon pituus vaarin ({len(block)})"
+        state = bytes_to_state(block)
+        final, rounds = keccak_f1600(state, capture_rounds=True)
 
-    snapshots_out[name] = {
-        "initial_state": [[f"{state[x][y]:016x}" for y in range(5)] for x in range(5)],
-        "round_states": [
-            [[f"{rounds[r][x][y]:016x}" for y in range(5)] for x in range(5)]
-            for r in range(24)
-        ],
-    }
+        snapshots_out[name] = {
+            "initial_state": [[f"{state[x][y]:016x}" for y in range(5)] for x in range(5)],
+            "round_states": [
+                [[f"{rounds[r][x][y]:016x}" for y in range(5)] for x in range(5)]
+                for r in range(24)
+            ],
+        }
 
-with open(os.path.join(outdir, "keccak_round_snapshots.json"), "w") as f:
-    json.dump(snapshots_out, f, indent=1)
+    with open(os.path.join(outdir, "keccak_round_snapshots.json"), "w") as f:
+        json.dump(snapshots_out, f, indent=1)
 
 print(f"Tallennettu {len(TEST_CASES)} testitapausta, kukin 24 kierroksen tilalla, "
       f"vectors/keccak_round_snapshots.json:iin")
@@ -77,3 +78,6 @@ def verify_frozen_snapshots():
 if __name__ == "__main__":
     ok = verify_frozen_snapshots()
     print("Jaadytetyn referenssin oma itsetarkistus:", "OK" if ok else "FAIL")
+    if not ok:
+        import sys
+        sys.exit(1)

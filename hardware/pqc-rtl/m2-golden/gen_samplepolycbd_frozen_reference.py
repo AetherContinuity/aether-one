@@ -19,23 +19,24 @@ test_cases = {
     "eta3_sequential": {"eta": 3, "B": bytes(i % 256 for i in range(64 * 3))},
 }
 
-frozen = {}
-for name, params in test_cases.items():
-    f, info = sample_poly_cbd(params["B"], params["eta"], instrument=True)
-    assert info["all_in_valid_cbd_range"], f"{name}: CBD-rajojen ulkopuolella!"
-    frozen[name] = {
-        "eta": params["eta"],
-        "B_hex": params["B"].hex(),
-        "f": f,
-        "info": info,
-    }
+if "--regenerate" in sys.argv:
+    frozen = {}
+    for name, params in test_cases.items():
+        f, info = sample_poly_cbd(params["B"], params["eta"], instrument=True)
+        assert info["all_in_valid_cbd_range"], f"{name}: CBD-rajojen ulkopuolella!"
+        frozen[name] = {
+            "eta": params["eta"],
+            "B_hex": params["B"].hex(),
+            "f": f,
+            "info": info,
+        }
 
-with open(os.path.join(outdir, "samplepolycbd_frozen_reference.json"), "w") as f_out:
-    json.dump(frozen, f_out, indent=1)
+    with open(os.path.join(outdir, "samplepolycbd_frozen_reference.json"), "w") as f_out:
+        json.dump(frozen, f_out, indent=1)
 
-print(f"Tallennettu {len(test_cases)} jaadytettya testitapausta")
-for name, data in frozen.items():
-    print(f"  {name}: f[0:5]={data['f'][:5]}, valid_range={data['info']['all_in_valid_cbd_range']}")
+    print(f"Tallennettu {len(test_cases)} jaadytettya testitapausta")
+    for name, data in frozen.items():
+        print(f"  {name}: f[0:5]={data['f'][:5]}, valid_range={data['info']['all_in_valid_cbd_range']}")
 
 
 def verify_frozen():
@@ -55,3 +56,6 @@ if __name__ == "__main__":
     ok = verify_frozen()
     print()
     print("Jaadytetyn referenssin oma itsetarkistus:", "OK" if ok else "FAIL")
+    if not ok:
+        import sys
+        sys.exit(1)
