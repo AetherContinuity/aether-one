@@ -7,7 +7,12 @@
 - [x] Web UI + Drift Monitor
 
 ## Taso 2: FPGA-validointi
-- [ ] RTL TrustCore NX (SystemVerilog)
+- [x] RTL TrustCore NX (SystemVerilog) — **M3 valmis (2026-07-14):**
+      taydellinen ML-KEM-512 (FIPS 203) toiminnallisesti verifioituna
+      RTL:ssa (KeyGen/Encaps/Decaps, kaikki primitiivit itsenaisesti
+      todennettu + koko ketju regressiotestattu 1000 satunnaisella
+      syotteella). Ks. hardware/pqc-rtl/ - ei viela ECP5-spesifista
+      resurssi-/ajoitusraporttia (M4:n oma tyo).
 - [ ] RVV 1.0 toolchain + TVM
 - [ ] Kyber/Dilithium RVV-optimointi
 - [ ] FPGA bring-up (Xilinx Versal / Intel Agilex)

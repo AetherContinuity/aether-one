@@ -87,4 +87,35 @@ ongelmaa, mutta ei yksin lopullinen todiste siitä.
 tarkka, todistettu tila sen sijaan että jatkettaisiin arvailua.
 Toiminnallisesti verifioitu RTL + muodollinen muistikuvauksen todistus
 + onnistunut geneerinen synteesi riittävät jatkamaan algoritmi- ja
-arkkitehtuuritason kehitystä ilman ECP5-spesifistä resurssiraporttia.
+arkkitehtuuritason kehitystä ilman ECP5-spesifista resurssiraporttia.
+
+## M3 Release Candidate -tarkistus (2026-07-14)
+
+Kayttajan oma RC-vaatimus: tarkista ettei synteesissa synny uusia
+varoituksia tai inferoituja latch-rakenteita.
+
+**Verilator-lint (-Wall), KAIKKI rtl/*.sv-tiedostot erikseen:**
+haettiin nimenomaisesti LATCH-, UNDRIVEN- ja COMBDLY-varoituksia
+(latch-inferointi olisi vakava, synteesikelpoisuutta rikkova loydos) -
+**EI YHTAAN LOYTYNYT koko RTL-hakemistosta.** Jaljella olevat
+Verilator-varoitukset (WIDTHTRUNC, WIDTHEXPAND, DECLFILENAME) ovat
+samaa, jo aiemmin (2026-07-11) todettua vaaratonta luokkaa - implisiit-
+tinen bittileveyden pyoristys funktioargumenteissa, ei toiminnallinen
+riski.
+
+**Yosys-synteesi, kaksi keskeista moduulia erikseen tarkistettu:**
+- `pqc_ntt_stage_banked` (+lane_fsm): 375 solua, 6 muistia (bank0-3 +
+  ROMit), 0 virhetta, 2 vaaratonta muistivaroitusta (pieni rekisteri-
+  taulukko optimoitu suoraan flip-flopeiksi muistiobjektin sijaan -
+  odotettu, ei ongelma).
+- `pqc_keccak_f1600` (permutaatioydin): 358 solua, 0 virhetta, 6
+  samanlaista vaaratonta muistivaroitusta (5x5-tilataulukon sisaiset
+  valivaiheet C/D/B/A_theta/A_next/A - kaikki pienia, synteesi
+  optimoi ne oikein rekistereiksi).
+
+**Johtopaatos:** ei uusia varoituksia, ei latch-inferointia, molemmat
+tarkistetut moduulit synteesoituvat puhtaasti. Taydellinen ECP5-
+spesifinen resurssi-/ajoitusraportti (aiemmin tunnistettu BRAM-mappaus-
+kysymys, ks. ylla) jaa edelleen omaksi, myohemmaksi tyokseen - tama
+RC-tarkistus kattaa geneerisen synteesikelpoisuuden, ei FPGA-
+kohdekohtaista optimointia.
