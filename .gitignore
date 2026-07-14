@@ -201,3 +201,4 @@ hardware/pqc-rtl/vectors/isolated_ntt_inv_stage_snapshots.txt
 hardware/pqc-rtl/vectors/mlkem_keygen_vectors.txt
 hardware/pqc-rtl/vectors/mlkem_encaps_vectors.txt
 hardware/pqc-rtl/vectors/mlkem_decaps_a_vectors.txt
+hardware/pqc-rtl/vectors/mlkem_decaps_b_vectors.txt
