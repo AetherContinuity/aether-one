@@ -154,3 +154,81 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
       - name: Run M1 RTL verification (real simulation, not a text check)
         run: bash hardware/pqc-rtl/run_m1_test.sh
+
+  test-pqc-rtl-m3-golden-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run full ML-KEM golden-model end-to-end regression (1000 random seeds)
+        run: |
+          cd hardware/pqc-rtl
+          python3 m2-golden/mlkem_regression.py 1000
+
+  test-pqc-rtl-m3-kpke-roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run full K-PKE KeyGen->Encrypt->Decrypt->m round-trip (real RTL, all primitives)
+        run: bash hardware/pqc-rtl/run_m3_kpke_roundtrip_test.sh
+
+  test-pqc-rtl-m3-mlkem-decaps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run ML-KEM.Decaps_internal TB A (K-PKE.Decrypt + G)
+        run: bash hardware/pqc-rtl/run_m3_mlkem_decaps_a_test.sh
+      - name: Run ML-KEM.Decaps_internal TB B (K-PKE.Encrypt + FO selection, incl. implicit rejection)
+        run: bash hardware/pqc-rtl/run_m3_mlkem_decaps_b_test.sh
+
+  test-pqc-rtl-m3-keygen-multiseed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run K-PKE.KeyGen 10x in same simulation (register-leak/reset check)
+        run: bash hardware/pqc-rtl/run_m3_kpke_keygen_multiseed_test.sh
+
+  test-pqc-rtl-verilator-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Verilator
+        run: sudo apt-get update -qq && sudo apt-get install -y verilator
+      - name: Lint every rtl/*.sv file, fail on any LATCH/UNDRIVEN/COMBDLY warning
+        run: |
+          cd hardware/pqc-rtl
+          fail=0
+          for f in rtl/*.sv; do
+            out=$(verilator --lint-only -Wall "$f" 2>&1 || true)
+            hits=$(echo "$out" | grep -i "LATCH\|UNDRIVEN\|COMBDLY" || true)
+            if [ -n "$hits" ]; then
+              echo "LATCH/UNDRIVEN/COMBDLY warning in $f:"
+              echo "$hits"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  test-pqc-rtl-yosys-synth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Yosys
+        run: sudo apt-get update -qq && sudo apt-get install -y yosys
+      - name: Synthesize NTT core (pqc_ntt_stage_banked + lane_fsm)
+        run: |
+          cd hardware/pqc-rtl
+          yosys -q -p "read_verilog -sv rtl/pqc_rvv_cluster_2lane.sv rtl/pqc_ntt_stage_banked.sv; hierarchy -check -top pqc_ntt_stage_banked; proc; opt; stat"
+      - name: Synthesize Keccak-p[1600,24] core
+        run: |
+          cd hardware/pqc-rtl
+          yosys -q -p "read_verilog -sv rtl/pqc_keccak_f1600.sv; hierarchy -check -top pqc_keccak_f1600; proc; opt; stat"
