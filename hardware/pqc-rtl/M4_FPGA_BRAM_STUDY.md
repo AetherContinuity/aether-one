@@ -175,6 +175,54 @@ tavalla.
 - **002C**: integroidaan valittu ratkaisu oikeaan NTT-ytimeen. Vasta
   tassa vaiheessa kosketaan varsinaiseen kryptografiseen RTL:aan.
 
+## KRIITTINEN LISAYS 2026-07-17: tutkimuskysymys jakautuu kahtia
+
+Ennen prototyyppien A/B rakentamista havaittiin merkittava
+sekoittava tekija KAIKISSA aiemmissa "onnistuneissa" kokeissa
+(10, 11, 12): ne kaikki kayttivat REKISTEROITYA lukua (`always_ff`),
+kun taas OIKEA `pqc_ntt_stage_banked` kayttaa KOMBINATORISTA lukua
+(`always_comb`, ks. rivit 122-140 - `rdata_a0` jne. paivittyvat
+SAMALLA syklilla kuin osoite, ei syklin viiveella).
+
+Testattu eksplisiittisesti:
+- YKSI 256-alkion yhtenainen muisti, MUTTA kombinatorisella luvulla
+  -> **EI TOIMI** (645 solua, hajautettu) - vaikka SAMA muisti
+  rekisteroidylla luvulla TOIMII (koe 1, 81 solua).
+- NELJA 128-alkioista pankkia, kombinatorisella luvulla -> **EI
+  TOIMI** (928 solua, hajautettu) - vaikka SAMA rakenne rekisteroidylla
+  luvulla TOIMII (koe 11, 288 solua).
+
+**Tama muuttaa tutkimuskysymyksen kahtia (kayttajan oma jaottelu):**
+
+1. **Voiko Yosys inferoida ECP5 BRAM:n asynkronisesta/kombinatorisesta
+   lukurajapinnasta?** Nayttoni: EI, riippumatta muistiorganisaatiosta.
+   Tama on RIIPPUMATON kysymys muistin koosta tai fyysisesta
+   jakautumisesta.
+2. **Jos luku on synkroninen, mika muistiorganisaatio on paras?**
+   Tahan nayttoni jo osoittaa: seka yhtenainen RAM etta riittavan
+   suuri pankkirakenne (>=128 alkiota/pankki) voivat inferoitua
+   DP16KD:ksi.
+
+**Seuraus:** pelkka muistien uudelleenjarjestely (koko/rakenne) EI
+KOSKAAN ratkaise oikean ytimen ongelmaa, koska este on ENSISIJAISESTI
+lukurajapinnan AJOITUS (kombinatorinen vs. rekisteroity), ei
+muistin koko tai organisaatio. Tama vaatii `lane_fsm`:n oman
+ajoitusprotokollan tarkastelua ENNEN kuin prototyypit A/B ovat
+mielekkaita.
+
+## Seuraava koe (kayttajan oma ehdotus): voiko lane_fsm toimia yhden
+syklin lukuviiveella ilman algoritmimuutoksia?
+
+Minimaalinen koe: nykyinen `lane_fsm` (MUUTTUMATON), nykyinen
+osoitegenerointi, MUTTA rekisteroity testimuisti (EI NTT-laskentaa) -
+tarkastellaan VAIN osoitteiden, `read_valid`-tyyppisen signaalin ja
+FSM-tilojen ajoitusta. Vastaa kysymykseen: onko `lane_fsm` rakennettu
+NOLLAVIIVEISEN muistin varaan (vaatisi FSM:n uudelleenajoituksen), vai
+voidaanko yhden syklin lukuviive lisata ilman muutoksia butterfly-
+laskentaan?
+
+Tulos: ks. alla.
+
 ## Johtopaatos ja suositus (PAIVITETTY 2026-07-16)
 
 **EI VIELA muutosta oikeaan ytimeen.** Loydokset (mukaan lukien
