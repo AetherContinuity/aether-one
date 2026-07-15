@@ -38,41 +38,87 @@ komennolla: `yosys synth_ecp5 -top <moduuli>`.
 (Taydelliset Yosys-lokit ja RTL-lahdekoodi: ks.
 `fpga/bram_experiments/*.sv` ja saman hakemiston `RESULTS.md`.)
 
-## Analyysi
+## Analyysi (KORJATTU — ks. Lisays 2026-07-15 alla, alkuperainen
+hypoteesi case-valinnasta oli VIRHEELLINEN)
 
-### Loyto 1: case-pohjainen pankinvalinta rikkoo inferoinnin taysin
+### Loyto 1 (ALKUPERAINEN, OSITTAIN VIRHEELLINEN): case-pohjainen
+pankinvalinta rikkoo inferoinnin
 
 Koe 2 (nykyinen tuotantokuvio) epaonnistuu, vaikka se on LOOGISESTI
-identtinen kokeeseen 1/3/5 nahden (sama data, sama kayttaytyminen) -
-ero on VAIN siina, ETTA looginen->fyysinen osoite kulkee ULKOISEN
-ROM-taulukon (`bank_rom`/`local_rom`) kautta ENNEN muistin omaa
-osoitesyotetta, sen sijaan etta osoite menisi SUORAAN muistiin.
+identtinen kokeeseen 1/3/5 nahden. Alunperin tulkittu niin, etta
+CASE-VALINTALOGIIKKA itsessaan olisi este. **Tama tulkinta osoittautui
+VIRHEELLISEKSI - ks. Lisays 2026-07-15.**
 
-Yosysin `memory_bram`-vaihe (osa `synth_ecp5`-skriptia) tunnistaa
-BRAM-kelpoiset kuviot TARKISTAMALLA etta osoitesignaali kulkee
-suoraan porttiin ilman valissa olevaa, EPASAANNONMUKAISTA (data-
-riippuvaista, ei-lineaarista) muunnosta. `bank_rom[addr]`-haku on
-tallainen muunnos - vaikka se on TAYSIN DETERMINISTINEN JA STAATTINEN
-(kiinteat arvot, ladattu kerran alussa), Yosys ei paattele etta
-tulos on silti suora, yksi-yhteen-kartoitus joka voitaisiin
-"nahda lapi" BRAM-inferointia varten.
-
-### Loyto 2: DP16KD:n porttirajoitus
+### Loyto 2: DP16KD:n porttirajoitus (PYSYY VOIMASSA)
 
 Koe 4 vahvistaa etta ECP5:n DP16KD tukee KORKEINTAAN 2 porttia per
-instanssi (ei 4). Tama on ECP5:n oma laitteistorajoitus, ei
-Yosys-kohtainen. Jos tarvitaan enemman kuin 2 porttia SAMALLE
-muistialueelle SAMASSA syklissa, ratkaisu on JOKO:
-(a) useampi muisti-instanssi (jokainen omalla, erillisella
-    data-alueellaan), TAI
-(b) porttimaaran vahentaminen ajoituksen (useamman syklin) kautta.
+instanssi (ei 4). Tama on ECP5:n oma laitteistorajoitus.
 
-### Loyto 3: paras vastaava kuvio oikealle kayttotarpeelle
+### Loyto 3: paras vastaava kuvio oikealle kayttotarpeelle (TARKENTYY
+alla)
 
-Koe 5 (kaksi erillista, suoraan osoitettua muistia) vastaa lahinna
-`pqc_ntt_stage_banked`:n oikeaa tarvetta (lane0 ja lane1 lukevat+
-kirjoittavat samanaikaisesti, jokainen omalla portillaan) - MUTTA
-ilman case-pohjaista pankinvalintaa, suoralla per-muisti-osoitteella.
+Koe 5 (kaksi erillista, suoraan osoitettua muistia) toimi - mutta
+KRIITTINEN LISATIETO (ks. alla): tama toimi NIMENOMAAN koska
+kokeen 5 muistit olivat 128 alkiota kumpikin, EI koon 64 vuoksi.
+
+## LISAYS 2026-07-15: korjattu, tarkempi juurisyy
+
+Jatkotutkimus (kokeet 6-8, samassa `fpga/bram_experiments/`-
+hakemistossa) osoitti etta ALKUPERAINEN hypoteesi (case-pohjainen
+pankinvalinta rikkoo inferoinnin) oli **OSITTAIN VIRHEELLINEN**:
+
+- **Koe 6**: SAMA nelja-pankkinen rakenne kuin koe 2, mutta
+  ROM-haun sijaan SULJETULLA XOR-kaavalla (`bank = addr[1:0] ^
+  addr[3:2] ^ addr[5:4] ^ addr[7:6]`, bijektiivinen, 64/64/64/64-
+  jakauma vahvistettu) -> **EDELLEEN EI TOIMI** (TRELLIS_DPR16X4,
+  664 solua). Tama kumoaa "ROM vs. suljettu kaava" -hypoteesin.
+
+- **Koe 7**: NELJA erillista 64-alkioista muistia, TAYSIN erillisilla
+  porteilla (EI mitaan jaettua osoitetta tai case-valintaa
+  lainkaan) -> **EDELLEEN EI TOIMI** (592 solua, hajautettu). Tama
+  kumoaa myos "case-valinta itsessaan" -hypoteesin taydellisesti.
+
+- **Koe 8 (kokorajakartoitus)**: YKSI 1w+1r-muisti onnistuu DP16KD:na
+  jo koolla 16 alkiota (256 bittia) asti - koko ei ole este YHDELLE
+  muistille.
+
+- **Lisakoe (kaksi 64/96/128-alkioista muistia rinnakkain samassa
+  moduulissa)**: **n=64 EI TOIMI, n=96 EI TOIMI, n=128 TOIMII**
+  (2xDP16KD, 144 solua). Tasmallinen raja loytyy 96:n ja 128:n
+  valilta.
+
+- **Vahvistuskoe**: NELJA 128-alkioista muistia (vastaava rakenne
+  kuin oikeassa ytimessa, mutta 128 alkiota/pankki 64:n sijaan)
+  -> **TOIMII TAYDELLISESTI** (4x DP16KD, vain 288 solua).
+
+### OIKEA JOHTOPAATOS
+
+**Este EI OLE case-pohjainen valinta eika ROM-haku. Este on
+YKSITTAISEN MUISTIN KOKO, KUN MODUULISSA ON USEAMPI MUISTI
+RINNAKKAIN.** Yosysin `memory_bram`-vaiheen paatoslogiikka
+(todennakoisesti: BRAM-instanssin "hyoty" verrattuna sen omaan
+kiinteaan kokoon, 16Kbit per DP16KD) nayttaa arvioivan useamman
+pienen muistin tapauksessa eri tavalla kuin yhden ainoan - tarkkaa
+Yosysin sisaista paatoslogiikkaa ei ole tassa selvitetty tarkemmin,
+vain sen KAYTTAYTYMINEN mitattu kokeellisesti.
+
+**Oikean ytimen (`pqc_ntt_stage_banked`) pankit ovat 64 alkiota
+kumpikin - JUURI ALLE havaitun 96-128-rajan.** Tama - ei case-valinta,
+ei ROM-haku - on todellinen este BRAM-inferoinnille.
+
+### Vaikutus jatkotyohon
+
+Mahdollinen korjaus on siis YKSINKERTAISEMPI kuin alunperin arvioitu:
+EI tarvita mitaan muutosta osoitelogiikkaan (case-valinta ja/tai
+ROM-haku voivat pysya TASMALLEEN ennallaan) - riittaisi PELKASTAAN
+kasvattaa kunkin pankin kokoa vahintaan 128 alkioon (esim. taittamalla
+2 NTT-tasoa yhteen fyysiseen pankkiin, tai yksinkertaisesti
+ylimitoittamalla pankit 64:sta 128:aan kayttamatta puolta tilasta).
+Tama on kevyempi, vahemman invasiivinen muutos kuin taydellinen
+osoitelogiikan uudelleensuunnittelu - MUTTA vaatii oman, huolellisen
+arviointinsa (esim. resurssien haaskaus, kaksi NTT-tasoa yhdessa
+pankissa -skeeman vaikutus konfliktittomuustodistukseen) ennen
+soveltamista.
 
 ## Miksi nykyinen pankkirakenne on olemassa (konteksti, ei kritiikki)
 
@@ -86,20 +132,26 @@ esto) on SAAVUTETTU JA TARPEELLINEN - kysymys on VAIN siita, MITEN
 sama konfliktiton kartoitus voitaisiin toteuttaa BRAM-yhteensopivalla
 tavalla.
 
-## Johtopaatos ja suositus
+## Johtopaatos ja suositus (PAIVITETTY 2026-07-15)
 
-**EI VIELA muutosta oikeaan ytimeen.** Loydokset antavat VAHVAN,
-KOKEELLISESTI TODISTETUN perustelun mahdolliselle tulevalle
-arkkitehtuurityolle, mutta paatos siita TEHDAANKO muutos vaatii
-ensin (kayttajan oma jarjestys):
+**EI VIELA muutosta oikeaan ytimeen.** Loydokset (mukaan lukien
+korjattu, tarkempi juurisyy - kokoraja, ei case-valinta) antavat
+VAHVAN, KOKEELLISESTI TODISTETUN perustelun mahdolliselle tulevalle
+tyolle, mutta paatos siita TEHDAANKO muutos vaatii ensin (kayttajan
+oma jarjestys):
 
-1. **M4-FPGA-002A**: prototyyppi suoralla, muistikohtaisella
-   osoitteistuksella (ei case-pohjaista ulkoista valintaa) - EI
-   muutoksia butterfly-laskentaan tai NTT-algoritmiin, VAIN
-   osoitteenmuodostustapa.
+1. **M4-FPGA-002A**: prototyyppi jossa pankkien koko kasvatetaan
+   64:sta vahintaan 128:aan (ylimitoitus TAI kahden NTT-tason
+   taittaminen samaan fyysiseen pankkiin) - EI muutoksia butterfly-
+   laskentaan, NTT-algoritmiin, EIKA valttamatta edes osoitelogiikkaan
+   (case-valinta ja ROM-haku voivat pysya ennallaan, koon kasvatus
+   riittanee yksinaan).
 2. **M4-FPGA-002B**: mittaa ja vertaa (LUT, FF, EBR, Fmax,
    syklimaara) nykyisen ja prototyypin valilla.
 3. Vasta jos luvut osoittavat SELVAN hyodyn, harkita nykyisen
-   pankkirakenteen korvaamista tuotannossa.
+   pankkirakenteen (koon) muuttamista tuotannossa.
 
 Tama pitaa optimointityon todisteisiin perustuvana, ei arvauksena.
+Korjattu ymmarrys (kokoraja, ei rakenne) tekee mahdollisesta
+korjauksesta todennakoisesti YKSINKERTAISEMMAN kuin alunperin
+arvioitiin.

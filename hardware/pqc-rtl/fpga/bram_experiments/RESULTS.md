@@ -10,41 +10,48 @@ M4-FPGA-001:ssa.
 | # | Kuvio | Tulos | Solumaara |
 |---|---|---|---|
 | 1 | Yksi muisti, 1w+1r, suora osoite | ✅ 1x DP16KD | 81 |
-| 2 | Nelja pankkia + ulkoinen ROM-pohjainen valinta (= pqc_ntt_stage_banked:n oma kuvio) | ❌ TRELLIS_DPR16X4 (hajautettu) | 660 |
+| 2 | Nelja pankkia + ulkoinen ROM-pohjainen valinta (= pqc_ntt_stage_banked:n oma kuvio, 64 alkiota/pankki) | ❌ TRELLIS_DPR16X4 (hajautettu) | 660 |
 | 3 | Yksi muisti, 1w+2r (kaksi lukuporttia) | ✅ 2x DP16KD | 125 |
 | 4 | Yksi muisti, 2w+2r (nelja porttia) | ❌ Hajautettu logiikka | 35810 |
-| 5 | KAKSI erillista yksinkertaista muistia, kumpikin 1w+1r | ✅ 2x DP16KD | 144 |
+| 5 | Kaksi erillista muistia, 128 alkiota kumpikin, kumpikin 1w+1r | ✅ 2x DP16KD | 144 |
+| 6 | Nelja pankkia, SULJETULLA XOR-kaavalla ROM-haun sijaan (64 alkiota/pankki) | ❌ TRELLIS_DPR16X4 (hajautettu) | 664 |
+| 7 | Nelja ERILLISTA 64-alkioista muistia, taysin erillisilla porteilla (ei jaettua osoitetta/valintaa) | ❌ TRELLIS_DPR16X4 (hajautettu) | 592 |
+| 8 | Kokorajakartoitus, yksi muisti: 16/32/64/128/256/512 alkiota | ✅ DP16KD KAIKILLA kooilla | vaihtelee |
+| 9 | Kaksi 64-alkioista muistia rinnakkain | ❌ Hajautettu | 296 |
+| 10 | Kaksi 128-alkioista muistia rinnakkain | ✅ 2x DP16KD | 144 |
+| 11 | Nelja 128-alkioista muistia rinnakkain (kuten oikea ydin, mutta 128 alkiota/pankki 64:n sijaan) | ✅ 4x DP16KD | 288 |
 
-## Johtopaatokset
+## KORJATTU johtopaatos (2026-07-15)
 
-1. **Case-pohjainen pankinvalinta (bank_rom-lookup) rikkoo BRAM-
-   inferoinnin taysin** (koe 2 vs. koe 1/3/5) - Yosysin memory_bram-
-   vaihe ei tunnista talla tavalla "hajautettua" muistikuviota, vaikka
-   lopputulos olisi loogisesti identtinen suoraan indeksoituun
-   muistiin nahden.
+**Alkuperainen tulkinta (kokeet 1-5): "case-pohjainen pankinvalinta
+rikkoo inferoinnin" - OSOITTAUTUI VIRHEELLISEKSI.**
 
-2. **ECP5:n DP16KD tukee KORKEINTAAN 2 porttia per instanssi**
-   (koe 3 toimii, koe 4 EI) - jos tarvitaan enemman kuin 2 porttia
-   (esim. 2 kirjoitusta + 2 lukua samalle muistialueelle samassa
-   syklissa), tarvitaan JOKO useampi muisti-instanssi TAI portti-
-   maaran vahentaminen (esim. ajoituksen jakaminen useampaan sykliin).
+Kokeet 6-11 osoittivat:
+- Koe 6: SAMA nelja-pankkinen rakenne, MUTTA suljetulla XOR-kaavalla
+  (ei ROM-hakua) -> EDELLEEN EI TOIMI. Kumoaa "ROM vs. kaava"
+  -hypoteesin.
+- Koe 7: Nelja ERILLISTA muistia, EI mitaan jaettua valintaa
+  lainkaan -> EDELLEEN EI TOIMI. Kumoaa "case-valinta itsessaan"
+  -hypoteesin taydellisesti.
+- Koe 8-11: TARKKA kokoraja loytyi - YKSI muisti toimii jo 16
+  alkiolla, mutta USEAMPI muisti SAMASSA moduulissa tarvitsee
+  vahintaan ~128 alkiota KUKIN toimiakseen (n=64,96: EI TOIMI;
+  n=128: TOIMII, vahvistettu seka kahdella etta neljalla muistilla).
 
-3. **PARAS TAYTEEN TAVOITTEESEEN sopiva ratkaisu (koe 5):** korvata
-   nelja-pankkinen + ROM-valintainen rakenne KAHDELLA (tai useammalla)
-   ERILLISELLA, suoraan osoitetulla muistilla - yksi per lane, EI
-   yhteista pankinvalintalogiikkaa. Tama vastaisi tarkasti
-   pqc_ntt_stage_banked:n oikeaa kayttotarvetta (lane0 ja lane1
-   lukevat+kirjoittavat rinnakkain), MUTTA vaatisi etta datan
-   looginen->fyysinen osoitekartoitus (nykyinen bank_rom/local_rom)
-   korvattaisiin suoralla, MUISTIKOHTAISELLA osoitteella - tama ON
-   arkkitehtuurimuutos (kayttajan oma huomio: "vasta tama jalkeen
-   harkita arkkitehtuurimuutoksia, jos niita todella tarvitaan").
+**OIKEA JUURISYY: yksittaisen muistin KOKO, kun moduulissa on
+useampi muisti rinnakkain - EI rakenne (case/ROM/suora).** Oikean
+ytimen pankit (64 alkiota) ovat juuri alle taman havaitun 96-128-
+rajan.
+
+Taydellinen analyysi: ks. `../M4_FPGA_BRAM_STUDY.md`.
 
 ## Ei viela tehty
 
 Ei kosketa pqc_ntt_stage_banked.sv:aan tassa kokeessa - taydellisesti
 eristetyt, minimaaliset kokeilumallit fpga/bram_experiments/-
-hakemistossa. Mahdollinen arkkitehtuurimuutos (koe 5:n kuvion
-soveltaminen oikeaan ytimeen) on oma, erillinen paatoksensa - vaatisi
-huolellisen, vaiheistetun suunnittelun (uusi osoitekartoitus,
-regressio golden-malliin, jne.) ennen toteutusta.
+hakemistossa. Mahdollinen korjaus (pankkien koon kasvatus 64:sta
+128:aan) on oma, erillinen paatoksensa - todennakoisesti KEVYEMPI
+muutos kuin alunperin arvioitu osoitelogiikan uudelleensuunnittelu,
+mutta vaatii silti oman, huolellisen arviointinsa (resurssien
+kaytto, mahdollinen vaikutus konfliktittomuustodistukseen jos
+pankkien maaraa tai kokoa muutetaan) ennen toteutusta.
