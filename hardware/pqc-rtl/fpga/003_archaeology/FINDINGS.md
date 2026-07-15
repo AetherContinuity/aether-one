@@ -258,3 +258,69 @@ kirjoitusportin oma transparenssi-/rdwr-maarittely, joka `memory_bram`:n
 saantotiedostossa vaatii viela jotain lisaa jota v7a ei viela tayta),
 JA erikseen tarvitaan oikea tapa saada `memory_bram`:n oma paatoslogiikka
 nakyviin (tekninen este, ei viela ratkaistu).
+
+## RATKAISEVA LOYDOS 2026-07-19: $mem_v2-parametrivertailu paljasti todellisen esteen
+
+**Kayttajan oma ehdotus:** vertaile RTLIL:n $mem_v2-solun parametreja
+(ei enaa Verilogia) onnistuneen referenssimuistin (koe 1, 1x DP16KD)
+ja v7a:n valilla, memory_dff:n jalkeen.
+
+**Ensin tutkittu (ja KUMOTTU) hypoteesi:** WR_EN-yhteyden outo
+rakenne (`bitti[15] toistettuna 16 kertaa`). Vertailu paljasti etta
+TAMA SAMA rakenne loytyy MYOS onnistuneesta referenssista - taysin
+normaali, standardi Yosys-esitystapa "yksi enable-bitti levitettyna
+kaikkiin 16 databittiin". EI ero.
+
+**OIKEA, RATKAISEVA ERO LOYTYI: `RD_PORTS`-parametri.**
+
+| Parametri | Referenssi (1x DP16KD) | v7a bank0 |
+|---|---|---|
+| WR_PORTS | 1 | 1 (v7a:n arbitrointi korjasi taman!) |
+| **RD_PORTS** | **1** | **5** |
+| RD_CLK_ENABLE | 1'1 | 5'11111 (kaikki 5 rekisteroity, OK) |
+| RD_COLLISION_X_MASK | 0 | 0 (sama) |
+| RD_TRANSPARENCY_MASK | 0 | 0 (sama) |
+
+**Yhteensa porttien maara (luku+kirjoitus):**
+- Referenssi: 1+1 = **2** (tasan DP16KD:n oma raja)
+- v7a: 1+5 = **6** (reilusti yli DP16KD:n 2-porttirajan)
+
+## LOPULLINEN JOHTOPAATOS
+
+v7a:n arbitrointi (kayttajan oma koe) KORJASI OIKEIN kirjoituspuolen
+(5->1 kirjoituslahdetta) - tama SELITTAA taydellisesti aiemman 96%:n
+solumaaran vahennyksen (kirjoituspuolen logiikka yksinkertaistui
+merkittavasti). MUTTA lukupuoli EI VIELA ollut arbitroitu - jokainen
+pankki tarvitsee edelleen VIISI erillista samanaikaista lukua (4
+FSM-lukua: a0,b0,a1,b1 + 1 bring-up-luku) SAMASSA syklissa, ja
+TAMA ylittaa DP16KD:n 2-porttirajan riippumatta kirjoituspuolen
+korjauksesta.
+
+**Talla hetkella tiedetaan tasmalleen mika este on jaljella:**
+lukuporttien maara (5) ylittaa DP16KD:n kapasiteetin (2 porttia
+yhteensa, jaettuna luvun ja kirjoituksen kesken). Tama EI ole enaa
+arvailua - se on suoraan luettavissa $mem_v2-solun omasta RD_PORTS-
+parametrista.
+
+## Vaikutus arkkitehtuurille
+
+Toisin kuin kirjoituspuoli (jossa yksi arbitroitu portti riitti,
+koska VAIN YKSI kirjoitus tapahtuu kerrallaan per pankki todellisessa
+kayttotilanteessa), lukupuoli tarvitsee AIDOSTI SAMANAIKAISIA lukuja
+(butterfly-laskenta lukee seka a- etta b-arvon SAMALLA syklilla,
+molemmilta laneilta). Tama TARKOITTAA etta lukupuolen "arbitrointi"
+YHDEKSI portiksi VAATISI joko:
+(a) ajoitusmuutoksen (lukea vain 1-2 arvoa per sykli, useampi sykli
+    per butterfly-operaatio - vahentaa lapaisyakykyy), TAI
+(b) useamman DP16KD-instanssin kayton per pankki (esim. 3x DP16KD
+    per pankki jos kukin antaa 2 porttia, jolloin 5 lukua + 1
+    kirjoitus = 6 porttia jakautuisi 3 instanssin kesken - MUTTA
+    tama vaatisi DP16KD:iden VALISEN datan yhdistamisen, koska
+    KAIKKI 3 instanssia sisaltaisivat SAMAN datan kolmena kopiona
+    - resurssien haaskausta mutta saattaisi toimia).
+
+Tama on nyt selkea, konkreettinen paatoskohta seuraavalle
+tyopaketille: valita (a) vai (b), tai hyvaksya etta bring-up:n oma
+lukuportti (5. lukija) poistetaan/rajoitetaan erikseen omaksi
+kytkennakseen (esim. multiplekserilla joka jakaa YHDEN FSM-lukuportin
+bring-upin kanssa, kun FSM ei ole aktiivinen).
