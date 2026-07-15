@@ -52,3 +52,34 @@ kirjoitusportin transparenssiin, ei enaa lukuporttien omaan
 rekisterointiin)". Seuraava askel: tutkia TASMALLEEN mika
 kirjoitusportin rakenteellinen ero bank3:n ja bank0-2:n valilla
 selittaa taman viimeisen eron.
+
+## Lisatutkimus 2026-07-18: RTLIL-vertailu bank0 vs bank3
+
+**Kayttajan oma ehdotus:** vertaile RTLIL-tasolla miksi bank3 onnistuu
+mutta bank0-2 eivat.
+
+`write_rtlil`-dumpista loytyi rakenteellinen ero: bank0:n oma
+`$memrd`-solmu esiintyy YHDISTETYSSA `connect \B { bank0, bank1,
+bank2 }` -rakenteessa, kun taas bank3:n oma on YKSINAINEN, itsenainen
+`connect \A`. Tama viittasi siihen etta `case`-lauseen `default:`-
+haara (bank3) kasitellaan rakenteellisesti eri tavalla kuin
+eksplisiittiset `2'd0/1/2`-haarat.
+
+**Testattu hypoteesi:** korvattu `default:` eksplisiittisella
+`2'd3:`:lla (`003b_explicit_case.sv`). **Tulos: EI muutosta** - sama
+kolmen epaonnistumisen kuvio (bank0/1/2:n "portti[0]") sailyi
+ENNALLAAN. Bank3:n oma "portti[0]" EI enaa edes esiintynyt listassa
+(luultavasti optimoitui pois trivialisti eri tavalla).
+
+**Tarkennettu tulkinta "portti[0]":sta:** todennakoisesti tama VIITTAA
+kirjoitusportin omaan read-before-write-lapinakyvyystarkistukseen
+(DP16KD:n oma rdwr-semantiikka), EI erilliseen lukukanavaan - koska
+lukukanavia on vain 4 (a0,b0,a1,b1) mutta "portteja" tarkistetaan 5.
+Bank3:n kirjoituspolku nayttaa saavan jostain (viela tunnistamattomasta)
+syysta erilaisen, Yosysille helpommin ratkeavan rakenteen kuin
+bank0-2:n omat.
+
+**Ei viela lopullista vastausta.** `default` vs. eksplisiittinen
+case EI ollut selittava tekija - juurisyy on jotain hienovaraisempaa
+kirjoitusportin transparenssilogiikassa, tarkentumatta viela taman
+kierroksen aikana.
