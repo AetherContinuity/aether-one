@@ -23,7 +23,15 @@ module lane_fsm #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 15,
     parameter int Q       = 3329,
-    parameter int QINV    = 62209
+    parameter int QINV    = 62209,
+    parameter int READ_LATENCY = 0  // M4-FPGA-002D (2026-07-17): 0 =
+        // nollaviiveinen (kombinatorinen) muisti, TASMALLEEN nykyinen
+        // kaytos, oletus - EI vaikuta olemassa olevaan kayttoon
+        // lainkaan. 1 = yksi ylimaarainen odotussykli grant:n
+        // jalkeen ennen nayttestysta (BRAM-yhteensopiva rekisteroity
+        // luku). Ks. M4_FPGA_BRAM_STUDY.md: lane_fsm todettiin
+        // rakennetuksi nollaviiveisen muistin varaan simulaatiokokeella
+        // ennen tata muutosta.
 )(
     input  logic clk,
     input  logic reset,
@@ -65,6 +73,7 @@ module lane_fsm #(
   localparam logic [2:0]
     S_IDLE      = 3'd0,
     S_REQ_READ  = 3'd1,
+    S_WAIT_READ = 3'd5,  // M4-FPGA-002D: kaytossa VAIN jos READ_LATENCY=1
     S_COMPUTE   = 3'd2,
     S_REQ_WRITE = 3'd3,
     S_DONE      = 3'd4;
@@ -142,11 +151,28 @@ module lane_fsm #(
 
         S_REQ_READ: begin
           if (grant) begin
-            a_reg <= mem_rdata_a;
-            b_reg <= mem_rdata_b;
-            req   <= 1'b0;
-            state <= S_COMPUTE;
+            req <= 1'b0;
+            if (READ_LATENCY == 0) begin
+              // TASMALLEEN alkuperainen kaytos (nollaviiveinen muisti)
+              a_reg <= mem_rdata_a;
+              b_reg <= mem_rdata_b;
+              state <= S_COMPUTE;
+            end else begin
+              // M4-FPGA-002D: odota yksi ylimaarainen sykli ennen
+              // nayttestysta (rekisteroidyn muistin tulos ei ole
+              // viela valmis samalla reunalla kuin grant nousee)
+              state <= S_WAIT_READ;
+            end
           end
+        end
+
+        S_WAIT_READ: begin
+          // Kaytossa VAIN jos READ_LATENCY=1 (muuten tama tila ei
+          // koskaan aktivoidu, koska S_REQ_READ ei koskaan siirry
+          // tanne READ_LATENCY=0:lla)
+          a_reg <= mem_rdata_a;
+          b_reg <= mem_rdata_b;
+          state <= S_COMPUTE;
         end
 
         S_COMPUTE: begin

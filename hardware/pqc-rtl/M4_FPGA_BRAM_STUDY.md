@@ -270,6 +270,59 @@ lukuviiveen - VARMISTAEN etta koko M3:n oma regressio (NTT-tulokset,
 K-PKE, ML-KEM) pysyy PASS-tilassa muutoksen jalkeen, ennen kuin
 BRAM-inferointia edes yritetaan uudelleen synteesitasolla.
 
+## M4-FPGA-002D TOTEUTETTU (2026-07-17): READ_LATENCY-parametri
+
+Kayttajan oma, tarkasti rajattu tyopaketti toteutettu tasmalleen
+kuvatulla tavalla:
+
+1. **Lisatty YKSI eksplisiittinen odotustila** (`S_WAIT_READ`,
+   arvo 3'd5) `lane_fsm`:aan (`rtl/pqc_rvv_cluster_2lane.sv`).
+2. **VAIN muistiluvun ajoitusprotokollaa muutettu** - uusi
+   `READ_LATENCY`-parametri (oletus 0, TASMALLEEN alkuperainen
+   kaytos - ei vaikuta olemassa olevaan kayttoon lainkaan).
+   `READ_LATENCY=1`: `S_REQ_READ`:n `grant`-siirtyma menee
+   `S_WAIT_READ`:hen ENNEN `a_reg`/`b_reg`-nayttestysta (yksi
+   ylimaarainen sykli).
+3. **Sailytetty muuttumattomana:** butterfly-matematiikka
+   (`montgomery_reduce`, `mod_add`, `mod_sub` - EI kosketa),
+   osoitegeneraattori (`mem_addr_a`/`mem_addr_b`-kaava - EI kosketa),
+   pankkikartoitus (ei tassa moduulissa, koskematon), kierrosjarjestys
+   (`S_COMPUTE`, `S_REQ_WRITE` - EI kosketa).
+4. **Todennettu ensin simulaatiolla, sitten koko M3-regressio:**
+   - Uusi pysyva regressiotesti (`tb/pqc_lane_fsm_read_latency_tb.sv`):
+     KAKSI rinnakkaista `lane_fsm`-instanssia (READ_LATENCY=0 vs.
+     =1, eri muistitoteutuksilla - kombinatorinen vs. rekisteroity).
+     PASS: **algoritminen ekvivalenssi** (molemmat antavat SAMAN
+     lopputuloksen) JA **mikroarkkitehtoninen ero tasmaa tarkalleen**
+     (+count sykli, yksi per iteraatio, READ_LATENCY=1:lla).
+   - Koko M3-regressio (K-PKE round-trip, ML-KEM Decaps FO-hylkays,
+     10x multiseed KeyGen, M2 NTT, NTT^-1 round-trip, ML-KEM Encaps)
+     ajettu UUDELLEEN `READ_LATENCY=0`-oletuksella (koskematon RTL-
+     polku olemassa olevalle kaytolle): **KAIKKI PASS, EI MUUTOSTA.**
+   - Verilator-lint: 0 LATCH/UNDRIVEN/COMBDLY-varoitusta.
+
+**Algoritminen vs. mikroarkkitehtoninen ekvivalenssi (kayttajan oma
+erottelu, nyt todistettu erikseen):**
+- ALGORITMINEN: NTT:n/K-PKE:n/ML-KEM:n LOPPUTULOS ei muutu millaan
+  READ_LATENCY-arvolla - sama syote tuottaa saman ulostulon.
+- MIKROARKKITEHTONINEN: sykli kaytos MUUTTUU tarkoituksella
+  (READ_LATENCY=1 lisaa +1 sykli/iteraatio) - tama ON odotettu,
+  hyvaksytty hinta BRAM-yhteensopivuudesta, ei virhe.
+
+**Tama on ensimmainen M4-vaiheen muutos joka aidosti koskee
+tuotantologiikkaa** (lane_fsm, kaytossa kaikkialla M2/M3:ssa) - ei
+enaa pelkkaa bring-up- tai tutkimusinfrastruktuuria. Sille annettiin
+oma tyopaketti (002D), oma regressio ja oma hyvaksymiskriteeri
+(algoritminen ekvivalenssi + koko M3:n regressio muuttumattomana
+READ_LATENCY=0:lla) juuri kayttajan oman ohjeen mukaisesti.
+
+**Jaljella:** koe 12:n (yhtenainen muisti + osoitepermutaatio) tai
+kokeen 11:n (nelja suurempaa pankkia) yhdistaminen `READ_LATENCY=1`:n
+kanssa VARSINAISEEN `pqc_ntt_stage_banked`-ytimeen (ei enaa vain
+`lane_fsm`:aan yksinaan) - tama on M4-FPGA-002C:n oma, seuraava
+tyo, sitten vasta uudelleen synteesitesti BRAM-inferoinnin
+lopulliseksi vahvistamiseksi.
+
 ## Johtopaatos ja suositus (PAIVITETTY 2026-07-16)
 
 **EI VIELA muutosta oikeaan ytimeen.** Loydokset (mukaan lukien
