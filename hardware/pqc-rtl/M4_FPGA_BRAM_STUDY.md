@@ -223,6 +223,53 @@ laskentaan?
 
 Tulos: ks. alla.
 
+## VASTAUS (2026-07-17): EI - lane_fsm ei toimi rekisteroidylla muistilla ilman FSM-muutosta
+
+Rakennettu minimaalinen simulaatiokoe (`fpga/bram_experiments/
+lane_fsm_timing_tb.sv`) - MUUTTUMATON `lane_fsm` (ei kopiota, suora
+instanssi `rtl/pqc_rvv_cluster_2lane.sv`:sta) kytkettyna rekisteroityyn
+testimuistiin (EI kombinatoriseen), EI mitaan NTT-laskentaa
+tarkasteltavana - vain osoitteet, grant/req ja FSM-tilat.
+
+**Tulos: count=4 (idx=0..3), mutta lane_fsm:n VIIMEINEN laskema
+tulos (a_reg=20, b_reg=60) vastaa idx=2:n arvoja
+(test_mem[2]=20, test_mem[6]=60) - EI odotettuja idx=3:n arvoja
+(test_mem[3]=30, test_mem[7]=70).**
+
+`lane_fsm` nayttestaa YHDEN ITERAATION MYOHASSA olevaa dataa.
+Juurisyy: `S_REQ_READ`-tilan nykyinen logiikka (`if (grant) begin
+a_reg <= mem_rdata_a; ... end`) olettaa etta `mem_rdata_a` on JO
+ajan tasalla samalla kellonreunalla kun `grant` ensin nousee - tama
+patee VAIN nollaviiveiselle (kombinatoriselle) muistille. Rekisteroidylla
+muistilla `mem_rdata_a` seuraa osoitetta yhden syklin viiveella,
+joten FSM nayttestaa systemaattisesti EDELLISEN iteraation dataa.
+
+**Tama on lopullinen, tasmallinen vastaus:** `lane_fsm` ON rakennettu
+nollaviiveisen muistin varaan. Rekisteroidyn (BRAM-yhteensopivan)
+muistin kaytto vaatisi AIDON FSM:n ajoitusmuutoksen - esimerkiksi
+yhden ylimaaraisen odotustilan lisaamisen `S_REQ_READ`:n ja
+nayttestyksen valiin (odota YKSI ylimaarainen sykli grant:n jalkeen
+ennen `a_reg<=mem_rdata_a`:n suoritusta) - EI pelkkaa muistin
+taustatoteutuksen vaihtoa.
+
+### Vaikutus M4-FPGA-002:n jatkoon
+
+Tama muuttaa tyojarjestysta merkittavasti: ennen prototyyppien A/B
+mielekasta rakentamista (jotka molemmat vaativat rekisteroityja
+lukuja BRAM-inferointia varten) tarvitaan ENSIN paatos ja toteutus
+`lane_fsm`:n omasta ajoitusmuutoksesta - tama ON aidosti pienempi,
+kohdennetumpi muutos kuin koko muistiorganisaation vaihto, MUTTA se
+ON silti muutos jo todennettuun, toimivaksi osoitettuun ohjaus-
+logiikkaan (ei enaa pelkkaa "bring-up-porttien lisaamista" vailla
+kayttaytymisvaikutusta, kuten M4-FPGA-001:ssa).
+
+**Suositeltu seuraava askel:** suunnitella ja todentaa (simulaatiolla,
+EI viela synteesilla) `lane_fsm`:n pieni, kohdennettu muutos
+(yksi lisatila tai laskuri) joka sallii YHDEN SYKLIN rekisteroidyn
+lukuviiveen - VARMISTAEN etta koko M3:n oma regressio (NTT-tulokset,
+K-PKE, ML-KEM) pysyy PASS-tilassa muutoksen jalkeen, ennen kuin
+BRAM-inferointia edes yritetaan uudelleen synteesitasolla.
+
 ## Johtopaatos ja suositus (PAIVITETTY 2026-07-16)
 
 **EI VIELA muutosta oikeaan ytimeen.** Loydokset (mukaan lukien
