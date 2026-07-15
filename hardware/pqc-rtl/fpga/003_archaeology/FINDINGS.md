@@ -114,3 +114,57 @@ Yosysin optimointi (`opt`) kasittelee kirjoitusehtoja ENNEN
 mutta AIDOSTI TILARIIPPUVAINEN ohjaussignaali (esim. pieni oma FSM
 tai ainakin rekisteroity enable-signaali suorien tuloporttien
 sijaan) toistimeen.
+
+## LAPIMURTO 2026-07-18: Delta debugging loysi tarkan juurisyyn
+
+**Menetelma (kayttajan oma ehdotus):** rakenna toimivasta minimaali-
+sesta toistimesta askel askeleelta lisaten yksi oikean jarjestelman
+piirre kerrallaan, ajaen memory_dff jokaisen lisayksen jalkeen.
+
+| Versio | Lisatty piirre | memory_dff-tulos |
+|---|---|---|
+| v1 (baseline) | - | ✅ Kaikki 4 pankkia onnistuvat |
+| v2 | Laskettu XOR-osoite (ei vapaita valintasignaaleja) | ✅ Onnistuu |
+| v3 | YKSI aito lane_fsm-instanssi | ✅ Onnistuu |
+| v4 | KAKSI aitoa lane_fsm-instanssia | ✅ Onnistuu (kaikki 16 porttia) |
+| v5 | + konfliktintunnistus (bank_conflict_detected) | ✅ Onnistuu (kaikki 16 porttia) |
+| **v6** | **+ bring-up-lukuportti (FPGA_BRINGUP-tyylinen read_data)** | **❌ bank0/1/2[0] epaonnistuvat - TASMALLEEN sama kuvio kuin oikeassa jarjestelmassa!** |
+
+**JUURISYY LOYDETTY: bring-up-lukuportin lisays (VIIDES lukulahde
+neljan pankin case-valintarakenteeseen) on tasmalleen se piirre joka
+rikkoo memory_dff:n kyvyn tunnistaa bank0/1/2:n FSM-lukurekistereita
+puhtaiksi DFF-yhdistyksiksi. bank3 sailyy toimivana (todennakoisesti
+koska sen oma `default`-haara kasittelee seka FSM:n etta bring-up:n
+lukupolut jotenkin yhteensopivasti, kun taas eksplisiittiset
+2'd0/1/2-haarat eivat).**
+
+Tama VAHVISTAA ja TARKENTAA aiempaa "default vs explicit case"
+-hypoteesia (joka aiemmin naytti kumoutuvan kun testattiin PELKASTAAN
+bank3:n oman kirjoitus-caseen muutosta) - todellinen mekanismi
+liittyy nimenomaan SIIHEN, etta BRING-UP:N lukupolku LISAA VIIDENNEN
+kilpailevan lukulahteen, ja Yosysin optimointi kasittelee tata
+viidetta lahdetta eri tavalla `default`-haaran (bank3) ja
+eksplisiittisten haarojen (bank0-2) kanssa.
+
+## Vaikutus jatkotyohon
+
+Tama on nyt riittavan tarkka ja pieni loytto (~6 rivia koodia lisaa
+minimaalisesta v5:sta v6:hon) etta sen pohjalta VOISI:
+1. Kokeilla poistaa bring-up:n lukupolku PYSYVASTI oikeasta
+   ytimesta (kayttaa esim. VAIN hierarkkista debugia simulaatiota
+   varten, ei synteesikelpoisia lukuportteja lainkaan) - jos M4:n
+   varsinainen tavoite ei vaadi FPGA:lta ulkoista lukumahdollisuutta
+   kesken laskennan.
+2. TAI muuttaa bring-up:n lukupolun rakennetta (esim. erillinen,
+   EI samaa case-rakennetta uudelleenkayttava, MUX-rakenne) - jatko-
+   tutkimuksen aihe.
+3. TAI hyvaksya etta bring-up JA BRAM-inferointi eivat toistaiseksi
+   ole yhteensopivia SAMASSA moduulissa, ja rakentaa BRAM-inferoitava
+   ydin ILMAN bring-up-portteja, kayttaen ERI mekanismia (esim.
+   Verilator-simulaatio tai testipenkin oma hierarkkinen pikasy)
+   toiminnallista todentamista varten silloin kun BRAM halutaan.
+
+Tama loytto muuttaa M4-FPGA-002/003:n koko suunnan: este EI ollut
+koskaan itse NTT-ydin, muistin koko tai case-rakenne sinansa - se oli
+NIMENOMAAN bring-up-ominaisuuden (M4-FPGA-001:n oma lisays) OMA
+sivuvaikutus BRAM-inferointiin.
