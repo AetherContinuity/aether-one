@@ -83,3 +83,34 @@ bank0-2:n omat.
 case EI ollut selittava tekija - juurisyy on jotain hienovaraisempaa
 kirjoitusportin transparenssilogiikassa, tarkentumatta viela taman
 kierroksen aikana.
+
+## M4-FPGA-003A: minimaalinen transparenssitoistin - EI VIELA onnistunut
+
+**Tavoite (kayttajan oma ehdotus):** rakentaa 20-30 rivin toistin
+joka tuottaa TASMALLEEN saman "no output FF found" (bank0-2) vs.
+"merging output FF" (bank3) -diagnostiikan, ilman koko NTT-ydinta.
+
+**Testattu ensin:** `memory_dff -no-rw-check` -lippu (liittyy read/
+write-collision-kasittelyyn). EI MUUTOSTA - sama kuvio sailyi.
+Hypoteesi kumottu.
+
+**Rakennettu minimaalinen toistin** (`repro.sv`, ~50 riviä): nelja
+pankkia, kirjoitus neljasta lahteesta (case-valinnalla + default),
+NELJA lukuosoitetta per pankki (vastaa oikeaa tarvetta: mika tahansa
+neljasta lukupolusta voi osua tahan pankkiin) - VAPAILLA
+testipenkkittomilla porttisignaaleilla (we0-3, wsel0-3 jne. suoraan
+moduulin omina tuloportteina, ei oikeista tilakoneista johdettuina).
+
+**Tulos: KAIKKI NELJA pankkia onnistuivat** ("merging output FF to
+cell") - toistin EI viela reprodusoi todellista virhetta.
+
+**Johtopaatos:** jokin oikean jarjestelman yksityiskohta puuttuu
+viela toistimesta. Todennakoisin ehdokas: `grant0/grant1/is_write0/
+is_write1` -signaalit oikeassa jarjestelmassa TULEVAT `lane_fsm`:n
+omista tilakoneista (monimutkaisempi, tilariippuvainen logiikka),
+eivat vapaista tuloporteista - tama voi vaikuttaa siihen miten
+Yosysin optimointi (`opt`) kasittelee kirjoitusehtoja ENNEN
+`memory_dff`:aa. Seuraava askel: lisata TAKAISIN yksinkertaistettu
+mutta AIDOSTI TILARIIPPUVAINEN ohjaussignaali (esim. pieni oma FSM
+tai ainakin rekisteroity enable-signaali suorien tuloporttien
+sijaan) toistimeen.
