@@ -58,3 +58,29 @@ kuvaus ON olemassa.
 Toteuta ROM-taulukko (256x2 bittiä) RTL:ssä käyttäen tätä Z3:n löytämää
 kuvausta, yhdelle NTT-tasolle aluksi. Optimointi (suljettu kaava) vasta
 kun koko M2 toimii ROM-pohjaisena.
+
+## Lisays 2026-07-16 (M4-FPGA-002): suljettu kaava LOYTYI, ja sille
+tuli uusi merkitys
+
+M4-FPGA-002:n BRAM-inferointitutkimuksessa (ks. `M4_FPGA_BRAM_STUDY.md`)
+loydettiin yksinkertainen, suljettu kaava joka toteuttaa TASMALLEEN
+saman konfliktittomuusehdon kuin tama ROM-pohjainen SAT-ratkaisu:
+
+```
+bank(addr)  = addr[1:0] ^ addr[3:2] ^ addr[5:4] ^ addr[7:6]
+local(addr) = addr[7:2]
+```
+
+Vahvistettu Pythonissa: bijektiivinen, 64/64/64/64-jakauma, tayttaa
+KAIKKI 448 SAT-todistuksen omaa konfliktivaatimusta.
+
+Tama dokumentti oli alunperin luonteeltaan VAIN "todistaa
+konfliktittomuus" (ks. "Mita tama EI todista" -osio ylla: "Ei
+suljettua bittikaavaa"). **Nyt sella on toinenkin merkitys: todistaa
+etta pankitus VOIDAAN laskea suljetulla kaavalla**, mika voi
+myohemmin saastaa LUT-resursseja (ROM-haun sijaan pieni XOR-piiri) -
+riippumatta siita, ratkaistaanko BRAM-inferointi lopulta
+suurentamalla pankkien kokoa (koe 11) vai muuttamalla fyysinen
+rakenne yhtenaiseksi muistiksi jossa tama kaava toimii osoite-
+permutaationa (koe 12, jossa TAMA TASMALLEEN kaava jo osoittautui
+toimivaksi 1x DP16KD-inferoinniksi).

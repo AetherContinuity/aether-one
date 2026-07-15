@@ -93,32 +93,65 @@ pankinvalinta rikkoo inferoinnin) oli **OSITTAIN VIRHEELLINEN**:
 
 ### OIKEA JOHTOPAATOS
 
-**Este EI OLE case-pohjainen valinta eika ROM-haku. Este on
-YKSITTAISEN MUISTIN KOKO, KUN MODUULISSA ON USEAMPI MUISTI
-RINNAKKAIN.** Yosysin `memory_bram`-vaiheen paatoslogiikka
-(todennakoisesti: BRAM-instanssin "hyoty" verrattuna sen omaan
-kiinteaan kokoon, 16Kbit per DP16KD) nayttaa arvioivan useamman
-pienen muistin tapauksessa eri tavalla kuin yhden ainoan - tarkkaa
-Yosysin sisaista paatoslogiikkaa ei ole tassa selvitetty tarkemmin,
-vain sen KAYTTAYTYMINEN mitattu kokeellisesti.
+**Este EI OLE case-pohjainen valinta eika ROM-haku.** Nykyiset kokeet
+osoittavat kynnysarvon 96 ja 128 alkion valilla TASSA testatussa
+arkkitehtuurissa ja synteesiketjussa - **taman EI PIDA viela tulkita
+universaaliksi Yosys-saannoksi** (kayttajan oma, tarkeaa huomio).
+Kynnys voisi yhta hyvin johtua bittimaarasta (64x16 vs 128x16),
+osoiteleveydesta, muistien lukumaarasta samassa moduulissa, luku-/
+kirjoitusporttien muodosta, `memory_bram`-passin sisaisesta
+heuristiikasta tai ECP5:n omasta BRAM-pakkaussaannosta - naita EI OLE
+eroteltu toisistaan tassa kokeessa.
+
+**Tarkennettu, oikea muotoilu:** "Current experiments indicate a
+threshold between 96 and 128 entries under the tested architecture
+and synthesis flow."
+
+### Ratkaiseva lisakoe (koe 12, kayttajan oma ehdotus): pankitusalgoritmi
+vs. fyysinen jako
+
+Rakennettiin YKSI yhtenainen 256-alkion muisti, jossa looginen osoite
+muunnetaan fyysiseksi VAIN sisaisena permutaationa (`physical_addr =
+{bank(addr), index(addr)}`, sama XOR-kaava kuin kokeessa 6) - EI
+fyysista jakoa neljaan erilliseen taulukkoon.
+
+**Tulos: ✅ 1x DP16KD, vain 99 solua - TAYDELLINEN INFEROINTI.**
+
+Tama on ratkaiseva todiste: **itse pankitusalgoritmi (XOR-kaava) EI
+ole ongelma millaan tavalla.** Este on TASMALLEEN fyysinen jako
+neljaan pieneen taulukkoon - kun sama looginen kartoitus toteutetaan
+YHDEN taulukon SISALLA (osoitepermutaationa), inferointi toimii
+taydellisesti.
 
 **Oikean ytimen (`pqc_ntt_stage_banked`) pankit ovat 64 alkiota
 kumpikin - JUURI ALLE havaitun 96-128-rajan.** Tama - ei case-valinta,
 ei ROM-haku - on todellinen este BRAM-inferoinnille.
 
-### Vaikutus jatkotyohon
+### Vaikutus jatkotyohon (PAIVITETTY koe 12:n jalkeen)
 
-Mahdollinen korjaus on siis YKSINKERTAISEMPI kuin alunperin arvioitu:
-EI tarvita mitaan muutosta osoitelogiikkaan (case-valinta ja/tai
-ROM-haku voivat pysya TASMALLEEN ennallaan) - riittaisi PELKASTAAN
-kasvattaa kunkin pankin kokoa vahintaan 128 alkioon (esim. taittamalla
-2 NTT-tasoa yhteen fyysiseen pankkiin, tai yksinkertaisesti
-ylimitoittamalla pankit 64:sta 128:aan kayttamatta puolta tilasta).
-Tama on kevyempi, vahemman invasiivinen muutos kuin taydellinen
-osoitelogiikan uudelleensuunnittelu - MUTTA vaatii oman, huolellisen
-arviointinsa (esim. resurssien haaskaus, kaksi NTT-tasoa yhdessa
-pankissa -skeeman vaikutus konfliktittomuustodistukseen) ennen
-soveltamista.
+Nyt on todistettu KAKSI erillista, toimivaa polkua:
+
+**Vaihtoehto A (koe 11): sailyta nykyinen 4-taulukko-rakenne, kasvata
+kokoa.** Minimaalinen muutos - EI kosketa osoitelogiikkaan (case-
+valinta, ROM-haku) lainkaan, vain pankkien koko 64:sta esim. 128:aan.
+Sailyttaa TASMALLEEN nykyisen ajoituksen (molemmat lanet lukevat+
+kirjoittavat samassa syklissa, kuten nyt).
+
+**Vaihtoehto B (koe 12): yksi yhtenainen 256-alkion muisti,
+osoitepermutaationa toteutettu pankitus.** Tehokkain (99 solua vs.
+288 vaihtoehto A:lla), MUTTA ECP5:n DP16KD tukee korkeintaan 2 porttia
+- talla vaihtoehdolla EI voisi tehda molempien laneiden luku+kirjoitus
+SAMASSA syklissa kuten nyt (nelja samanaikaista accessia), vaan
+ajoitusta pitaisi muuttaa (esim. lanet peraikkain, kaksinkertaistaen
+sykliluvun taman muistin osalta) - TAMA ON aidosti suurempi
+arkkitehtuurimuutos kuin vaihtoehto A.
+
+**Suositus:** M4-FPGA-002B:n tulisi mitata MOLEMMAT vaihtoehdot
+(LUT/FF/EBR/Fmax/syklimaara), mutta vaihtoehto A on todennakoisesti
+kaytannollisempi ensimmainen kokeilu koska se ei vaadi ajoitus-
+muutoksia - vaihtoehto B saattaa olla parempi PITKALLA aikavalilla
+jos ajoitusmuutos osoittautuu hyvaksyttavaksi (esim. jos NTT-ytimen
+kokonaislapimenoaika ei ole kriittinen pullonkaula).
 
 ## Miksi nykyinen pankkirakenne on olemassa (konteksti, ei kritiikki)
 
@@ -132,7 +165,17 @@ esto) on SAAVUTETTU JA TARPEELLINEN - kysymys on VAIN siita, MITEN
 sama konfliktiton kartoitus voitaisiin toteuttaa BRAM-yhteensopivalla
 tavalla.
 
-## Johtopaatos ja suositus (PAIVITETTY 2026-07-15)
+## M4-FPGA-002:n jaottelu (kayttajan oma ehdotus)
+
+- **002A**: kokeellinen BRAM-inferointi, muistirakenteiden tutkimus
+  (TAMA vaihe - kokeet 1-12, tila: JATKUU edelleen tarvittaessa
+  lisakokeilla ennen 002B:hen siirtymista).
+- **002B**: valitaan paras muistiorganisaatio (vaihtoehto A vai B,
+  ks. ylla) mittausten (LUT/FF/EBR/Fmax/syklimaara) perusteella.
+- **002C**: integroidaan valittu ratkaisu oikeaan NTT-ytimeen. Vasta
+  tassa vaiheessa kosketaan varsinaiseen kryptografiseen RTL:aan.
+
+## Johtopaatos ja suositus (PAIVITETTY 2026-07-16)
 
 **EI VIELA muutosta oikeaan ytimeen.** Loydokset (mukaan lukien
 korjattu, tarkempi juurisyy - kokoraja, ei case-valinta) antavat
