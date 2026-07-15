@@ -216,3 +216,45 @@ eksplisiittisesti:
 
 ✅ EI VAIN lukupolun rakenne, vaan MYOS kirjoituspolun porttimaara
    pysyy <=2 per pankki-instanssi kun bring-up on mukana.
+
+## M4-FPGA-003A jatkokoe: v7a (arbitroitu kirjoitus) vs v7b (suora)
+
+**Kayttajan oma hypoteesi:** onko ongelma loogisten kirjoituslahteiden
+maara vai fyysisten kirjoitusporttien maara? Testattu rakentamalla
+v7a (yksi arbitroitu kirjoituslahde per pankki, prioriteettijarjes-
+tyksella load>a0>b0>a1>b1) verrattuna v7b:hen (5 suoraa lahdetta,
+sama kuin aiempi v6/v7).
+
+**Tulokset:**
+
+| Mittari | v7b (suora, 5 lahdetta) | v7a (arbitroitu, 1 lahde) |
+|---|---|---|
+| memory_dff | 20/20 onnistuu | 20/20 onnistuu |
+| bank0:n kirjoitusporttien maara (RTLIL) | 3-5 | **1** (vahvistettu) |
+| Solumaara (taysi synteesi) | 159830 | **5684** (96% vahennys) |
+| DP16KD? | ❌ | ❌ (viela) |
+
+**OSITTAINEN VAHVISTUS kayttajan hypoteesille:** kirjoituslahteiden
+arbitrointi YHDEKSI fyysiseksi portiksi VAHENSI dramaattisesti
+solumaaraa (96%) ja onnistui vahentamaan RTLIL-tason kirjoitusportit
+yhteen - MUTTA EI VIELA riittanyt taydelliseen DP16KD-inferointiin.
+
+**Tekninen este jatkotutkimukselle:** `debug memory_bram -rules
+/usr/share/yosys/ecp5/brams.txt` (seka `debug`-etuliitteella etta
+ilman) epaonnistuu toistuvasti "ERROR: Syntax error in rules file
+line 1" - tama on TYOKALUN KAYTTOON liittyva este (oikea `synth_ecp5`
+-skripti kutsuu memory_bram:ia sisaisesti onnistuneesti, mutta
+manuaalinen suora kutsu samalla saantotiedostolla epaonnistuu
+jostain viela tunnistamattomasta syysta - mahdollisesti puuttuva
+esikasittelyvaihe tai ymparistoasetus jonka synth_ecp5 tekee
+automaattisesti).
+
+## Tilanne nyt
+
+Merkittava, mitattava edistys (96% solumaaran vahennys, kirjoitus-
+porttien maara 1:een asti), mutta DP16KD ei viela ilmesty. Este on
+todennakoisesti viela toinen, tarkentumaton yksityiskohta (mahdollisesti
+kirjoitusportin oma transparenssi-/rdwr-maarittely, joka `memory_bram`:n
+saantotiedostossa vaatii viela jotain lisaa jota v7a ei viela tayta),
+JA erikseen tarvitaan oikea tapa saada `memory_bram`:n oma paatoslogiikka
+nakyviin (tekninen este, ei viela ratkaistu).
