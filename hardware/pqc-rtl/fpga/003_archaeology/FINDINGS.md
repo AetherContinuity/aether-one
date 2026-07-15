@@ -324,3 +324,67 @@ tyopaketille: valita (a) vai (b), tai hyvaksya etta bring-up:n oma
 lukuportti (5. lukija) poistetaan/rajoitetaan erikseen omaksi
 kytkennakseen (esim. multiplekserilla joka jakaa YHDEN FSM-lukuportin
 bring-upin kanssa, kun FSM ei ole aktiivinen).
+
+## Teoreettinen minimi ja v8-koe: lukupuolen arbitrointi
+
+**Kayttajan oma oivallus:** koska BANK_MAPPING_PROOF.md:n konfliktit-
+tomuustodistus takaa etta KORKEINTAAN yksi neljasta osoitteesta
+(a0,b0,a1,b1) osuu MIHIN TAHANSA yksittaiseen pankkiin per sykli,
+lukupuoli VOIDAAN arbitroida samalla periaatteella kuin kirjoituspuoli
+(v7a).
+
+**Toteutettu (v8):** FSM:n oma lukupuoli (a0,b0,a1,b1) arbitroitu
+per pankki YHDEKSI luvuksi (sama periaate kuin kirjoituspuolen v7a),
+sailyttaen bring-up:n oman lukuportin erillisena.
+
+**Tulos:**
+
+| Mittari | v7a (vain kirjoitus arbitroitu) | v8 (+ luku arbitroitu) |
+|---|---|---|
+| RD_PORTS | 5 | **2** |
+| WR_PORTS | 1 | 1 |
+| Portteja yhteensa | 6 | **3** |
+| Solumaara | 5684 | **4738** |
+| DP16KD? | ❌ | ❌ (yha 1 portti yli) |
+
+## Teoreettinen minimi (kayttajan oma pyynto)
+
+Todellisen ytimen aidosti SAMANAIKAISET lukulahteet:
+- lane0.a, lane0.b, lane1.a, lane1.b: NAISTA konfliktittomuustodistus
+  takaa etta KORKEINTAAN YKSI osuu mihin tahansa pankkiin per sykli
+  -> arbitroituna 1 fyysinen lukuportti RIITTAA (todistettu v8:ssa,
+  RD_PORTS putosi 4:sta 1:een taman osalta).
+- bring-up (diagnostiikka): 1 ERILLINEN lukuportti, koska sen oma
+  luku EI ole ajoituksellisesti sidottu FSM:n lukusykliin (voi
+  tapahtua milloin tahansa, myos silloin kun FSM ei ole aktiivinen).
+
+**Teoreettinen minimi TASSA arkkitehtuurissa: 1 (arbitroitu FSM-luku)
++ 1 (bring-up-luku) = 2 lukuporttia, + 1 kirjoitusportti = 3
+YHTEENSA.**
+
+**TAMA YLITTAA DP16KD:n 2-porttirajan YHDELLA porttiyksikolla** -
+EI viela sovi yhteen DP16KD:hen, MUTTA on hyvin lahella.
+
+## Mahdollinen viimeinen askel
+
+Jos bring-up:n oma lukuportti VOITAISIIN ajoituksellisesti jakaa
+FSM:n oman lukuportin kanssa (esim. bring-up-luku sallittaisiin
+VAIN kun FSM ei ole aktiivisesti lukemassa - mux joka valitsee
+FSM:n arbitroidun osoitteen TAI bring-up:n osoitteen, ei molempia
+samanaikaisesti), teoreettinen minimi putoaisi 2:een (1 luku + 1
+kirjoitus) - TASMALLEEN DP16KD:n oma raja.
+
+Tama vastaisi kayttajan oman DCEIN-nakokulman mukaista D3/D4-
+erottelua: bring-up (diagnostiikka) EI VOISI toimia TAYSIN
+riippumattomasti operatiivisesta datapolusta samanaikaisesti, vaan
+jakaisi SAMAN fyysisen portin ajoituksellisesti - hyvaksyttava
+kompromissi diagnostiikkaominaisuudelle.
+
+## Vaihtoehto B (kayttajan oma ehdotus): muistin replikaatio
+
+Jos edes tama viimeinen jakaminen ei onnistu/haluta, vaihtoehto on
+hyvaksya ETTA nykyinen rinnakkaisuus vaatii USEAMMAN fyysisen
+DP16KD-lohkon SAMALLE DATALLE (redundanssi) - tama on kayttajan oma,
+teknisesti perusteltu nakemys: "ei epaonnistuminen optimoinnissa,
+vaan tekninen ratkaisu kun looginen vaatimus ei ole pienennettavissa
+ilman suorituskyvyn muutosta".
