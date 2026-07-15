@@ -168,3 +168,51 @@ Tama loytto muuttaa M4-FPGA-002/003:n koko suunnan: este EI ollut
 koskaan itse NTT-ydin, muistin koko tai case-rakenne sinansa - se oli
 NIMENOMAAN bring-up-ominaisuuden (M4-FPGA-001:n oma lisays) OMA
 sivuvaikutus BRAM-inferointiin.
+
+## KORJAUS 2026-07-18: memory_dff ei riittanyt - kirjoitusporttien maara on erillinen este
+
+**Kayttajan oma ehdotus testattu:** v7 - SAMA bring-up-rajapinta,
+VAIN lukutoteutus muutettu mux-vasta-rekisteroinnin-jalkeen-tyyliksi
+(sama kuin FSM-lukuporteissa).
+
+**Tulos `memory_dff`:ssa: TAYDELLINEN ONNISTUMINEN** - kaikki 20
+porttia (5 per pankki x 4 pankkia) lapaisevat "merging output FF to
+cell".
+
+**MUTTA taysi `synth_ecp5`-synteesi EI SILTI tuottanut DP16KD:ta**
+(159830 solua, hajautettu). Tama paljasti etta `memory_dff`:n
+lapaisy EI TAKAA `memory_bram`:n onnistumista - kyseessa on KAKSI
+ERI porttia peräkkäin, molemmat pitaa lapaista.
+
+**`debug memory_bram`:n oma diagnostiikka paljasti todellisen
+jaljella olevan esteen:** bank0 (ja luultavasti bank1-3) saavat
+kirjoituksia **USEASTA ERILLISESTA LAHTEESTA** (havaittu vahintaan
+3 eri koodirivilta: 119, 125, 129 - vastaten FSM:n a0/b0/a1/b1-
+kirjoituspolkuja, JA todennakoisesti myos bring-up:n oma load_valid-
+kirjoitus). **ECP5:n DP16KD tukee VAIN 2 porttia YHTEENSA** (koe 4:n
+jo aiemmin todistama rajoitus) - mutta jokainen pankki tarvitsee
+TAYDESSA jarjestelmassa jopa 5 mahdollista kirjoituslahdetta (2 lanea
+x 2 osoitetta + bring-up).
+
+## TARKENNETTU JOHTOPAATOS
+
+Este EI OLE (vain) lukupuolen mux-jarjestys (jonka `memory_dff`
+tarkistaa) - se on MYOS (ja lopulta ratkaisevammin) kirjoitusPORTTIEN
+MAARA, joka ylittaa DP16KD:n 2-porttirajan riippumatta lukupuolen
+korjauksesta. `memory_dff`:n onnistuminen oli VALTTAMATON mutta EI
+RIITTAVA ehto - `memory_bram` vaatii LISAKSI etta portteja on
+enintaan 2 per muisti-instanssi.
+
+## Vaikutus DCEIN/TN-002-ajatteluun (kayttajan oma nakokulma)
+
+Kayttajan oma D3/D4-erottelu (Operational vs. Diagnostic datapath)
+on edelleen OIKEA suunta, MUTTA pelkka bring-up:n LUKUPOLUN
+uudelleenjarjestely EI YKSIN riita - myos bring-up:n KIRJOITUSPOLKU
+(load_valid) lisaa YHDEN LISAPORTIN joka voi olla se, mika vie
+kokonaisporttimaaran DP16KD:n 2-rajan yli. Tama tukee entista
+vahvemmin ehdotettua M4-FPGA-003A-tyopakettia (bring-up datapath
+isolation), mutta hyvaksymiskriteerien listaan kannattaa lisata
+eksplisiittisesti:
+
+✅ EI VAIN lukupolun rakenne, vaan MYOS kirjoituspolun porttimaara
+   pysyy <=2 per pankki-instanssi kun bring-up on mukana.
