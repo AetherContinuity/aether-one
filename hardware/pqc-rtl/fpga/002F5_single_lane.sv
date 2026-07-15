@@ -30,7 +30,7 @@
 
 `timescale 1ns/1ps
 
-module pqc_ntt_stage_banked #(
+module pqc_002f5_single_lane #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
@@ -78,10 +78,10 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  logic [COEFF_W-1:0] bank0 [0:127];  // M4-FPGA-002E: 64->128, muu koskematon
+  logic [COEFF_W-1:0] bank1 [0:127];
+  logic [COEFF_W-1:0] bank2 [0:127];
+  logic [COEFF_W-1:0] bank3 [0:127];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
@@ -106,16 +106,17 @@ module pqc_ntt_stage_banked #(
     .state(state0_w), .done(done0), .idx_out(idx0)
   );
 
-  lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY)) lane1 (
-    .clk(clk), .reset(reset), .start(start),
-    .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(mode),
-    .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
-    .mem_rdata_a(rdata_a1), .mem_rdata_b(rdata_b1),
-    .mem_wdata_a(wdata_a1), .mem_wdata_b(wdata_b1),
-    .zeta_in(zeta_lane1),
-    .req(req1), .is_write(is_write1), .grant(grant1),
-    .state(state1_w), .done(done1), .idx_out(idx1)
-  );
+  // M4-FPGA-002F-5: lane1 POISTETTU KOKONAAN - testaa vaikuttaako
+  // kahden rinnakkaisen ohjaimen lasnaolo BRAM-inferointiin.
+  assign req1 = 1'b0;
+  assign is_write1 = 1'b0;
+  assign done1 = 1'b1;  // "aina valmis" jotta stage_done ei jaisi jumiin
+  assign addr_a1 = '0;
+  assign addr_b1 = '0;
+  assign wdata_a1 = '0;
+  assign wdata_b1 = '0;
+  assign idx1 = '0;
+  assign state1_w = 3'd4;
 
   wire [1:0] pb_a0 = bank_rom[addr_a0];  wire [5:0] pl_a0 = local_rom[addr_a0];
   wire [1:0] pb_b0 = bank_rom[addr_b0];  wire [5:0] pl_b0 = local_rom[addr_b0];

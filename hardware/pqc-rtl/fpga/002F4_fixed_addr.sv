@@ -30,7 +30,7 @@
 
 `timescale 1ns/1ps
 
-module pqc_ntt_stage_banked #(
+module pqc_002f4_fixed_addr #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
@@ -78,10 +78,10 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  logic [COEFF_W-1:0] bank0 [0:127];  // M4-FPGA-002E: 64->128, muu koskematon
+  logic [COEFF_W-1:0] bank1 [0:127];
+  logic [COEFF_W-1:0] bank2 [0:127];
+  logic [COEFF_W-1:0] bank3 [0:127];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
@@ -117,10 +117,12 @@ module pqc_ntt_stage_banked #(
     .state(state1_w), .done(done1), .idx_out(idx1)
   );
 
-  wire [1:0] pb_a0 = bank_rom[addr_a0];  wire [5:0] pl_a0 = local_rom[addr_a0];
-  wire [1:0] pb_b0 = bank_rom[addr_b0];  wire [5:0] pl_b0 = local_rom[addr_b0];
-  wire [1:0] pb_a1 = bank_rom[addr_a1];  wire [5:0] pl_a1 = local_rom[addr_a1];
-  wire [1:0] pb_b1 = bank_rom[addr_b1];  wire [5:0] pl_b1 = local_rom[addr_b1];
+  // M4-FPGA-002F-4: ROM-haku korvattu XOR-kaavalla (koe 6:n kaava) -
+  // testaa vaikuttaako ROM-lookup vs. laskettu osoite.
+  wire [1:0] pb_a0 = addr_a0[1:0]^addr_a0[3:2]^addr_a0[5:4]^addr_a0[7:6];  wire [5:0] pl_a0 = addr_a0[7:2];
+  wire [1:0] pb_b0 = addr_b0[1:0]^addr_b0[3:2]^addr_b0[5:4]^addr_b0[7:6];  wire [5:0] pl_b0 = addr_b0[7:2];
+  wire [1:0] pb_a1 = addr_a1[1:0]^addr_a1[3:2]^addr_a1[5:4]^addr_a1[7:6];  wire [5:0] pl_a1 = addr_a1[7:2];
+  wire [1:0] pb_b1 = addr_b1[1:0]^addr_b1[3:2]^addr_b1[5:4]^addr_b1[7:6];  wire [5:0] pl_b1 = addr_b1[7:2];
 
   logic conflict_flag;
   always_comb begin

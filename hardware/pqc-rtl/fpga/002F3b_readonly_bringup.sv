@@ -30,7 +30,7 @@
 
 `timescale 1ns/1ps
 
-module pqc_ntt_stage_banked #(
+module pqc_002f3b_readonly_bringup #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
@@ -78,10 +78,10 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  logic [COEFF_W-1:0] bank0 [0:127];  // M4-FPGA-002E: 64->128, muu koskematon
+  logic [COEFF_W-1:0] bank1 [0:127];
+  logic [COEFF_W-1:0] bank2 [0:127];
+  logic [COEFF_W-1:0] bank3 [0:127];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
@@ -242,40 +242,35 @@ module pqc_ntt_stage_banked #(
   // local_rom-kartoitusta (sama muodollisesti todistettu kuvaus,
   // ei uutta logiikkaa). Kun FPGA_BRINGUP=0 (oletus), tama koko
   // lohko synteesoituu pois - taysin identtinen aiempaan nahden.
+  // M4-FPGA-002F-3b: VAIN lukunakyvyys sailytetty (ei load_valid-
+  // kirjoituspolkua) - testaa vaikuttaako TOINEN kirjoituslahde
+  // (bring-up:n oma load_valid, FSM:n oman kirjoituksen lisaksi)
+  // inferointiin, PITAEN silti muistin havaittavana.
   generate
-    if (FPGA_BRINGUP) begin : g_bringup
-      // Kirjoitus: synkroninen, yksi kirjoitusportti (kuten aiemmin)
-      always_ff @(posedge clk) begin
-        if (load_valid) begin
-          case (bank_rom[load_addr])
-            2'd0: bank0[local_rom[load_addr]] <= load_data;
-            2'd1: bank1[local_rom[load_addr]] <= load_data;
-            2'd2: bank2[local_rom[load_addr]] <= load_data;
-            default: bank3[local_rom[load_addr]] <= load_data;
-          endcase
-        end
-      end
-
-      // Luku: REKISTEROITY, YHDEN SYKLIN viive read_en:sta read_data:an
-      // (osoitteen dekoodaus bank_rom/local_rom:sta on kombinatorinen,
-      // mutta TULOS rekisteroidaan - standardi synkronisen muistin
-      // lukukuvio, BRAM-inferoinnille "luonnollinen" muoto). read_valid
-      // tasmaa TASMALLEEN read_data:n saatavuuden kanssa (sama viive).
+    if (FPGA_BRINGUP) begin : g_bringup_readonly
+      logic [1:0] read_bank_reg;
+      logic [5:0] read_local_reg;
+      logic read_valid_reg;
       always_ff @(posedge clk) begin
         if (reset) begin
-          read_valid <= 1'b0;
+          read_valid_reg <= 1'b0;
         end else begin
-          read_valid <= read_en;
+          read_valid_reg <= read_en;
           if (read_en) begin
-            case (bank_rom[read_addr])
-              2'd0: read_data <= bank0[local_rom[read_addr]];
-              2'd1: read_data <= bank1[local_rom[read_addr]];
-              2'd2: read_data <= bank2[local_rom[read_addr]];
-              default: read_data <= bank3[local_rom[read_addr]];
-            endcase
+            read_bank_reg  <= bank_rom[read_addr];
+            read_local_reg <= local_rom[read_addr];
           end
         end
       end
+      always_ff @(posedge clk) begin
+        case (read_bank_reg)
+          2'd0: read_data <= bank0[read_local_reg];
+          2'd1: read_data <= bank1[read_local_reg];
+          2'd2: read_data <= bank2[read_local_reg];
+          default: read_data <= bank3[read_local_reg];
+        endcase
+      end
+      assign read_valid = read_valid_reg;
     end else begin : g_no_bringup
       assign read_data = '0;
       assign read_valid = 1'b0;

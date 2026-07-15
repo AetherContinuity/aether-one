@@ -30,7 +30,7 @@
 
 `timescale 1ns/1ps
 
-module pqc_ntt_stage_banked #(
+module pqc_002f2_no_arbitration #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
@@ -78,10 +78,10 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  logic [COEFF_W-1:0] bank0 [0:127];  // M4-FPGA-002E: 64->128, muu koskematon
+  logic [COEFF_W-1:0] bank1 [0:127];
+  logic [COEFF_W-1:0] bank2 [0:127];
+  logic [COEFF_W-1:0] bank3 [0:127];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
@@ -91,9 +91,13 @@ module pqc_ntt_stage_banked #(
   logic done0, done1;
   logic [7:0] idx0, idx1;
 
+  // M4-FPGA-002F-2: grant AINA 1 (ei req-riippuvuutta) - testaa
+  // vaikuttaako req/grant-kasittelyketju itsessaan (vaikka
+  // logiikka toimisi tassa tapauksessa vain koska ei ole
+  // konflikteja tassa kokeessa - PUHDAS ELIMINOINTIKOE).
   logic grant0, grant1;
-  assign grant0 = req0;
-  assign grant1 = req1;
+  assign grant0 = 1'b1;
+  assign grant1 = 1'b1;
 
   lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY)) lane0 (
     .clk(clk), .reset(reset), .start(start),

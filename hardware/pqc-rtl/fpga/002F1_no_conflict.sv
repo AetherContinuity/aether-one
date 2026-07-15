@@ -30,7 +30,7 @@
 
 `timescale 1ns/1ps
 
-module pqc_ntt_stage_banked #(
+module pqc_002f1_no_conflict #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
@@ -78,10 +78,10 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  logic [COEFF_W-1:0] bank0 [0:127];  // M4-FPGA-002E: 64->128, muu koskematon
+  logic [COEFF_W-1:0] bank1 [0:127];
+  logic [COEFF_W-1:0] bank2 [0:127];
+  logic [COEFF_W-1:0] bank3 [0:127];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
@@ -122,16 +122,8 @@ module pqc_ntt_stage_banked #(
   wire [1:0] pb_a1 = bank_rom[addr_a1];  wire [5:0] pl_a1 = local_rom[addr_a1];
   wire [1:0] pb_b1 = bank_rom[addr_b1];  wire [5:0] pl_b1 = local_rom[addr_b1];
 
-  logic conflict_flag;
-  always_comb begin
-    conflict_flag = 1'b0;
-    if (grant0 && grant1) begin
-      if (pb_a0 == pb_a1 || pb_a0 == pb_b1 || pb_b0 == pb_a1 || pb_b0 == pb_b1) begin
-        conflict_flag = 1'b1;
-      end
-    end
-  end
-  assign bank_conflict_detected = conflict_flag;
+  // M4-FPGA-002F-1: konfliktintunnistus POISTETTU KOKONAAN
+  assign bank_conflict_detected = 1'b0;
 
   // M4-FPGA-002C: lukupolku ehdollinen NTT_READ_LATENCY:n mukaan.
   // NTT_READ_LATENCY=0 (oletus): TASMALLEEN alkuperainen always_comb-
