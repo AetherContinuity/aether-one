@@ -495,3 +495,47 @@ arbitrointi kayttaa VALINTAAN) saattavat MUUTTUA lane_fsm:n oman
 moniajovaiheisen kierroksen aikana ENNEN kuin arbitroitu luku ehtii
 valmistua, aiheuttaen etta arbitrointi valitsee VAARAN pankin
 (vanhentuneen osoitteen perusteella) tietylla syklilla.
+
+## TARKEA KORJAUS: aaltomuotovertailun "ero" oli oma testivirhe, ei bugi
+
+Kayttajan oma ehdotus toteutettu: v4 (vanha) vs v10 (arbitroitu)
+rinnakkain, yksi lane + kaksi lanea.
+
+**Yhden lanen vertailu (VAIN lane0 aktiivinen, oikealla alustuksella):
+TAYSIN IDENTTINEN 25 syklin ajan, EI EROA.** Tama vahvistaa etta
+YKSITTAISEN lanen operaatio on funktionaalisesti identtinen vanhan
+ja uuden arkkitehtuurin valilla.
+
+**Kahden lanen vertailu paljasti eron syklilla 3** - MUTTA analyysi
+osoitti etta tama johtui OMASTA TESTIVIRHEESTANI: valitsin
+`base_addr1=64` MIELIVALTAISESTI (ilman todentaa etta se vastaa
+oikeaa, aikataulusta johdettua, konfliktittomaksi todistettua osoite-
+paria). Tarkistus:
+
+```
+bank_of(addr_a0=0)  = 0
+bank_of(addr_b0=4)  = 1
+bank_of(addr_a1=64) = 1  <-- SAMA PANKKI kuin addr_b0!
+bank_of(addr_b1=68) = 0  <-- SAMA PANKKI kuin addr_a0!
+```
+
+**Tama ON AITO KONFLIKTI - MUTTA se syntyy VAIN koska testin omat
+osoitteet (base_addr1=64, pair_dist=4) EIVAT vastaa mitaan oikeaa
+NTT-aikataulun konfliktittomaksi todistettua osoiteyhdistelmaa.**
+BANK_MAPPING_PROOF.md:n konfliktittomuustodistus koskee VAIN
+todellisia aikataulusta (`full_schedule.txt`) johdettuja nelikkoja -
+EI mielivaltaisia testiosoitteita.
+
+**JOHTOPAATOS: taman aaltomuotokokeen "loydetty ero" EI ollut aito
+bugi lane_fsm:n ja arbitroinnin vuorovaikutuksessa - se oli oman
+testini virheellinen osoitevalinta.** Tama EI viela vastaa alkuperaista
+kysymysta (miksi taysi 7-tasoinen NTT-testi epaonnistui 255/256
+osoitteessa, VAIKKA se kaytti OIKEITA, aikataulusta johdettuja
+osoitteita).
+
+## Seuraava, oikein rajattu askel
+
+Toistaa aaltomuotovertailu kayttaen OIKEITA, `full_schedule.txt`:sta
+luettuja base_addr-arvoja (ei mielivaltaisia), jotta konfliktittomuus-
+takuu aidosti patee - vasta silloin mahdollinen loytyva ero olisi
+todellinen ajoitusongelma eika oman testin oma virhe.
