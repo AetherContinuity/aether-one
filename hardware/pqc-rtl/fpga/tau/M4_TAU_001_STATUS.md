@@ -48,3 +48,38 @@ SHA3-testivektorien generointi.
 4. Istuntoavaimen muodostus ML-KEM:n kautta (VERA Agent: "Kyber for
    key exchange") - vaikeampi, laajempi osa, todennakoisesti oma
    valivaihe
+
+## Osa 2: Wishbone-integraatio VALMIS (2026-07-19)
+
+`pqc_tau_wishbone_wrapper.sv` yhdistaa NTT-ytimen (M4-SoC-001) ja
+audit-lokin (Osa 1) SAMAAN Wishbone-vaylaan. 256-bittiset hash-arvot
+pakataan/puretaan 16:sta perakkaisesta 16-bittisesta sanasta
+(AUDIT_WORD_SEL osoittaa senhetkisen sanan).
+
+**Osoitekartta laajennettu:**
+- 0x000-0x0FF: NTT-data (ennallaan)
+- 0x100-0x107: NTT-ohjaus/tila (ennallaan)
+- 0x110-0x119: Audit-loki (uusi) - AUDIT_WORD_SEL, AUDIT_HASH_IN,
+  AUDIT_COMMIT, AUDIT_STATUS, AUDIT_SEQ, AUDIT_CHAIN_OUT,
+  AUDIT_READ_SEQ, AUDIT_READ_VALID, AUDIT_READ_CHAIN, AUDIT_READ_DECISION
+
+**Todennettu (pqc_tau_wishbone_tb.sv):**
+- decision_hash kirjoitettu 16 sanana Wishbone-kirjoituksilla
+- Audit-lokin kirjoitus laukaistu, valmistui 15 Wishbone-syklin
+  sisalla
+- chain_hash luettu takaisin 16 sanana, TASMAA Python-golden-
+  referenssiin
+- NTT-datan luku/kirjoitus TOIMII EDELLEEN samassa yhdistetyssa
+  kaareessa (ei regressiota)
+
+**PASS: audit-loki + NTT-ydin integroitu samaan vaylaan, molemmat
+toimivat oikein.**
+
+## Jaljella (M4-TAU-001:n loput osat)
+
+1. Watchdog/heartbeat-logiikka ECU<->TAU-viestintaa varten
+2. Taydempi attestaatioprotokolla (viela vain hash-commitment,
+   EI Dilithium-allekirjoitusta - M5:n oma tyo)
+3. Istuntoavaimen muodostus ML-KEM:n kautta (VERA Agent: "Kyber
+   for key exchange")
+4. Synteesi + P&R -vahvistus ECP5:lla (kuten M4-SoC-001:lle tehtiin)
