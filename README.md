@@ -83,7 +83,7 @@ Trust Server käyttää **ML-DSA-65** (Dilithium) allekirjoituksiin `liboqs`-kir
 
 | Alikansio | Algoritmi | Muoto | Tila |
 |---|---|---|---|
-| `rtl/` (M1) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, käyttäytymismalli | Yksi NTT-taso todennettu, **ei synteesikelpoinen**, ei Dilithiumia |
+| `rtl/` (M1→M4) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | Koko ML-KEM.KeyGen/Encaps/Decaps + K-PKE todennettu bittitarkasti; ECP5-synteesi + place-and-route todistettu (DP16KD-BRAM-inferointi, Fmax mitattu, Wishbone-vaylaprototyyppi). Ei Dilithiumia. |
 | `rvv/` | ML-KEM/Kyber (16-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Yksi funktio (Montgomery-reduktio) todennettu |
 | `rvv-dilithium/` | **ML-DSA-65 / Dilithium** (32-bit Montgomery) | C + RVV-intrinsiicit, QEMU | **Koko API valmis**: avaingenerointi + allekirjoitus + verifiointi, bittitarkasti pq-crystals/dilithium-referenssiä vasten |
 

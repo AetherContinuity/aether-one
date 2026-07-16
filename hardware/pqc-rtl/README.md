@@ -28,8 +28,14 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M3 · Issue #14** | SHAKE128 / SHAKE256 (muuttuva ulostulopituus) | ✅ TODENNETTU 2026-07-12 - ks. rajaus alla |
 | **M3 · Issue #15 (osa)** | SampleNTT (XOF+hylkaysnaytteenotto) | ✅ TODENNETTU 2026-07-13 - ks. rajaus alla |
 | **M3 · Issue #15 (osa)** | SamplePolyCBD (eta=2,3) | ✅ TODENNETTU 2026-07-13 - ks. rajaus alla |
-| M3 | FPGA-prototyyppi (Pynq-Z2 / Basys 3) | Q2 2026 |
-| M4 | TrustCore NX integraatio (7nm) | Q3 2026 |
+| **M3 RC1** | Koko K-PKE + ML-KEM.KeyGen/Encaps/Decaps, 1000-siemenen golden-regressio | ✅ TODENNETTU 2026-07-14, ks. CHANGELOG.md |
+| **M4-FPGA-001** | Synteesin nakyvyys (FPGA_BRINGUP-portit) | ✅ TODENNETTU 2026-07-16 |
+| **M4-FPGA-002/003** | BRAM-inferointi (DP16KD) tutkimusprototyypissa - arbitrointi, koon kasvatus | ✅ TODISTETTU 2026-07-17..19, ks. M4_FPGA_003_RC.md |
+| **M4-FPGA-004** | BRAM-arkkitehtuuri integroitu tuotantoytimeen (`pqc_ntt_stage_banked.sv`) | ✅ TODENNETTU 2026-07-19 - **DP16KD=4 synteesikelpoinen, taaksepainyhteensopiva** |
+| **M4-FPGA-005/006/007** | ECP5 place-and-route, ajoitusoptimointi (1-vaiheinen aritmetiikan pipeline) | ✅ TODENNETTU 2026-07-19 - Fmax 21.2→30.4 MHz, +14.5% lapimenoajassa |
+| **M4-FPGA-008** | Pipeline-optimointi integroitu tuotantoytimeen | ✅ TODENNETTU 2026-07-19 |
+| **M4-SoC-001** | Wishbone-vaylakaare (tutkimusprototyyppi) | ✅ TODENNETTU 2026-07-19, ks. `fpga/soc_wrapper/` |
+| M4 (jatkuu) | TrustCore NX -integraatio, laajempi SoC-tyo | Avoin |
 
 **M1:n todennettu skoopin rajaus (2026-07-02):**
 `rtl/pqc_rvv_cluster_2lane.sv` + `tb/pqc_cluster_m1_tb.sv` ajettu Icarus
@@ -573,15 +579,49 @@ puhtaasti testipenkin puoleista instrumentointia (ei muuta RTL:ää).
 - Icarus Verilog 12.0 (testattu tässä ympäristössä, ei vielä Pi5:llä)
 - Python `gen_vectors.py` → `.memh` → SV-testipenkki
 
-## Yhteys TrustCore NX:ään
+## Yhteys TrustCore NX:ään ja Dilithium-tyohon (paivitetty 2026-07-19)
 
 NTT256 tässä käyttää Kyberin (ML-KEM) 16-bittistä Montgomery-reduktiota
 (Q=3329). **Ei ML-DSA/Dilithium** — Dilithiumin Montgomery on 32-bittinen
 (Q=8380417, R=2^32). Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tämä M1/
 M2 Vaihe 1 ei kelpaa sellaisenaan (sama Kyber-parametrisointi molemmissa);
 tarvitaan erillinen 32-bittinen Dilithium-Montgomery
-(ks. hardware/pqc-rtl/rvv/README.md).
-Tämä RTL siirtyy suoraan TrustCore NX ASIC:iin — synteesikelpoisen
-uudelleenkirjoituksen jälkeen (M3/M4).
+(ks. hardware/pqc-rtl/rvv/README.md ja rvv-dilithium/README.md).
+
+**TARKENNUS (loydetty repon paatason README:sta 2026-07-19):**
+Trust Server (pi2_trust_server/) kayttaa TUOTANNOSSA ML-DSA-65:ta
+(Dilithium) liboqs-kirjaston kautta - EI ML-KEM:ia. Tama `rtl/`-
+kansion tyo (Kyber/ML-KEM) on siis algoritmisesti ERI PQC-primitiivi
+kuin se, jota Trust Server oikeasti kayttaa allekirjoituksiin.
+
+Tama EI tee tasta tyosta turhaa - ML-KEM on erillinen, yhta lailla
+NIST-standardoitu PQC-algoritmi (avainten kapselointiin, ei
+allekirjoituksiin), ja jarjestelmat tarvitsevat usein MOLEMPIA
+(esim. TLS-tyyppinen kasittely: KEM istunnon avainten sopimiseen,
+allekirjoitus autentikointiin). MUTTA on tarkeaa olla selkea etta:
+
+1. **Tama rtl/-tyo (M1-M4) on ML-KEM/Kyber-kiihdytin** - synteesikelpoinen,
+   DP16KD-BRAM-inferointi todistettu, Fmax mitattu ECP5:lla (ks.
+   M4-vaiheen rivit tilataulukossa ylla).
+2. **`rvv-dilithium/`-kansio on ERI, kypsempi tyo** - taydellinen
+   ML-DSA-65-ohjelmistoreferenssi (C+RVV, QEMU), bittitarkasti
+   pq-crystals/dilithium-referenssia vasten, mutta EI VIELA
+   synteesikelpoista RTL:aa.
+3. **Jos TrustCore NX -konsepti (tai mika tahansa oikea rautaintegraatio
+   Trust Serverin kanssa) halutaan toteuttaa tarkasti Trust Serverin
+   nykyista kryptografiaa vastaavana, oikea kohde olisi Dilithium-
+   RTL, EI Kyber-RTL** - tama rtl/-kansio ei suoraan palvele Trust
+   Serverin nykyista tarvetta, vaikka sen oma metodologia (BRAM-
+   inferointi, ajoitusoptimointi, vaylaintegraatio) olisi todennakoisesti
+   suoraan uudelleenkaytettavissa jos/kun Dilithium-RTL aloitetaan
+   (32-bittinen Montgomery vaatisi omat butterfly-/muistimitat, mutta
+   sama arkkitehtoninen lahestymistapa - konfliktiton pankitus,
+   arbitroitu BRAM-rajapinta, pipelinoitu aritmetiikka - patisi
+   todennakoisesti samalla tavalla).
+
+Tama RTL siirtyy suoraan TrustCore NX ASIC:iin **VAIN JOS** ML-KEM
+paatyy osaksi lopullista TrustCore NX -kryptografista suunnitelmaa -
+tama paatos EI OLE viela tehty, ja tama README ei ota siihen kantaa
+kayttajan puolesta.
 
 
