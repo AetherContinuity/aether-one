@@ -154,3 +154,48 @@ saattaa olla off-by-one- tai ajoitusvirhe).
 **TAMA ON REHELLISESTI KIRJATTU KESKENERAISEKSI** - ei viela
 toimiva NTT-forward-vaihe, vaativa oman debug-kierroksensa ennen
 jatkoa matriisikertolaskuun.
+
+## Debug-tulos 2026-07-19: bugi TARKASTI PAIKANNETTU lukuvaiheeseen
+
+**Kayttajan oma pyynto:** debugataan loydetty ongelma.
+
+**Ratkaisu tarkkaan tilasiirtyman jaljitykseen:** lisattiin
+sykli-kohtainen tila+signaalitulostus. TULOS: **aikataulun suoritus
+(64 askelta) ETENEE TAYSIN OIKEIN** - `sched_idx` kasvaa siististi
+0:sta 63:een, `stage_done` pulssaa oikein jokaisen tason lopussa,
+EI pankkikonflikteja. FSM saavuttaa `S_DONE`:n (tila 25) 10643
+syklin jalkeen - EI KOSKAAN JUMIUDU, aiempi tulkinta "bugista" oli
+VAARA: FSM vain saavutti tarkoituksella viela toteuttamattoman
+S_DONE-placeholderin, joka putoaa oletusarvoisesti takaisin
+S_IDLE:en (koska `S_DONE`:lle ei ole viela omaa case-haaraa).
+
+**Automaattinen, tarkka vertailu Python-golden-referenssiin
+(purettu suoraan `dk_expect`:sta `byte_decode(12,...)`:lla)
+paljasti TODELLISEN, VIELA RATKAISEMATTOMAN bugin:**
+
+`s_hat[0]` EI TASMAA - kaikki 256 kerrointa eroavat golden-
+referenssista. **Merkittava vihje: RTL[0]=RTL[1]=1782 (identtiset!)**
+ennen kuin arvot alkavat poiketa toisistaan tasta eteenpain - tama
+viittaa VAHVASTI etta LUKUVAIHEEN (`S_NTT_FWD_READ`) omassa
+ajoituksessa/indeksoinnissa on virhe (esim. ensimmainen luettu arvo
+kirjoitetaan VAHINGOSSA kahteen peräkkäiseen tauluindeksin, sitten
+kaikki myohemmat arvot ovat sen seurauksena vaaria).
+
+## Tarkennettu johtopaatos
+
+**Aikataulun suoritus (64 NTT-tasoa) ON TAYSIN OIKEIN.** Bugi ON
+kavennettu tarkasti LUKUVAIHEESEEN (`S_NTT_FWD_READ`-tilan oma
+read_idx/read_valid-kasittely, mahdollisesti `read_idx-8'd1`-
+kompensointilogiikan virhe 1-syklin lukuviiveen huomioimisessa).
+
+**Seuraava askel:** debugata TASMALLEEN `S_NTT_FWD_READ`-tilan oma
+ajoitus (esim. verrata suoraan M4-SoC-001:n jo TOIMivaksi todistettuun
+Wishbone-lukupolkuun, joka kayttaa SAMAA bring-up-rajapintaa
+oikein) - todennakoisin korjaus: poistaa virheellinen `-8'd1`-
+kompensointi ja kayttaa suoraan rekisteroityä read_idx-arvoa joka
+VASTASI luettua dataa (samankaltainen kuin toimivassa Wishbone-
+esimerkissa).
+
+**EI VIELA RATKAISTU, MUTTA MERKITTAVASTI KAVENNETTU:** ongelma-
+alue on nyt tasan yksi tila (S_NTT_FWD_READ), ei enaa koko NTT-
+forward-sekvenssi.
