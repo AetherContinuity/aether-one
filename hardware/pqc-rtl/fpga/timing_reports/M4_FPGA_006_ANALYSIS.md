@@ -141,3 +141,42 @@ Jos viimeinen kriteeri ei tayty, pipelinointi EI OLE onnistunut
 optimointi taman jarjestelman kayttotapaukselle, vaikka Fmax
 nousisikin - ja silloin oikea johtopaatos on sailyttaa nykyinen,
 yksinkertaisempi 1-syklinen butterfly-toteutus.
+
+## Vaihtoehto B kokeiltu: sijoitteluoptimointi ilman RTL-muutoksia
+
+**Kayttajan oma ehdotus:** kokeile parantaako pelkka P&R-optimointi
+Fmax:aa ilman RTL-muutoksia, ennen pipelinointipaatosta.
+
+Kokeiltu (sama synteesoitu netlist koko ajan, `pnr_synth3.json`):
+- `--placer sa` (oletus) vs. `--placer heap`: 21.21 MHz molemmilla.
+- Neljä eri satunnaissiementa (`--seed 1/42/100/7777`): 20.92-21.37
+  MHz - **vaihteluvali vain ~2%**.
+- Aggressiivinen ajoitusohjattu sijoittelu
+  (`--placer-heap-timingweight 50 --slack_redist_iter 10`): 21.12 MHz -
+  ei parannusta.
+
+**JOHTOPAATOS: sijoitteluoptimointi ON DE FACTO LOPPUUNKAYTETTY talle
+netlistille.** Kaikki kokeillut sijoittelustrategiat (algoritmi,
+siemen, ajoituspainotus) konvergoituvat samaan ~21 MHz -tulokseen
+~2%:n tarkkuudella. Tama on vahva viite etta pullonkaula on
+RAKENTEELLINEN (RTL:n oma logiikkasyvyys), EI sijoittelun laatu-
+kysymys jonka nextpnr voisi ratkaista paremmalla algoritmilla.
+
+**Tama tukee sita etta Vaihtoehto A (RTL-pipelining) on
+TODENNAKOISESTI VALTTAMATON merkittavaan Fmax-parannukseen** - MUTTA
+aiemmin todettu reititys-logiikka-jakauma (22.9ns reititys vs. 20.5ns
+logiikka) tarkoittaa etta pipelinoinnin OMA hyoty riippuu MYOS siita,
+kuinka hyvin nextpnr pystyy sijoittamaan LYHYEMMAT pipeline-vaiheet
+(pienempi logiikka per vaihe saattaa mahdollistaa MYOS paremman
+sijoittelun per vaihe, koska pienempi looginen alue voidaan sijoittaa
+tiiviimmin).
+
+## Skenaarioanalyysien luonne (kayttajan oma korjaus)
+
+Aiemmin esitetty kannattavuustaulukko (Fmax x1.5/2.0/2.5/3.0,
++1/+2/+3 sykli/bf) on **SKENAARIOANALYYSI, EI ENNUSTE.** Taulukon
+luvut riippuvat tayzin siita, kuinka monta lisasyklia todellinen
+pipelinointi vaatii ja kuinka paljon Fmax todella nousee - naita EI
+VIELA TIEDETA, ne pitaa MITATA toteutuksen jalkeen. Taulukko on
+tarkoitettu havainnollistamaan PAATOKSENTEON LOGIIKKAA (miksi pelkka
+Fmax ei riita), ei ennustamaan lopputulosta.

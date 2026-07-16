@@ -1,0 +1,960 @@
+
+
+Info: Logic utilisation before packing:
+Info:     Total LUT4s:      2497/24288    10%
+Info:         logic LUTs:   1833/24288     7%
+Info:         carry LUTs:    664/24288     2%
+Info:           RAM LUTs:      0/ 3036     0%
+Info:          RAMW LUTs:      0/ 6072     0%
+
+Info:      Total DFFs:       344/24288     1%
+
+Info: Packing IOs..
+Info: Packing constants..
+Info: Packing carries...
+Info: Packing LUTs...
+Info: Packing LUT5-7s...
+Info: Packing FFs...
+Info:     119 FFs paired with LUTs.
+Info: Generating derived timing constraints...
+Info: Promoting globals...
+Info:     promoting clock net clk$TRELLIS_IO_IN to global network
+Info: Checksum: 0x672163a2
+
+Info: Annotating ports with timing budgets for target frequency 12.00 MHz
+Info: Checksum: 0x2ccb2013
+
+Info: Device utilisation:
+Info: 	          TRELLIS_IO:   123/  197    62%
+Info: 	                DCCA:     1/   56     1%
+Info: 	              DP16KD:     4/   56     7%
+Info: 	          MULT18X18D:     6/   28    21%
+Info: 	              ALU54B:     0/   14     0%
+Info: 	             EHXPLLL:     0/    2     0%
+Info: 	             EXTREFB:     0/    1     0%
+Info: 	                DCUA:     0/    1     0%
+Info: 	           PCSCLKDIV:     0/    2     0%
+Info: 	             IOLOGIC:     0/  128     0%
+Info: 	            SIOLOGIC:     0/   69     0%
+Info: 	                 GSR:     0/    1     0%
+Info: 	               JTAGG:     0/    1     0%
+Info: 	                OSCG:     0/    1     0%
+Info: 	               SEDGA:     0/    1     0%
+Info: 	                 DTR:     0/    1     0%
+Info: 	             USRMCLK:     0/    1     0%
+Info: 	             CLKDIVF:     0/    4     0%
+Info: 	           ECLKSYNCB:     0/   10     0%
+Info: 	             DLLDELD:     0/    8     0%
+Info: 	              DDRDLL:     0/    4     0%
+Info: 	             DQSBUFM:     0/    8     0%
+Info: 	     TRELLIS_ECLKBUF:     0/    8     0%
+Info: 	        ECLKBRIDGECS:     0/    2     0%
+Info: 	                DCSC:     0/    2     0%
+Info: 	          TRELLIS_FF:   344/24288     1%
+Info: 	        TRELLIS_COMB:  2679/24288    11%
+Info: 	        TRELLIS_RAMW:     0/ 3036     0%
+
+Info: Placed 0 cells based on constraints.
+Info: Creating initial analytic placement for 1373 cells, random placement wirelen = 113374.
+Info:     at initial placer iter 0, wirelen = 7831
+Info:     at initial placer iter 1, wirelen = 6516
+Info:     at initial placer iter 2, wirelen = 6248
+Info:     at initial placer iter 3, wirelen = 6205
+Info: Running main analytical placer, max placement attempts per cell = 1245831.
+Info:     at iteration #1, type ALL: wirelen solved = 6160, spread = 24675, legal = 25748; time = 0.12s
+Info:     at iteration #2, type ALL: wirelen solved = 7319, spread = 22817, legal = 25456; time = 0.14s
+Info:     at iteration #3, type ALL: wirelen solved = 7860, spread = 23131, legal = 25807; time = 0.14s
+Info:     at iteration #4, type ALL: wirelen solved = 8299, spread = 22563, legal = 25681; time = 0.14s
+Info:     at iteration #5, type ALL: wirelen solved = 8943, spread = 20998, legal = 24566; time = 0.13s
+Info:     at iteration #6, type ALL: wirelen solved = 9945, spread = 19983, legal = 23157; time = 0.15s
+Info:     at iteration #7, type ALL: wirelen solved = 10427, spread = 20091, legal = 23442; time = 0.13s
+Info:     at iteration #8, type ALL: wirelen solved = 10974, spread = 20102, legal = 24583; time = 0.13s
+Info:     at iteration #9, type ALL: wirelen solved = 11936, spread = 19269, legal = 24054; time = 0.12s
+Info:     at iteration #10, type ALL: wirelen solved = 11873, spread = 19219, legal = 24440; time = 0.13s
+Info:     at iteration #11, type ALL: wirelen solved = 12044, spread = 19803, legal = 25997; time = 0.12s
+Info: HeAP Placer Time: 2.23s
+Info:   of which solving equations: 1.69s
+Info:   of which spreading cells: 0.12s
+Info:   of which strict legalisation: 0.05s
+
+Info: Running simulated annealing placer for refinement.
+Info:   at iteration #1: temp = 0.000000, timing cost = 1308, wirelen = 23157
+Info:   at iteration #5: temp = 0.000000, timing cost = 968, wirelen = 18160
+Info:   at iteration #10: temp = 0.000000, timing cost = 870, wirelen = 17269
+Info:   at iteration #15: temp = 0.000000, timing cost = 882, wirelen = 17061
+Info:   at iteration #20: temp = 0.000000, timing cost = 873, wirelen = 16913
+Info:   at iteration #25: temp = 0.000000, timing cost = 807, wirelen = 16871
+Info:   at iteration #27: temp = 0.000000, timing cost = 804, wirelen = 16855 
+Info: SA placement time 9.57s
+
+Info: Max frequency for clock '$glbnet$clk$TRELLIS_IO_IN': 22.57 MHz (PASS at 12.00 MHz)
+
+Info: Max delay <async>                           -> posedge $glbnet$clk$TRELLIS_IO_IN: 46.24 ns
+Info: Max delay posedge $glbnet$clk$TRELLIS_IO_IN -> <async>                          : 10.73 ns
+
+Info: Slack histogram:
+Info:  legend: * represents 3 endpoint(s)
+Info:          + represents [1,3) endpoint(s)
+Info: [ 37091,  39359) |***********+
+Info: [ 39359,  41627) |*****************+
+Info: [ 41627,  43895) |*****+
+Info: [ 43895,  46163) | 
+Info: [ 46163,  48431) | 
+Info: [ 48431,  50699) | 
+Info: [ 50699,  52967) | 
+Info: [ 52967,  55235) | 
+Info: [ 55235,  57503) |***+
+Info: [ 57503,  59771) |*******+
+Info: [ 59771,  62039) |*******************+
+Info: [ 62039,  64307) |**************+
+Info: [ 64307,  66575) |*****************+
+Info: [ 66575,  68843) |******************************+
+Info: [ 68843,  71111) |******************+
+Info: [ 71111,  73379) |*****+
+Info: [ 73379,  75647) |*+
+Info: [ 75647,  77915) |*******************************************+
+Info: [ 77915,  80183) |************************************************************ 
+Info: [ 80183,  82451) |***********************************+
+Info: Checksum: 0x31a913e0
+Info: Routing globals...
+Info:     routing clock net $glbnet$clk$TRELLIS_IO_IN using global 0
+
+Info: Routing..
+Info: Setting up routing queue.
+Info: Routing 8811 arcs.
+Info:            |   (re-)routed arcs  |   delta    | remaining|       time spent     |
+Info:    IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|
+Info:       1000 |      409        590 |  409   590 |      8271|       0.59       0.59|
+Info:       2000 |      952       1047 |  543   457 |      7908|       0.28       0.87|
+Info:       3000 |     1498       1501 |  546   454 |      7555|       0.22       1.09|
+Info:       4000 |     2096       1903 |  598   402 |      7222|       0.30       1.39|
+Info:       5000 |     2629       2370 |  533   467 |      6814|       0.40       1.79|
+Info:       6000 |     3297       2702 |  668   332 |      6583|       0.46       2.25|
+Info:       7000 |     3996       3003 |  699   301 |      6399|       0.27       2.52|
+Info:       8000 |     4436       3563 |  440   560 |      5944|       0.23       2.75|
+Info:       9000 |     4949       3859 |  513   296 |      5514|       0.25       3.00|
+Info:      10000 |     5469       4243 |  520   384 |      5078|       0.22       3.22|
+Info:      11000 |     5694       4986 |  225   743 |      4377|       0.27       3.49|
+Info:      12000 |     5887       5772 |  193   786 |      3622|       0.21       3.70|
+Info:      13000 |     6026       6520 |  139   748 |      2789|       0.15       3.84|
+Info:      14000 |     6263       7149 |  237   629 |      2068|       0.18       4.02|
+Info:      15000 |     6521       7762 |  258   613 |      1427|       0.24       4.27|
+Info:      16000 |     6665       8463 |  144   701 |       615|       0.25       4.51|
+Info:      16841 |     6814       9047 |  149   584 |         0|       0.21       4.72|
+Info: Routing complete.
+Info: Router1 time 4.72s
+Info: Checksum: 0xfb2ffe4e
+
+Info: Critical path report for clock '$glbnet$clk$TRELLIS_IO_IN' (posedge -> posedge):
+Info: curr total
+Info:  0.5  0.5  Source core.lane1.b_reg_TRELLIS_FF_Q_10.Q
+Info:  1.5  2.0    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_11_ALUT_LUT4_Z_B_CCU2C_S0_S1[2] budget 1.080000 ns (12,6) -> (13,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_11_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4  2.4  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_11_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1$CCU2_COMB1.FCO
+Info:  0.0  2.4    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT[6] budget 0.000000 ns (13,8) -> (14,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.1  2.5  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCO
+Info:  0.0  2.5    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT$CCU2_FCI_INT budget 0.000000 ns (14,8) -> (14,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCI
+Info:  0.0  2.5  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCO
+Info:  0.0  2.5    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT[8] budget 0.000000 ns (14,8) -> (14,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z_B_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.1  2.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z_B_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0  2.6    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z_B_CCU2C_S1_S0_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (14,8) -> (14,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z_B_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0  2.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z_B_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0  2.6    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT[10] budget 0.000000 ns (14,8) -> (14,8)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.4  3.0  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1$CCU2_COMB0.F
+Info:  1.1  4.1    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B[1] budget 0.600000 ns (14,8) -> (14,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1$CCU2_COMB0.B
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4  4.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1$CCU2_COMB0.FCO
+Info:  0.0  4.6    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1$CCU2_FCI_INT budget 0.000000 ns (14,7) -> (14,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1$CCU2_COMB1.FCI
+Info:  0.0  4.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1$CCU2_COMB1.FCO
+Info:  0.0  4.6    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1_COUT[12] budget 0.000000 ns (14,7) -> (14,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.1  4.7  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB0.FCO
+Info:  0.0  4.7    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_FCI_INT budget 0.000000 ns (14,7) -> (14,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB1.FCI
+Info:  0.0  4.7  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB1.FCO
+Info:  0.0  4.7    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1_COUT[14] budget 0.000000 ns (14,7) -> (15,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.1  4.7  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB0.FCO
+Info:  0.0  4.7    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_FCI_INT budget 0.000000 ns (15,7) -> (15,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB1.FCI
+Info:  0.0  4.7  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_S1_COUT_CCU2C_COUT_1_S0_CCU2C_B0$CCU2_COMB1.FCO
+Info:  0.0  4.7    Net $nextpnr_CCU2C_5$CIN budget 0.000000 ns (15,7) -> (15,7)
+Info:                Sink $nextpnr_CCU2C_5$CCU2_COMB0.FCI
+Info:  0.4  5.2  Source $nextpnr_CCU2C_5$CCU2_COMB0.F
+Info:  0.8  6.0    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_2_S0_LUT4_Z_C[0] budget 0.000000 ns (15,7) -> (15,7)
+Info:                Sink $nextpnr_CCU2C_5$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:65.22-65.25
+Info:  0.4  6.4  Source $nextpnr_CCU2C_5$CCU2_COMB1.FCO
+Info:  0.0  6.4    Net $nextpnr_CCU2C_5$COUT budget 0.000000 ns (15,7) -> (15,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:  0.4  6.9  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_S1_CCU2C_B1_S0_CCU2C_S0$CCU2_COMB0.F
+Info:  0.5  7.4    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_2_S0_LUT4_Z_C[3] budget 0.840000 ns (15,7) -> (15,9)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_2_S0_LUT4_Z.D
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:34.26-34.27
+Info:  0.2  7.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_5_ALUT_LUT4_Z_B_CCU2C_S0_COUT_CCU2C_COUT_2_S0_LUT4_Z.F
+Info:  1.2  8.8    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_11_ALUT_LUT4_Z_B[3] budget 1.080000 ns (15,9) -> (16,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2  9.0  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT_LUT4_Z.F
+Info:  0.0  9.0    Net zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_ALUT budget 0.360000 ns (16,7) -> (16,7)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_BLUT_LUT4_Z.F1
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:133.22-133.24
+Info:  0.2  9.2  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_6_BLUT_LUT4_Z.OFX
+Info:  1.3 10.5    Net zeta_lane1_MULT18X18D_B0_A0[9] budget 2.160000 ns (16,7) -> (14,13)
+Info:                Sink zeta_lane1_MULT18X18D_B0.A9
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/mul2dsp.v:61.22-61.23
+Info:  3.9 14.4  Source zeta_lane1_MULT18X18D_B0.P15
+Info:  1.5 15.9    Net zeta_lane1_MULT18X18D_B0_P0[15] budget 1.080000 ns (14,13) -> (17,13)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0_MULT18X18D_P0.A16
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:30.22-30.23
+Info:  3.9 19.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0_MULT18X18D_P0.P2
+Info:  1.2 21.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0[2] budget 0.600000 ns (17,13) -> (18,13)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0.A2
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/mul2dsp.v:65.23-65.24
+Info:  3.9 24.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0.P4
+Info:  1.5 26.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0[4] budget 1.320000 ns (18,13) -> (16,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB0.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 26.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB0.FCO
+Info:  0.0 26.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_FCI_INT budget 0.000000 ns (16,11) -> (16,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB1.FCI
+Info:  0.0 26.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB1.FCO
+Info:  0.0 26.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[4] budget 0.000000 ns (16,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 26.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB0.FCO
+Info:  0.0 26.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB1.FCI
+Info:  0.0 26.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB1.FCO
+Info:  0.0 26.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[6] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 26.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCO
+Info:  0.0 26.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCI
+Info:  0.0 26.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCO
+Info:  0.0 26.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[8] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.0  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB0.FCO
+Info:  0.0 27.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB1.FCI
+Info:  0.0 27.0  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB1.FCO
+Info:  0.0 27.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[10] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB0.FCO
+Info:  0.0 27.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB1.FCI
+Info:  0.0 27.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB1.FCO
+Info:  0.0 27.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[12] budget 0.000000 ns (17,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB0.FCO
+Info:  0.0 27.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB1.FCI
+Info:  0.0 27.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB1.FCO
+Info:  0.0 27.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[14] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB0.FCO
+Info:  0.0 27.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB1.FCI
+Info:  0.0 27.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB1.FCO
+Info:  0.0 27.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[16] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 27.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 27.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 27.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[18] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 27.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB0.FCO
+Info:  0.0 27.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB1.FCI
+Info:  0.0 27.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB1.FCO
+Info:  0.0 27.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[20] budget 0.000000 ns (18,11) -> (19,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_2$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 27.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_2$CCU2_COMB0.F
+Info:  1.1 29.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_S0[22] budget 0.840000 ns (19,11) -> (18,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_2$CCU2_COMB1.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:109.11-109.21
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 29.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_2$CCU2_COMB1.FCO
+Info:  0.0 29.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[5] budget 0.000000 ns (18,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 29.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB0.FCO
+Info:  0.0 29.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB1.FCI
+Info:  0.0 29.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB1.FCO
+Info:  0.0 29.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[7] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 29.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 29.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 29.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 29.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[9] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 29.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB0.FCO
+Info:  0.0 29.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB1.FCI
+Info:  0.0 29.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB1.FCO
+Info:  0.0 29.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[11] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 29.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB0.FCO
+Info:  0.0 29.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB1.FCI
+Info:  0.0 29.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB1.FCO
+Info:  0.0 29.7    Net $nextpnr_CCU2C_78$CIN budget 0.000000 ns (19,10) -> (20,10)
+Info:                Sink $nextpnr_CCU2C_78$CCU2_COMB0.FCI
+Info:  0.4 30.1  Source $nextpnr_CCU2C_78$CCU2_COMB0.F
+Info:  0.8 30.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[13] budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink $nextpnr_CCU2C_78$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 31.4  Source $nextpnr_CCU2C_78$CCU2_COMB1.FCO
+Info:  0.0 31.4    Net $nextpnr_CCU2C_78$COUT budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB0.FCI
+Info:  0.1 31.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB0.FCO
+Info:  0.0 31.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_FCI_INT budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB1.FCI
+Info:  0.4 31.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB1.F
+Info:  0.6 32.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0[15] budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1.C
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:34.26-34.27
+Info:  0.2 32.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1.F
+Info:  0.9 33.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B[4] budget 1.080000 ns (20,10) -> (22,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D_PFUMX_Z_BLUT_LUT4_Z.M
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.3 33.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D_PFUMX_Z_BLUT_LUT4_Z.OFX
+Info:  1.1 35.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D[2] budget 0.840000 ns (22,11) -> (21,12)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 35.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1.F
+Info:  0.4 35.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D[1] budget 0.000000 ns (21,12) -> (21,12)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B.C
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 35.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B.F
+Info:  1.4 37.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B_Z[3] budget 1.560000 ns (21,12) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0$CCU2_COMB1.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:118.11-118.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:30.22-30.23
+Info:  0.4 37.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 37.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[2] budget 0.000000 ns (18,14) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 37.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB0.FCO
+Info:  0.0 37.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_FCI_INT budget 0.000000 ns (18,14) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB1.FCI
+Info:  0.0 37.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB1.FCO
+Info:  0.0 37.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[4] budget 0.000000 ns (18,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 37.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 37.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (19,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 37.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 37.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[6] budget 0.000000 ns (19,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 38.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1$CCU2_COMB0.F
+Info:  1.3 39.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0[8] budget 0.840000 ns (19,14) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB0.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 40.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB0.FCO
+Info:  0.0 40.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB1.FCI
+Info:  0.0 40.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB1.FCO
+Info:  0.0 40.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[8] budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 40.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB0.FCO
+Info:  0.0 40.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB1.FCI
+Info:  0.0 40.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB1.FCO
+Info:  0.0 40.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[10] budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 40.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB0.FCO
+Info:  0.0 40.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB1.FCI
+Info:  0.0 40.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB1.FCO
+Info:  0.0 40.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[12] budget 0.000000 ns (18,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 40.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB0.FCO
+Info:  0.0 40.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_FCI_INT budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB1.FCI
+Info:  0.0 40.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB1.FCO
+Info:  0.0 40.3    Net $nextpnr_CCU2C_55$CIN budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink $nextpnr_CCU2C_55$CCU2_COMB0.FCI
+Info:  0.4 40.7  Source $nextpnr_CCU2C_55$CCU2_COMB0.F
+Info:  0.8 41.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[14] budget 15.618000 ns (19,15) -> (19,15)
+Info:                Sink $nextpnr_CCU2C_55$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4 42.0  Source $nextpnr_CCU2C_55$CCU2_COMB1.FCO
+Info:  0.0 42.0    Net $nextpnr_CCU2C_55$COUT budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3$CCU2_COMB0.FCI
+Info:  0.4 42.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3$CCU2_COMB0.F
+Info:  1.4 43.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_C[3] budget 17.177000 ns (19,15) -> (23,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z.D
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:34.26-34.27
+Info:  0.2 44.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z.F
+Info:  0.9 45.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D[2] budget 2.256000 ns (23,14) -> (24,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 45.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z.F
+Info:  1.2 46.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D[2] budget 2.976000 ns (24,14) -> (25,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4 46.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z.OFX
+Info:  0.5 47.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_2_DI budget 2.016000 ns (25,11) -> (25,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2.M
+Info:  0.0 47.3  Setup core.lane1.bp_reg_TRELLIS_FF_Q_2.M
+Info: 24.3 ns logic, 23.0 ns routing
+
+Info: Critical path report for cross-domain path '<async>' -> 'posedge $glbnet$clk$TRELLIS_IO_IN':
+Info: curr total
+Info:  0.0  0.0  Source mode$tr_io.O
+Info:  5.4  5.4    Net mode$TRELLIS_IO_IN budget 10.200000 ns (72,23) -> (14,9)
+Info:                Sink zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_8_BLUT_LUT4_Z.M
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.3  5.6  Source zeta_lane1_MULT18X18D_B0_A0_PFUMX_Z_8_BLUT_LUT4_Z.OFX
+Info:  1.3  7.0    Net zeta_lane1_MULT18X18D_B0_A0[7] budget 1.320000 ns (14,9) -> (14,13)
+Info:                Sink zeta_lane1_MULT18X18D_B0.A7
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/mul2dsp.v:61.22-61.23
+Info:  3.9 10.9  Source zeta_lane1_MULT18X18D_B0.P15
+Info:  1.5 12.3    Net zeta_lane1_MULT18X18D_B0_P0[15] budget 1.080000 ns (14,13) -> (17,13)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0_MULT18X18D_P0.A16
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:30.22-30.23
+Info:  3.9 16.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0_MULT18X18D_P0.P2
+Info:  1.2 17.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0_A0[2] budget 0.600000 ns (17,13) -> (18,13)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0.A2
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/mul2dsp.v:65.23-65.24
+Info:  3.9 21.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0_MULT18X18D_P0.P4
+Info:  1.5 22.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_B0[4] budget 1.320000 ns (18,13) -> (16,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB0.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 23.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB0.FCO
+Info:  0.0 23.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_FCI_INT budget 0.000000 ns (16,11) -> (16,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB1.FCI
+Info:  0.0 23.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_2$CCU2_COMB1.FCO
+Info:  0.0 23.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[4] budget 0.000000 ns (16,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB0.FCO
+Info:  0.0 23.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB1.FCI
+Info:  0.0 23.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_1$CCU2_COMB1.FCO
+Info:  0.0 23.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[6] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB0.FCO
+Info:  0.0 23.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCI
+Info:  0.0 23.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT$CCU2_COMB1.FCO
+Info:  0.0 23.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[8] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB0.FCO
+Info:  0.0 23.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB1.FCI
+Info:  0.0 23.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_6$CCU2_COMB1.FCO
+Info:  0.0 23.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[10] budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB0.FCO
+Info:  0.0 23.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_FCI_INT budget 0.000000 ns (17,11) -> (17,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB1.FCI
+Info:  0.0 23.5  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_5$CCU2_COMB1.FCO
+Info:  0.0 23.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[12] budget 0.000000 ns (17,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB0.FCO
+Info:  0.0 23.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB1.FCI
+Info:  0.0 23.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_4$CCU2_COMB1.FCO
+Info:  0.0 23.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[14] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB0.FCO
+Info:  0.0 23.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB1.FCI
+Info:  0.0 23.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_4$CCU2_COMB1.FCO
+Info:  0.0 23.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[16] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 23.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 23.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 23.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[18] budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 23.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB0.FCO
+Info:  0.0 23.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_FCI_INT budget 0.000000 ns (18,11) -> (18,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB1.FCI
+Info:  0.0 23.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_3$CCU2_COMB1.FCO
+Info:  0.0 23.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S0_COUT[20] budget 0.000000 ns (18,11) -> (19,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_2$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:108.17-108.42
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 24.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_S0_CCU2C_S0_2$CCU2_COMB0.F
+Info:  1.1 25.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_CCU2C_S1_COUT_CCU2C_COUT_S0[22] budget 0.840000 ns (19,11) -> (18,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_2$CCU2_COMB1.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:109.11-109.21
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 25.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_2$CCU2_COMB1.FCO
+Info:  0.0 25.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[5] budget 0.000000 ns (18,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 25.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB0.FCO
+Info:  0.0 25.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB1.FCI
+Info:  0.0 25.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_1$CCU2_COMB1.FCO
+Info:  0.0 25.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[7] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 26.0  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 26.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 26.0  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 26.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[9] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 26.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB0.FCO
+Info:  0.0 26.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB1.FCI
+Info:  0.0 26.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_5$CCU2_COMB1.FCO
+Info:  0.0 26.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[11] budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 26.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB0.FCO
+Info:  0.0 26.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_FCI_INT budget 0.000000 ns (19,10) -> (19,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB1.FCI
+Info:  0.0 26.1  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0_CCU2C_S0_4$CCU2_COMB1.FCO
+Info:  0.0 26.1    Net $nextpnr_CCU2C_78$CIN budget 0.000000 ns (19,10) -> (20,10)
+Info:                Sink $nextpnr_CCU2C_78$CCU2_COMB0.FCI
+Info:  0.4 26.6  Source $nextpnr_CCU2C_78$CCU2_COMB0.F
+Info:  0.8 27.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D[13] budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink $nextpnr_CCU2C_78$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 27.8  Source $nextpnr_CCU2C_78$CCU2_COMB1.FCO
+Info:  0.0 27.8    Net $nextpnr_CCU2C_78$COUT budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB0.FCI
+Info:  0.1 27.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB0.FCO
+Info:  0.0 27.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_FCI_INT budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB1.FCI
+Info:  0.4 28.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT$CCU2_COMB1.F
+Info:  0.6 28.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1_D_CCU2C_COUT_S0[15] budget 0.000000 ns (20,10) -> (20,10)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1.C
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:110.16-110.27
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:34.26-34.27
+Info:  0.2 29.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B_LUT4_Z_1.F
+Info:  0.9 30.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_13_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_B[4] budget 1.080000 ns (20,10) -> (22,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D_PFUMX_Z_BLUT_LUT4_Z.M
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.3 30.4  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D_PFUMX_Z_BLUT_LUT4_Z.OFX
+Info:  1.1 31.4    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1_D[2] budget 0.840000 ns (22,11) -> (21,12)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 31.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_1.F
+Info:  0.4 32.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D[1] budget 0.000000 ns (21,12) -> (21,12)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B.C
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 32.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_12_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B.F
+Info:  1.4 33.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_B_Z[3] budget 1.560000 ns (21,12) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0$CCU2_COMB1.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:118.11-118.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:30.22-30.23
+Info:  0.4 34.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 34.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[2] budget 0.000000 ns (18,14) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 34.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB0.FCO
+Info:  0.0 34.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_FCI_INT budget 0.000000 ns (18,14) -> (18,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB1.FCI
+Info:  0.0 34.2  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0_1$CCU2_COMB1.FCO
+Info:  0.0 34.2    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[4] budget 0.000000 ns (18,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 34.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB0.FCO
+Info:  0.0 34.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_FCI_INT budget 0.000000 ns (19,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCI
+Info:  0.0 34.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0_CCU2C_S0$CCU2_COMB1.FCO
+Info:  0.0 34.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S0_1_COUT[6] budget 0.000000 ns (19,14) -> (19,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:127.11-127.50
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.4 34.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1$CCU2_COMB0.F
+Info:  1.3 36.1    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_S1_S0[8] budget 0.840000 ns (19,14) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB0.B
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:32.22-32.23
+Info:  0.4 36.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB0.FCO
+Info:  0.0 36.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB1.FCI
+Info:  0.0 36.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B1_1$CCU2_COMB1.FCO
+Info:  0.0 36.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[8] budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 36.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB0.FCO
+Info:  0.0 36.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB1.FCI
+Info:  0.0 36.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_4$CCU2_COMB1.FCO
+Info:  0.0 36.6    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[10] budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 36.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB0.FCO
+Info:  0.0 36.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_FCI_INT budget 0.000000 ns (18,15) -> (18,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB1.FCI
+Info:  0.0 36.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_3$CCU2_COMB1.FCO
+Info:  0.0 36.7    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[12] budget 0.000000 ns (18,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB0.FCI
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:63.22-63.23
+Info:  0.1 36.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB0.FCO
+Info:  0.0 36.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_FCI_INT budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB1.FCI
+Info:  0.0 36.8  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_D_CCU2C_S0_2$CCU2_COMB1.FCO
+Info:  0.0 36.8    Net $nextpnr_CCU2C_55$CIN budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink $nextpnr_CCU2C_55$CCU2_COMB0.FCI
+Info:  0.4 37.2  Source $nextpnr_CCU2C_55$CCU2_COMB0.F
+Info:  0.8 38.0    Net core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3_COUT[14] budget 15.618000 ns (19,15) -> (19,15)
+Info:                Sink $nextpnr_CCU2C_55$CCU2_COMB1.A
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4 38.5  Source $nextpnr_CCU2C_55$CCU2_COMB1.FCO
+Info:  0.0 38.5    Net $nextpnr_CCU2C_55$COUT budget 0.000000 ns (19,15) -> (19,15)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3$CCU2_COMB0.FCI
+Info:  0.4 38.9  Source core.lane1.bp_reg_TRELLIS_FF_Q_6_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_C_CCU2C_B0_3$CCU2_COMB0.F
+Info:  1.4 40.3    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z_C[3] budget 17.177000 ns (19,15) -> (23,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z.D
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:21.66-29.4
+Info:                  rtl/pqc_rvv_cluster_2lane.sv:128.11-128.16
+Info:                  rtl/pqc_ntt_stage_banked.sv:116.85-125.4
+Info:                  /usr/bin/../share/yosys/ecp5/arith_map.v:34.26-34.27
+Info:  0.2 40.6  Source core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D_LUT4_Z.F
+Info:  0.9 41.5    Net core.lane1.bp_reg_TRELLIS_FF_Q_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z_D[2] budget 2.256000 ns (23,14) -> (24,14)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.2 41.7  Source core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D_LUT4_Z.F
+Info:  1.2 42.9    Net core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z_D[2] budget 2.976000 ns (24,14) -> (25,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z.D
+Info:                Defined in:
+Info:                  /usr/bin/../share/yosys/ecp5/cells_map.v:108.23-108.24
+Info:  0.4 43.3  Source core.lane1.bp_reg_TRELLIS_FF_Q_2_DI_PFUMX_Z_BLUT_LUT4_Z.OFX
+Info:  0.5 43.8    Net core.lane1.bp_reg_TRELLIS_FF_Q_2_DI budget 2.016000 ns (25,11) -> (25,11)
+Info:                Sink core.lane1.bp_reg_TRELLIS_FF_Q_2.M
+Info:  0.0 43.8  Setup core.lane1.bp_reg_TRELLIS_FF_Q_2.M
+Info: 20.5 ns logic, 23.3 ns routing
+
+Info: Critical path report for cross-domain path 'posedge $glbnet$clk$TRELLIS_IO_IN' -> '<async>':
+Info: curr total
+Info:  0.5  0.5  Source read_data_reg_TRELLIS_FF_Q_13.Q
+Info:  4.4  5.0    Net read_data_reg[2]$TRELLIS_IO_OUT budget 82.807999 ns (14,12) -> (72,26)
+Info:                Sink read_data_reg[2]$tr_io.I
+Info:                Defined in:
+Info:                  /tmp/pnr_wrapper2.sv:14.25-14.38
+Info: 0.5 ns logic, 4.4 ns routing
+
+Info: Max frequency for clock '$glbnet$clk$TRELLIS_IO_IN': 21.12 MHz (PASS at 12.00 MHz)
+
+Info: Max delay <async>                           -> posedge $glbnet$clk$TRELLIS_IO_IN: 43.80 ns
+Info: Max delay posedge $glbnet$clk$TRELLIS_IO_IN -> <async>                          : 4.97 ns
+
+Info: Slack histogram:
+Info:  legend: * represents 5 endpoint(s)
+Info:          + represents [1,5) endpoint(s)
+Info: [ 35995,  38315) |********+
+Info: [ 38315,  40635) |******+
+Info: [ 40635,  42955) |*******+
+Info: [ 42955,  45275) |**+
+Info: [ 45275,  47595) | 
+Info: [ 47595,  49915) | 
+Info: [ 49915,  52235) | 
+Info: [ 52235,  54555) | 
+Info: [ 54555,  56875) | 
+Info: [ 56875,  59195) | 
+Info: [ 59195,  61515) | 
+Info: [ 61515,  63835) | 
+Info: [ 63835,  66155) |+
+Info: [ 66155,  68475) |********************+
+Info: [ 68475,  70795) |*****************************+
+Info: [ 70795,  73115) |***********************+
+Info: [ 73115,  75435) |****+
+Info: [ 75435,  77755) |**+
+Info: [ 77755,  80075) |***********************************+
+Info: [ 80075,  82395) |************************************************************ 
+
+Info: Program finished normally.
