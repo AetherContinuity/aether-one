@@ -73,3 +73,53 @@ resetista).
    (viela suurempi tyo).
 
 **Tama on OMA, huomattava tyopakettinsa - ei valmis viela.**
+
+## RATKAISTU: per-kutsu-reset -kysymys (2026-07-19)
+
+**Tarkistettu suoraan koodista kolmesta relevantista moduulista:**
+
+1. `pqc_samplentt.sv`: `S_IDLE`-tila tyhjentaa `done`:n JA kaynnistaa
+   uuden SHAKE-laskennan suoraan `start`-pulssista - EI riipu
+   ulkoisesta resetista aiemman ajon jalkeen.
+2. `pqc_prf_samplepolycbd.sv`: EI OMAA TILAKONETTA LAINKAAN - puhdas
+   kokoonpano, `pqc_samplepolycbd`-alimoduuli on TAYSIN kombinatorinen
+   (ei edes clk/reset-portteja).
+3. `pqc_shake256.sv`: TASMALLEEN sama kuvio kuin samplentt:ssa -
+   `S_IDLE` tyhjentaa tilan ja kaynnistaa uudelleen puhtaasti
+   `start`:sta.
+
+**JOHTOPAATOS: per-kutsu-reset EI OLE arkkitehtonisesti valttamaton
+naille moduuleille - alkuperaisen testipenkin oma kaytanto oli
+PUHTAASTI eristyskaytanto/varovaisuus, ei hardware-vaatimus.**
+
+Tama vahvistaa etta jo toteutettu FSM-rakenne (ilman per-kutsu-
+resettia) on RAKENTEELLISESTI PERUSTELTU - voidaan jatkaa loppujen
+vaiheiden toteutusta samalla periaatteella.
+
+## UUSI LOYDOS: NTT-forward-vaihe vaatii bring-up-rajapinnan, ei hierarkkista kirjoitusta
+
+`run_forward_ntt`-tehtava testipenkissa kayttaa `write_bank(...)`-
+apufunktiota joka kirjoittaa SUORAAN HIERARKKISESTI ytimen sisaisiin
+pankkeihin (`ntt_dut.bank0[addr] = value`) - TAMA ON PUHTAASTI
+SIMULAATIOTASON TEMPPU, EI SYNTEESIKELPOINEN.
+
+**Synteesikelpoisen version TAYTYY kayttaa ytimen omaa
+FPGA_BRINGUP-lohkon load_valid/load_addr/load_data-rajapintaa**
+(jo olemassa ja todistettu M4-FPGA-001:ssa) SAMAAN tarkoitukseen -
+256 kertoimen kirjoittaminen pankkeihin ennen jokaista NTT-ajoa.
+
+Tama on konkreettinen, selkea seuraava askel, mutta jaljella oleva
+tyo (NTT-forward x4 kutsua x taysi 7-tasoinen aikataulu per kutsu,
+matriisikertolasku, ByteEncode, H(ek), kokoaminen) on edelleen
+huomattava - EI aloiteta talla kierroksella, kirjataan seuraavaksi
+konkreettiseksi askeleeksi.
+
+## Yhteenveto: mita nyt tiedetaan varmasti
+
+✅ Per-kutsu-reset EI ole tarpeen (ratkaistu, koodista vahvistettu)
+✅ SHA3-512-vaihe TOIMII synteesikelpoisena (rho tasmaa golden-malliin)
+✅ SampleNTT-silmukka ETENEE oikein synteesikelpoisena
+🔄 NTT-forward-vaihe vaatii FPGA_BRINGUP-rajapinnan kayttoa (EI
+  hierarkkista kirjoitusta) - SEURAAVA konkreettinen askel
+❌ Matriisikertolasku, ByteEncode, H(ek), kokoaminen - viela
+  toteuttamatta
