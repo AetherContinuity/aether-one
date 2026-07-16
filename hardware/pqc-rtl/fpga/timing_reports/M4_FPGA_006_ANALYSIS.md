@@ -357,3 +357,44 @@ oli LAHES yhta pitka pullonkaula.
 **Tama koe HYLATAAN nettotuloksen (-18.2%) perusteella.** M4-FPGA-007:n
 1-vaiheinen versio (Fmax=30.40MHz, 80.13us/NTT) pysyy PARHAANA
 mitattuna tuloksena taman tutkimuksen aikana.
+
+## LOPULLINEN YHTEENVETO: M4-FPGA-006/007-sarja PAATTYY TAHAN
+
+| Versio | Fmax | Sykliä/NTT | us/NTT | Arvio |
+|---|---|---|---|---|
+| Perustaso (0 pipeline-vaihetta) | 21.21 MHz | 1988 | 93.73 | Lahtotaso |
+| **1 pipeline-vaihe** | **30.40 MHz** | **2436** | **80.13** | **PARAS MITATTU - suositellaan** |
+| 2 pipeline-vaihetta | 30.46 MHz | 2884 | 94.68 | **HYLATTY** |
+
+**M4-FPGA-007B:n oma johtopaatos (kayttajan oma muotoilu):**
+
+> M4-FPGA-007B osoitti, etta BRAM-osoitepolun lisarekisterointi ei
+> paranna kokonaislapimenoa. Vaikka ajoituspolku muuttui, Fmax pysyi
+> kaytannossa ennallaan ja lisaviive kasvatti kokonaisajoaikaa. Siksi
+> tata muutosta EI SUOSITELLA tuotantoversioon.
+
+## Mita tama sulkee pois ja mita se avaa
+
+**Suljettu pois (kokeellisesti todistettu, ei tarvitse avata
+uudelleen ilman uutta nayttoa):**
+- ❌ Muistiviive ei enaa ole rajoittava tekija (DP16KD:n oma viive
+  ratkaistiin jo koon+arbitroinnin yhdistelmalla, M4-FPGA-004/005).
+- ❌ Pelkka osoitepolun rekisterointi ei riita (M4-FPGA-007B).
+- ❌ Sijoitteluoptimointi yksinaan ei auta (M4-FPGA-006, vaihtoehto B,
+  ~2% vaihteluvali eri strategioilla).
+
+**Jaljella oleva, oikea pullonkaula (todistettu ajoitusraportista):**
+butterflyn oma aritmeettinen osa - erityisesti carry-chain-logiikka
+(`CCU2C`) ja Montgomery-redusointiin liittyva laskenta. Tama on
+JO HUOMATTAVASTI SUUREMPI tutkimuskysymys kuin pipelinointi:
+
+- Montgomery-redusointilogiikan rakennemuutos
+- Modulo-operaatioiden uudelleenjarjestely
+- Vaihtoehtoinen butterfly-arkkitehtuuri (esim. Barrett-redusointi
+  Montgomeryn sijaan, tai muu koodaustyyli)
+
+**Tama on OMA, huomattavasti laajempi tyopakettinsa** (M4-FPGA-008
+tms.) - ei aloiteta tassa dokumentissa. Nykyinen suositus tuotanto-
+versioon on M4-FPGA-007:n 1-vaiheinen pipeline (30.40 MHz, 80.13
+us/NTT) - EI VIELA integroitu tuotantoytimeen, pysyy toistaiseksi
+tutkimusprototyyppina kunnes erillinen integraatiopaatos tehdaan.
