@@ -171,32 +171,26 @@ module pqc_ntt_stage_banked #(
         endcase
       end
     end else begin : g_registered_read
-      // NTT_READ_LATENCY=1: sama kartoitus, rekisteroity luku.
+      // M4-FPGA-004 (2026-07-19): korjattu kayttamaan DEDIKOITUJA
+      // rekistereita per pankki + mux VASTA rekisteroinnin jalkeen -
+      // sama, todistettu rakenne kuin M4-FPGA-003A:n tutkimusproto-
+      // tyypissa (v10, ks. M4_FPGA_003_RC.md). Alkuperainen "case
+      // ennen rekisterointia" -rakenne esti Yosysin memory_dff-
+      // vaihetta tunnistamasta pankkien omia lukurekistereita
+      // puhtaiksi DFF-yhdistyksiksi (todistettu M4-FPGA-003A:ssa).
+      logic [COEFF_W-1:0] b0_a0,b1_a0,b2_a0,b3_a0, b0_b0,b1_b0,b2_b0,b3_b0;
+      logic [COEFF_W-1:0] b0_a1,b1_a1,b2_a1,b3_a1, b0_b1,b1_b1,b2_b1,b3_b1;
       always_ff @(posedge clk) begin
-        case (pb_a0)
-          2'd0: rdata_a0 <= bank0[pl_a0];
-          2'd1: rdata_a0 <= bank1[pl_a0];
-          2'd2: rdata_a0 <= bank2[pl_a0];
-          default: rdata_a0 <= bank3[pl_a0];
-        endcase
-        case (pb_b0)
-          2'd0: rdata_b0 <= bank0[pl_b0];
-          2'd1: rdata_b0 <= bank1[pl_b0];
-          2'd2: rdata_b0 <= bank2[pl_b0];
-          default: rdata_b0 <= bank3[pl_b0];
-        endcase
-        case (pb_a1)
-          2'd0: rdata_a1 <= bank0[pl_a1];
-          2'd1: rdata_a1 <= bank1[pl_a1];
-          2'd2: rdata_a1 <= bank2[pl_a1];
-          default: rdata_a1 <= bank3[pl_a1];
-        endcase
-        case (pb_b1)
-          2'd0: rdata_b1 <= bank0[pl_b1];
-          2'd1: rdata_b1 <= bank1[pl_b1];
-          2'd2: rdata_b1 <= bank2[pl_b1];
-          default: rdata_b1 <= bank3[pl_b1];
-        endcase
+        b0_a0<=bank0[pl_a0]; b1_a0<=bank1[pl_a0]; b2_a0<=bank2[pl_a0]; b3_a0<=bank3[pl_a0];
+        b0_b0<=bank0[pl_b0]; b1_b0<=bank1[pl_b0]; b2_b0<=bank2[pl_b0]; b3_b0<=bank3[pl_b0];
+        b0_a1<=bank0[pl_a1]; b1_a1<=bank1[pl_a1]; b2_a1<=bank2[pl_a1]; b3_a1<=bank3[pl_a1];
+        b0_b1<=bank0[pl_b1]; b1_b1<=bank1[pl_b1]; b2_b1<=bank2[pl_b1]; b3_b1<=bank3[pl_b1];
+      end
+      always_comb begin
+        case (pb_a0) 2'd0: rdata_a0=b0_a0; 2'd1: rdata_a0=b1_a0; 2'd2: rdata_a0=b2_a0; default: rdata_a0=b3_a0; endcase
+        case (pb_b0) 2'd0: rdata_b0=b0_b0; 2'd1: rdata_b0=b1_b0; 2'd2: rdata_b0=b2_b0; default: rdata_b0=b3_b0; endcase
+        case (pb_a1) 2'd0: rdata_a1=b0_a1; 2'd1: rdata_a1=b1_a1; 2'd2: rdata_a1=b2_a1; default: rdata_a1=b3_a1; endcase
+        case (pb_b1) 2'd0: rdata_b1=b0_b1; 2'd1: rdata_b1=b1_b1; 2'd2: rdata_b1=b2_b1; default: rdata_b1=b3_b1; endcase
       end
     end
   endgenerate
