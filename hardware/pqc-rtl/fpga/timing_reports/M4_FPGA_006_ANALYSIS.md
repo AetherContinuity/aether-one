@@ -246,3 +246,49 @@ tama on edelleen tutkimusprototyyppi (`fpga/timing_reports/`-
 hakemistossa). Mahdollinen seuraava askel (jos halutaan jatkaa):
 sama menetelma toistettuna BRAM:n omalle lukuviiveelle, TAI paatos
 etta +14.5% on jo riittava parannus taman tyopaketin tarpeisiin.
+
+## Uuden kriittisen polun tarkka luonne (M4-FPGA-006A:n jatkotutkimus)
+
+**Kayttajan oma kysymys:** onko uusi pullonkaula (1) DP16KD:n oma
+rekisteriviive, (2) sen ymparilla oleva ohjauslogiikka, vai (3)
+BRAM->DSP-reititys?
+
+**Tarkka polkujaljitys (koko ketju alusta loppuun) paljastaa
+vastauksen: (2) - OMA ARBITROINTILOGIIKKAMME, EI DP16KD:n oma
+sisainen viive.**
+
+Signaalinimet polun alkupaassa: `core.bank3.0.0_ADA9_PFUMX_C0_Z_
+L6MUX21_Z_D1_L6MUX21_Z_D1_PFUMX_Z_...` - tama on USEAN TASON LUT-
+pohjainen multipleksointiketju (PFUMX, L6MUX21 - molemmat ECP5:n
+omia LUT-yhdistelmaprimitiiveja) joka laskee OSOITTEEN ("ADA9" =
+osoitebitti 9) DP16KD:n omaan osoiteporttiin - EI itse muistin
+sisainen lukuviive.
+
+**Tama on M4-FPGA-004:n oma lukuarbitrointilogiikka**
+(`shared_raddr0-3`-laskenta, toteutettu `for (int tb=0;tb<4;tb++)`
+-silmukalla ja sisakkaisilla if-else-ketjuilla tarkistamaan
+`pb_a0==tb`, `pb_b0==tb` jne.) - tama LUONNOLLISESTI synteesoituu
+usean LUT-tason prioriteettiketjuksi, joka nyt on kriittisin polku
+kun aritmetiikka on jo pipelinoitu.
+
+## Johtopaatos: pullonkaula on OMAA logiikkaamme, ei kiintea rajoite
+
+Tama on itse asiassa HYVA UUTINEN: koska kyseessa on OMA arbitrointi-
+logiikkamme (ei DP16KD:n oma, muuttumaton fyysinen rajoite), on
+todennakoista etta LISAOPTIMOINTI VOI VIELA AUTTAA - esimerkiksi:
+1. Rekisteroida `shared_raddr0-3` YHDEN SYKLIN ennen kuin niita
+   kaytetaan DP16KD:n osoitteena (siirtaa arbitroinnin OMA logiikka
+   pois kriittiselta polulta, DP16KD:n oma luku seuraisi sitten
+   PUHTAASTI rekisteroitua osoitetta).
+2. Yksinkertaistaa arbitrointilogiikkaa (esim. korvata sisakkainen
+   if-else-ketju tasaisemmalla, rinnakkaisemmalla prioriteetti-
+   enkooderilla).
+
+**Tama TUKEE kayttajan omaa varovaista nakemysta:** koska pullonkaula
+EI OLE itse muistilohkon kiintea ominaisuus, lisapipelinointi
+TODENNAKOISESTI VOISI VIELA TUOTTAA HYOTYA - toisin kuin jos kyseessa
+olisi ollut DP16KD:n oma, muuttumaton fyysinen raja.
+
+**Ei viela toteutettu eika mitattu** - tama vaatisi OMAN, uuden,
+tarkasti rajatun kokeensa (sama menetelma kuin M4-FPGA-007:ssa)
+ennen paatoksentekoa.
