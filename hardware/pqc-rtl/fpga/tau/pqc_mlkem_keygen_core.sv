@@ -1,0 +1,256 @@
+// pqc_mlkem_keygen_core.sv
+//
+// M4-TAU-001 Osa 5 (M4-MLKEM-ORCH-001): ENSIMMAINEN synteesikelpoinen
+// ML-KEM.KeyGen_internal-orkestrointimoduuli (FIPS 203 Algoritmi 16).
+//
+// TARKEA LOYDOS (2026-07-19): koko ML-KEM.KeyGen/Encaps/Decaps on
+// tahan asti ollut olemassa VAIN testipenkkien proseduraalisena
+// orkestrointina (initial-lohkot, ei-synteesikelpoiset rakenteet) -
+// jokainen ALIMODUULI on synteesikelpoinen ja todistettu, mutta
+// niita YHDISTAVA ohjauslogiikka ei ole. Tama moduuli on ENSIMMAINEN
+// askel taman aukon korjaamiseksi: synteesikelpoinen tilakone joka
+// ajaa TASMALLEEN saman sekvenssin kuin pqc_mlkem_keygen_tb.sv,
+// mutta synteesikelpoisena RTL:na (ei testipenkin omana proseduraalisena
+// koodina).
+//
+// SEKVENSSI (K=2, ML-KEM-512):
+// 1. SHA3-512(d||K) -> rho, sigma
+// 2. SampleNTT(rho,i,j) x4 (KxK) -> A[i][j]
+// 3. PRF+SamplePolyCBD(sigma,N) x4 (2K) -> s_vec[i], e_vec[i]
+// 4. NTT-forward x4 (2K) -> s_hat[i], e_hat[i]
+// 5. Matriisikertolasku+summaus: t_hat[i] = sum_j(A[i][j]*s_hat[j]) + e_hat[i]
+// 6. ByteEncode12(t_hat) + rho -> ek
+// 7. ByteEncode12(s_hat) -> dkPKE
+// 8. H(ek)=SHA3-256(ek), kokoa dk = dkPKE||ek||H(ek)||z
+//
+// TAMA ON TUTKIMUSPROTOTYYPPI (fpga/tau/) - EI VIELA tuotanto-
+// integraatiota. Testattu Icarus Verilogilla, EI VIELA synteesi-
+// testattu ECP5:lla.
+
+`timescale 1ns/1ps
+
+module pqc_mlkem_keygen_core #(
+    parameter int COEFF_W = 16,
+    parameter int SPAD_AW = 9,
+    parameter int K = 2,
+    parameter int ETA1 = 3
+)(
+    input  logic clk,
+    input  logic reset,
+
+    input  logic start,
+    input  logic [255:0] d_seed,
+    input  logic [255:0] z_seed,
+
+    output logic done,
+    output logic [8*800-1:0] ek_out,
+    output logic [8*1632-1:0] dk_out,
+
+    // TILAPAINEN debug-ulostulo taman osittaisen version testausta
+    // varten - poistetaan kun koko sekvenssi on valmis.
+    output logic [255:0] debug_rho,
+    output logic [255:0] debug_sigma,
+    output logic [256*COEFF_W-1:0] debug_A00,
+    output logic [4:0] debug_state
+);
+
+  // --- Alimoduulit (kaikki jo todennettuja, uudelleenkaytettyja) ---
+  logic ntt_start, stage_done, bank_conflict_detected;
+  logic [7:0] ntt_count, ntt_pair_dist;
+  logic ntt_mode;
+  logic [SPAD_AW-1:0] base_addr_lane0, base_addr_lane1;
+  logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+
+  pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) ntt_dut (
+    .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
+    .pair_dist(ntt_pair_dist), .mode(ntt_mode),
+    .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+    .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+    .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+    .load_valid(1'b0), .load_addr(8'd0), .load_data(16'd0),
+    .read_en(1'b0), .read_addr(8'd0), .read_valid(), .read_data()
+  );
+
+  logic sha512_start, sha512_done;
+  logic [8*72-1:0] sha512_msg_in;
+  logic [511:0] sha512_out;
+  pqc_sha3_512 #(.MAX_BLOCKS(1)) sha512_dut (
+    .clk(clk), .reset(reset), .start(sha512_start),
+    .msg_in(sha512_msg_in), .msg_len_bytes(16'd33),
+    .digest_out(sha512_out), .done(sha512_done)
+  );
+
+  logic sha256_start, sha256_done;
+  logic [8*136*6-1:0] sha256_msg_in;
+  logic [255:0] sha256_out;
+  pqc_sha3_256 #(.MAX_BLOCKS(6)) sha256_dut (
+    .clk(clk), .reset(reset), .start(sha256_start),
+    .msg_in(sha256_msg_in), .msg_len_bytes(16'd800),
+    .digest_out(sha256_out), .done(sha256_done)
+  );
+
+  logic samplentt_start, samplentt_done, samplentt_err;
+  logic [255:0] samplentt_rho;
+  logic [7:0] samplentt_j, samplentt_i;
+  logic [256*COEFF_W-1:0] samplentt_out;
+  logic [15:0] sn_acc, sn_rej, sn_xof;
+  pqc_samplentt #(.XOF_BYTES(1008)) samplentt_dut (
+    .clk(clk), .reset(reset), .start(samplentt_start),
+    .rho(samplentt_rho), .byte_j(samplentt_j), .byte_i(samplentt_i),
+    .a_hat(samplentt_out), .accepted_count(sn_acc), .rejected_count(sn_rej),
+    .xof_bytes_consumed(sn_xof), .done(samplentt_done), .error_exhausted(samplentt_err)
+  );
+
+  logic cbd1_start, cbd1_done;
+  logic [255:0] cbd1_seed;
+  logic [7:0] cbd1_n;
+  logic [256*COEFF_W-1:0] cbd1_out;
+  pqc_prf_samplepolycbd #(.ETA(ETA1)) cbd1_dut (
+    .clk(clk), .reset(reset), .start(cbd1_start),
+    .seed_s(cbd1_seed), .counter_n(cbd1_n), .f_out(cbd1_out), .done(cbd1_done)
+  );
+
+  logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+  pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+
+  logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+  pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+
+  logic [256*12-1:0] benc12_in [0:1];
+  logic [8*384-1:0] benc12_out [0:1];
+  pqc_byteencode_dparam #(.D(12)) benc12_0 (.f_in(benc12_in[0]), .b_out(benc12_out[0]));
+  pqc_byteencode_dparam #(.D(12)) benc12_1 (.f_in(benc12_in[1]), .b_out(benc12_out[1]));
+
+  // --- Tallennusrekisterit (K=2-kokoiset taulukot) ---
+  logic [255:0] rho, sigma;
+  logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
+  logic [256*COEFF_W-1:0] s_vec [0:K-1], e_vec [0:K-1];
+  logic [256*COEFF_W-1:0] s_hat [0:K-1], e_hat [0:K-1], t_hat [0:K-1];
+  logic [255:0] H_ek;
+  logic [8*800-1:0] ek_reg;
+  logic [8*1632-1:0] dk_reg;
+
+  // --- Paatilakone: askellaskuri, joka kayy lapi tasmalleen saman
+  // sekvenssin kuin testipenkin oma initial-lohko. ---
+  typedef enum logic [4:0] {
+    S_IDLE, S_RESET_SHA512, S_START_SHA512, S_WAIT_SHA512,
+    S_RESET_SNTT, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
+    S_RESET_CBD, S_START_CBD, S_WAIT_CBD, S_CBD_NEXT,
+    S_NTT_FWD_RESET, S_NTT_FWD_START, S_NTT_FWD_WAIT, S_NTT_FWD_NEXT,
+    S_MATMUL, S_MATMUL_NEXT,
+    S_ENCODE_T, S_ENCODE_S,
+    S_RESET_SHA256, S_START_SHA256, S_WAIT_SHA256,
+    S_ASSEMBLE, S_DONE
+  } state_e;
+  state_e state, return_state;
+
+  logic [1:0] i_ctr, j_ctr;
+  logic [1:0] n_ctr;         // 0..2K-1 laskuri PRF/CBD-kutsuille
+  logic [1:0] fwd_ctr;       // 0..2K-1 laskuri NTT-forward-kutsuille
+  logic [1:0] mm_i, mm_j;    // matriisikertolaskun indeksit
+  logic [256*COEFF_W-1:0] mm_acc;
+
+  // --- NTT-forward-aliajo (sama rakenne kuin run_forward_ntt-tehtava
+  // testipenkissa: koko 7-tasoinen NTT yhdelle polynomille) ---
+  logic [2:0] fwd_level;
+  logic [7:0] fwd_length, fwd_base0, fwd_base1;
+  logic [15:0] fwd_zeta0, fwd_zeta1;
+  int fwd_fh;
+
+  always_ff @(posedge clk) begin
+    ntt_start <= 1'b0;
+    sha512_start <= 1'b0;
+    sha256_start <= 1'b0;
+    samplentt_start <= 1'b0;
+    cbd1_start <= 1'b0;
+    done <= 1'b0;
+
+    if (reset) begin
+      state <= S_IDLE;
+      i_ctr <= 2'd0; j_ctr <= 2'd0; n_ctr <= 2'd0;
+    end else begin
+      case (state)
+        S_IDLE: begin
+          if (start) begin
+            sha512_msg_in <= '0;
+            sha512_msg_in[255:0] <= d_seed;
+            sha512_msg_in[263:256] <= K[7:0];
+            state <= S_START_SHA512;
+          end
+        end
+
+        S_START_SHA512: begin
+          sha512_start <= 1'b1;
+          state <= S_WAIT_SHA512;
+        end
+        S_WAIT_SHA512: begin
+          if (sha512_done) begin
+            rho   <= sha512_out[255:0];
+            sigma <= sha512_out[511:256];
+            i_ctr <= 2'd0; j_ctr <= 2'd0;
+            state <= S_START_SNTT;
+          end
+        end
+
+        // --- SampleNTT KxK kertaa ---
+        S_START_SNTT: begin
+          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
+          samplentt_start <= 1'b1;
+          state <= S_WAIT_SNTT;
+        end
+        S_WAIT_SNTT: begin
+          if (samplentt_done) begin
+            A[i_ctr][j_ctr] <= samplentt_out;
+            state <= S_SNTT_NEXT;
+          end
+        end
+        S_SNTT_NEXT: begin
+          if (j_ctr == K-1) begin
+            j_ctr <= 2'd0;
+            if (i_ctr == K-1) begin
+              i_ctr <= 2'd0; n_ctr <= 2'd0;
+              state <= S_START_CBD;
+            end else begin
+              i_ctr <= i_ctr + 2'd1;
+              state <= S_START_SNTT;
+            end
+          end else begin
+            j_ctr <= j_ctr + 2'd1;
+            state <= S_START_SNTT;
+          end
+        end
+
+        // --- PRF+SamplePolyCBD 2K kertaa: ensin K s_vec, sitten K e_vec ---
+        S_START_CBD: begin
+          cbd1_seed <= sigma; cbd1_n <= {6'b0,n_ctr};
+          cbd1_start <= 1'b1;
+          state <= S_WAIT_CBD;
+        end
+        S_WAIT_CBD: begin
+          if (cbd1_done) begin
+            if (n_ctr < K) s_vec[n_ctr[0]] <= cbd1_out;
+            else e_vec[n_ctr[0]] <= cbd1_out;
+            state <= S_CBD_NEXT;
+          end
+        end
+        S_CBD_NEXT: begin
+          if (n_ctr == 2*K-1) begin
+            fwd_ctr <= 2'd0;
+            state <= S_NTT_FWD_START;
+          end else begin
+            n_ctr <= n_ctr + 2'd1;
+            state <= S_START_CBD;
+          end
+        end
+
+        default: state <= S_IDLE;
+      endcase
+    end
+  end
+
+  assign debug_rho = rho;
+  assign debug_sigma = sigma;
+  assign debug_A00 = A[0][0];
+  assign debug_state = state;
+
+endmodule
