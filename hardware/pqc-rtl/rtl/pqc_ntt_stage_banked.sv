@@ -78,10 +78,17 @@ module pqc_ntt_stage_banked #(
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom);
   end
 
-  logic [COEFF_W-1:0] bank0 [0:63];
-  logic [COEFF_W-1:0] bank1 [0:63];
-  logic [COEFF_W-1:0] bank2 [0:63];
-  logic [COEFF_W-1:0] bank3 [0:63];
+  // M4-FPGA-004 Vaihe 4 (2026-07-19): pankkien koko kasvatettu 128:aan
+  // KUN NTT_READ_LATENCY=1 (BRAM-yhteensopivuutta varten, todistettu
+  // valttamattomaksi M4-FPGA-002E:ssa - ainoastaan local-indeksit
+  // 0-63 ovat koskaan kaytossa, loput ovat pelkkaa ylimitoitusta).
+  // NTT_READ_LATENCY=0:lla pankit pysyvat TASMALLEEN 64-kokoisina -
+  // ei muutosta resurssienkayttoon nykyisessa kaytossa.
+  localparam int BANK_DEPTH = (NTT_READ_LATENCY == 0) ? 64 : 128;
+  logic [COEFF_W-1:0] bank0 [0:BANK_DEPTH-1];
+  logic [COEFF_W-1:0] bank1 [0:BANK_DEPTH-1];
+  logic [COEFF_W-1:0] bank2 [0:BANK_DEPTH-1];
+  logic [COEFF_W-1:0] bank3 [0:BANK_DEPTH-1];
 
   logic [SPAD_AW-1:0] addr_a0, addr_b0, addr_a1, addr_b1;
   logic [COEFF_W-1:0] rdata_a0, rdata_b0, rdata_a1, rdata_b1;
