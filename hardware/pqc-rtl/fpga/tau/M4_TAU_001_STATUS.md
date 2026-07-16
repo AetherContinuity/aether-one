@@ -83,3 +83,42 @@ toimivat oikein.**
 3. Istuntoavaimen muodostus ML-KEM:n kautta (VERA Agent: "Kyber
    for key exchange")
 4. Synteesi + P&R -vahvistus ECP5:lla (kuten M4-SoC-001:lle tehtiin)
+
+## Osa 3: Watchdog/heartbeat VALMIS (2026-07-19)
+
+`pqc_tau_watchdog.sv` - ECU<->TAU-heartbeat-seuranta TN-002:n oman
+"Watchdog System" -kuvauksen mukaisesti: "failures are detected and
+logged even when the operational unit is compromised... enters
+degraded mode gracefully rather than failing silently."
+
+**Keskeiset suunnittelupaatokset:**
+- Konfiguroitava aikakatkaisukynnys (sykleina)
+- Degraded-tila (`ecu_alive=0`) EI palaudu automaattisesti pelkalla
+  uudella heartbeatilla - tarkoituksellinen: kertaalleen havaittu
+  vika ei saa kadota hiljaa ilman eksplisiittista kuittausta
+  (TN-002:n oma periaate: ei "failing silently")
+- `timeout_count` sailyttaa historian montako aikakatkaisua on
+  tapahtunut
+
+**Todennettu (pqc_tau_watchdog_tb.sv), nelja vaihetta:**
+1. Saannollinen heartbeat pitaa ecu_alive=1
+2. Puuttuva heartbeat laukaisee aikakatkaisun tasmalleen oikealla
+   syklilla (rekisterointiviive huomioitu)
+3. Degraded-tila ei palaudu automaattisesti
+4. Konfiguroitava aikakatkaisukynnys toimii oikein
+
+**Loydetty vain testipenkin oma ajoitusongelma** (liian lyhyt reset-
+pulssi valitesteissa aiheutti tilan sekoittumisen edellisesta
+vaiheesta) - EI RTL-bugia. Korjattu pidentamalla reset-pulssia ja
+tarkentamalla odotettuja sykliaikoja rekisterointiviiveen mukaisesti.
+
+## M4-TAU-001:n tila
+
+| Osa | Tila |
+|---|---|
+| 1. Audit-loki (hash-ketjutus + lukurajapinta) | ✅ VALMIS |
+| 2. Wishbone-integraatio (audit-loki + NTT-ydin) | ✅ VALMIS |
+| 3. Watchdog/heartbeat | ✅ VALMIS |
+| 4. Watchdogin integrointi audit-lokiin (automaattinen lokitus aikakatkaisusta) | Seuraava |
+| 5. ML-KEM-pohjainen istuntoavaimen muodostus | Seuraava |
+| 6. Synteesi + P&R -vahvistus ECP5:lla | Seuraava |
