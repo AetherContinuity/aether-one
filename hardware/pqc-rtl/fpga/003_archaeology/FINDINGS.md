@@ -388,3 +388,72 @@ DP16KD-lohkon SAMALLE DATALLE (redundanssi) - tama on kayttajan oma,
 teknisesti perusteltu nakemys: "ei epaonnistuminen optimoinnissa,
 vaan tekninen ratkaisu kun looginen vaatimus ei ole pienennettavissa
 ilman suorituskyvyn muutosta".
+
+## LOPULLINEN LAPIMURTO 2026-07-19: DP16KD ILMESTYI (v10)
+
+**Kayttajan oma viimeinen ehdotus:** aikajaa bring-up:n lukuportti
+FSM:n oman arbitroidun lukuportin kanssa (ei kaksi erillista fyysista
+porttia).
+
+**v9: RD_PORTS=1, WR_PORTS=1** (tasan sama kuin onnistunut referenssi)
+- MUTTA taysi synteesi EI VIELA tuottanut DP16KD:ta (4729 solua).
+- $mem_v2-parametrivertailu paljasti VIIMEISEN eron: **SIZE=64
+  (v9) vs SIZE=256 (referenssi)**. Kaikki muu tasmalleen identtista.
+
+**v10: v9 + pankkien koko kasvatettu 64:sta 128:aan**
+(kayttajan aiemmin todistama kokoraja, nyt yhdistettyna porttien
+arbitrointiin):
+
+**TULOS: DP16KD = 4 (yksi per pankki), VAIN 3271 SOLUA.**
+
+Tama on ENSIMMAINEN kerta koko M4-FPGA-002/003-tutkimuksen aikana
+etta OIKEAN arkkitehtuurin (aito lane_fsm, konfliktiton pankki-
+kartoitus, bring-up-portit) johdannainen tuottaa BRAM-lohkoja.
+
+## Yhteenveto: kolme tekijaa yhdessa, ei yksi
+
+Taydellinen ratkaisu vaati KAIKKI kolme seuraavaa muutosta YHDESSA -
+mikaan yksittainen ei riittanyt yksinaan:
+
+1. **Kirjoituspuolen arbitrointi** (v7a): 5 kirjoituslahdetta -> 1
+   per pankki, hyodyntaen konfliktittomuustodistusta.
+2. **Lukupuolen arbitrointi + bring-up:n aikajako** (v9): 5 lukua ->
+   1 per pankki, bring-up jakaa SAMAN portin FSM:n kanssa ajoituksel-
+   lisesti (oletus: ei koskaan samanaikaista kayttoa).
+3. **Pankkien koon kasvatus** 64 -> 128 (v10, kayttajan aiemmin
+   todistama, erillinen kokoraja-havainto).
+
+## Seuraava askel
+
+Toiminnallinen oikeellisuus (simulaatio, golden-malli) tulee
+todentaa v10:lle ENNEN kuin tata sovelletaan oikeaan tuotantoytimeen.
+
+## TARKEA VAROITUS: DP16KD-synteesi vahvistettu, TOIMINNALLINEN VIRHE loytyi
+
+v10:n synteesitulos (DP16KD=4, 3271 solua) on VAHVISTETTU Yosysin
+rakennetasolla. MUTTA toiminnallinen testi (Icarus Verilog -simulaatio,
+golden-malliin vertailu) paljasti VAKAVAN VIRHEEN: **255/256 osoitetta
+vaaria** koko 7-tasoisessa NTT-laskennassa.
+
+**TARKEA HAVAINTO:** alkuperainen funktiopohjainen arbitrointilogiikka
+(v7a/v8/v9:ssa kaytetty `function automatic ... output` -tyyli) EI
+KOSKAAN ollut toiminnallisesti testattu Icarus Verilogilla - vain
+Yosysin OMA rakennetarkistus (memory_dff, synth_ecp5) suoritettiin.
+Icarus ei edes HYVAKSYNYT alkuperaista funktiosyntaksia ("Function
+arguments must be input ports"), joten se korvattiin `for`-silmukka-
+pohjaisella logiikalla JUURI TATA toiminnallista testia varten - ja
+TAMA UUSI, Icarus-yhteensopiva versio EI toimi oikein.
+
+**JOHTOPAATOS: DP16KD-synteesin onnistuminen EI VIELA todista etta
+itse ARBITROINTILOGIIKKA on toiminnallisesti oikein.** Kaksi
+toisistaan riippumatonta asiaa: (1) synteesikelpoisuus/BRAM-inferointi
+(VAHVISTETTU), (2) toiminnallinen oikeellisuus (VIELA VIRHEELLINEN,
+vaatii oman debug-kierroksensa).
+
+**EI VIELA valmista, vahvistettua ratkaisua.** Seuraava valttamaton
+askel ennen minkaanlaista soveltamista tuotantoytimeen: debugata
+arbitrointilogiikan toiminnallinen virhe (todennakoisin syy: `for`-
+silmukan sisainen `case`-rakenne tai `tb[1:0]`-tyyppimuunnos ei
+kayttaydy odotetusti Icarus Verilogissa, tai alkuperainen
+funktiopohjainen logiikka itsessaan sisalsi jo virheen jota ei
+aiemmin havaittu koska sita ei koskaan ajettu simulaationa).
