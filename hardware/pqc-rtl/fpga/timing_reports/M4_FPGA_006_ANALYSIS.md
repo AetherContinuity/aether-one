@@ -87,3 +87,57 @@ tama analyysi VAHVISTAA etta nain juuri on (kolme ketjutettua
 kertolaskua). Tama dokumentti kirjaa loydetyn pullonkaulan tarkasti,
 mutta EI VIELA tee paatosta pipelinoinnin toteuttamisesta - se on
 seuraavan, erillisen tyopaketin oma paatos.
+
+## TARKENNUS: reititys on itse asiassa hieman logiikkaa suurempi
+
+Tarkka jakauma raportista: **20.5 ns logiikkaa, 22.9 ns REITITYSTA**
+(yhteensa 43.4 ns, vastaten 23.04 MHz - lahella raportoitua 21.21
+MHz:aa huomioiden lisaviiveet).
+
+**Tama on tarkea rajoitus pipelinoinnin odotetulle hyodylle:**
+kolmen DSP-kertolaskun ketju selittaa LOGIIKKA-osuuden (20.5 ns),
+mutta REITITYS-osuus (22.9 ns) riippuu DSP-lohkojen ja LUT:ien
+FYYSISESTA SIJOITTELUSTA piirilla - pelkka pipelinointi (rekisterien
+lisays) EI automaattisesti paranna reititysta, ellei nextpnr MYOS
+sijoita lyhyempia logiikkalohkoja lahemmaksi toisiaan tuloksena.
+
+## Perustaso ja kannattavuuslaskelma (kayttajan oma vaatimus:
+lapimenoaika, ei pelkka Fmax)
+
+**Nykyinen perustaso: 1988 sykliä / 21.21 MHz = 93.73 mikrosekuntia
+per taydellinen NTT.**
+
+Esimerkkiskenaarioita (mita Fmax-parannus vaatisi kannattaakseen eri
+sykli-lisayksilla per butterfly, 448 lane-iteraatiota):
+
+| Lisasykli/bf | Fmax x1.5 | Fmax x2.0 | Fmax x2.5 | Fmax x3.0 |
+|---|---|---|---|---|
+| +1 | 76.6us (+18%) | 57.4us (+39%) | 45.9us (+51%) | 38.3us (+59%) |
+| +2 | 90.7us (+3%) | 68.0us (+28%) | 54.4us (+42%) | 45.3us (+52%) |
+| +3 | 104.7us (**-12%, HUONONTUU**) | 78.6us (+16%) | 62.8us (+33%) | 52.4us (+44%) |
+
+**Johtopaatos:** koska reititys on jo NYT suurempi kuin logiikka,
+realistinen odotettu Fmax-parannus 3-vaiheisesta pipelinoinnista on
+todennakoisesti LAHEMPANA 1.5-2x kuin naiivia 3x (joka olettaisi
+koko viiveen olevan logiikkaa). Talla vaihteluvalilla nettohyoty
+on VAATIMATON (+3% .. +39%) tai jopa NEGATIIVINEN jos pipelinointi
+vaatii enemman kuin 1-2 lisasyklia per butterfly.
+
+**Tama EI tarkoita etta pipelinointi kannattaisi hylata** - se
+tarkoittaa etta paatos on tehtava MITATUN, ei oletetun, Fmax-
+parannuksen perusteella (kayttajan oma vaatimus).
+
+## Hyvaksymiskriteerit seuraavalle tyopaketille (M4-FPGA-007,
+EI VIELA aloitettu)
+
+- ✅ Algoritminen ekvivalenssi sailyy (golden trace PASS)
+- ✅ DP16KD=4 sailyy
+- ✅ Fmax nousee MITATUSTI (uusi P&R-ajo, ei arvio)
+- ✅ **Lapimenoaika (mikrosekuntia/NTT = uudet_syklit/uusi_Fmax)
+  ON PIENEMPI kuin nykyinen 93.73 us** - TAMA on ratkaiseva kriteeri,
+  ei Fmax yksinaan.
+
+Jos viimeinen kriteeri ei tayty, pipelinointi EI OLE onnistunut
+optimointi taman jarjestelman kayttotapaukselle, vaikka Fmax
+nousisikin - ja silloin oikea johtopaatos on sailyttaa nykyinen,
+yksinkertaisempi 1-syklinen butterfly-toteutus.
