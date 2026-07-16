@@ -122,3 +122,41 @@ tarkentamalla odotettuja sykliaikoja rekisterointiviiveen mukaisesti.
 | 4. Watchdogin integrointi audit-lokiin (automaattinen lokitus aikakatkaisusta) | Seuraava |
 | 5. ML-KEM-pohjainen istuntoavaimen muodostus | Seuraava |
 | 6. Synteesi + P&R -vahvistus ECP5:lla | Seuraava |
+
+## Osa 4: Watchdog integroitu audit-lokiin - VALMIS (2026-07-19)
+
+`pqc_tau_core.sv` yhdistaa watchdogin (Osa 3) ja audit-lokin (Osa 1)
+- TN-002:n oma vaatimus "failures are detected and logged even when
+the operational unit is compromised" toteutettu suoraan: watchdog-
+aikakatkaisu laukaisee AUTOMAATTISESTI audit-loki-merkinnan kiintealla
+tunnistehashilla (`SHA3-256("WATCHDOG_TIMEOUT_EVENT")`, pack_bytes-
+konvention mukaisesti) - EI RIIPU ECU:n omasta toiminnasta lainkaan.
+
+**Prioriteettijarjestys:** watchdog-tapahtuma > ECU:n oma kirjoitus-
+pyynto (turvakriittinen tapahtuma ei jaa odottamaan).
+
+**Uusi `write_was_watchdog_event`-lippu** erottaa audit-lokin
+merkinnat: ECU:n oma paatos vs. jarjestelman oma watchdog-tapahtuma -
+mahdollistaa jalkikateen (deferred reconciliation) erottelun mika
+merkinta oli mitakin tyyppia.
+
+**Todennettu (pqc_tau_core_tb.sv):**
+1. ECU:n oma kirjoitus toimii normaalisti, merkitty oikein (EI
+   watchdog-tapahtumaksi)
+2. Watchdog-aikakatkaisu (heartbeat lopetettu) laukaisee AUTOMAATTISESTI
+   uuden audit-loki-merkinnan ilman ECU:n omaa toimintaa
+3. Watchdog-merkinnan decision_hash tasmaa odotettuun kiinteaan
+   tunnistehashiin
+4. log_count=2 (yksi ECU-paatos + yksi watchdog-tapahtuma) -
+   molemmat nakyvissa samassa, yhtenaisessa audit-lokissa
+
+## M4-TAU-001:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| 1. Audit-loki | ✅ VALMIS |
+| 2. Wishbone-integraatio | ✅ VALMIS |
+| 3. Watchdog/heartbeat | ✅ VALMIS |
+| 4. Watchdog + audit-loki -integraatio | ✅ VALMIS |
+| 5. ML-KEM-pohjainen istuntoavaimen muodostus | Seuraava |
+| 6. Synteesi + P&R -vahvistus ECP5:lla | Seuraava |
