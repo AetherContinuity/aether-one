@@ -108,13 +108,41 @@ module pqc_ntt_wishbone_wrapper #(
   assign read_en   = wb_cyc_i && wb_stb_i && !wb_we_i && is_data_range;
   assign read_addr = wb_adr_i[7:0];
 
+  // KORJAUS (2026-07-19): stage_done on ytimen oma YHDEN SYKLIN
+  // pulssi (palautuu 0:aan heti kun FSM palaa S_IDLE:en). Wishbone-
+  // status-kysely vaatii USEITA sykleja per luku (kattelyn takia),
+  // joten pulssi voi jaada kokonaan huomaamatta kahden kyselyn
+  // valissa. Ratkaisu: TARRAAVA (sticky) status-bitti joka pysyy
+  // asetettuna kunnes ohjelmisto nimenomaisesti tyhjentaa sen
+  // (kirjoittamalla CTRL-rekisteriin uuden start-pulssin, joka
+  // luonnollisesti nollaa taman edellisen operaation oman "valmis"-
+  // tilan seuraavaa operaatiota varten).
+  logic stage_done_sticky, bank_conflict_sticky;
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      stage_done_sticky <= 1'b0;
+      bank_conflict_sticky <= 1'b0;
+    end else begin
+      if (stage_done) stage_done_sticky <= 1'b1;
+      if (bank_conflict_detected) bank_conflict_sticky <= 1'b1;
+      // Uusi start-kirjoitus tyhjentaa edellisen operaation oman
+      // "valmis"-tilan - vastaa luonnollista kayttotarvetta
+      // (ohjelmisto lukee statuksen ENNEN seuraavan operaation
+      // kaynnistysta).
+      if (wb_cyc_i && wb_stb_i && wb_we_i && is_ctrl_range && wb_adr_i[3:0] == 4'h0 && wb_dat_i[0]) begin
+        stage_done_sticky <= 1'b0;
+        bank_conflict_sticky <= 1'b0;
+      end
+    end
+  end
+
   logic [COEFF_W-1:0] ctrl_read_data;
   logic ctrl_read_valid;
   always_ff @(posedge clk) begin
     if (rst) ctrl_read_valid <= 1'b0;
     else ctrl_read_valid <= wb_cyc_i && wb_stb_i && !wb_we_i && is_ctrl_range;
     if (wb_adr_i[3:0] == 4'h7) begin
-      ctrl_read_data <= {14'b0, bank_conflict_detected, stage_done};
+      ctrl_read_data <= {14'b0, bank_conflict_sticky, stage_done_sticky};
     end
   end
 

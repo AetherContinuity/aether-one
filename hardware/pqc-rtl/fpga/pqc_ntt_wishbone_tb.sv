@@ -74,11 +74,8 @@ module pqc_ntt_wishbone_tb;
     wb_write(9'h105, zeta0[15:0]);   // ZETA_LANE0
     wb_write(9'h106, zeta0[15:0]);   // ZETA_LANE1
     wb_write(9'h101, 8'd64);         // COUNT
-    $display("DEBUG ennen start: core.start=%0b core.stage_done=%0b", dut.core.start, dut.core.stage_done);
     wb_write(9'h100, 16'b01);        // CTRL: start=1, mode=0
-    $display("DEBUG jalkeen start-kirjoitus: core.start=%0b ctrl_start_pulse=%0b", dut.core.start, dut.ctrl_start_pulse);
     repeat(5) @(posedge clk);
-    $display("DEBUG 5 syklin jalkeen: core.start=%0b core.stage_done=%0b core.lane0.state=%0d", dut.core.start, dut.core.stage_done, dut.core.lane0.state);
 
     begin
       logic [COEFF_W-1:0] status;
@@ -95,16 +92,21 @@ module pqc_ntt_wishbone_tb;
     // --- Tasot 5..0 ---
     fh = $fopen("vectors/full_schedule.txt", "r");
     scan_ok = 5;
-    while (!$feof(fh) && scan_ok == 5) begin
-      scan_ok = $fscanf(fh, "%d %d %d %d %d\n", length, base0, zeta0, base1, zeta1);
-      if (scan_ok == 5) begin
-        wb_write(9'h102, length[7:0]);
-        wb_write(9'h103, base0[8:0]);
-        wb_write(9'h104, base1[8:0]);
-        wb_write(9'h105, zeta0[15:0]);
-        wb_write(9'h106, zeta1[15:0]);
-        wb_write(9'h101, length[7:0]);
-        wb_write(9'h100, 16'b01);
+    begin
+      int iter_num;
+      iter_num = 0;
+      while (!$feof(fh) && scan_ok == 5) begin
+        scan_ok = $fscanf(fh, "%d %d %d %d %d\n", length, base0, zeta0, base1, zeta1);
+        if (scan_ok == 5) begin
+          iter_num++;
+          wb_write(9'h102, length[7:0]);
+          wb_write(9'h103, base0[8:0]);
+          wb_write(9'h104, base1[8:0]);
+          wb_write(9'h105, zeta0[15:0]);
+          wb_write(9'h106, zeta1[15:0]);
+          wb_write(9'h101, length[7:0]);
+          wb_write(9'h100, 16'b01);
+            repeat(3) @(posedge clk);
 
         begin
           logic [COEFF_W-1:0] status;
@@ -115,11 +117,12 @@ module pqc_ntt_wishbone_tb;
             wait_cycles++;
           end
           if (!status[0]) begin
-            $display("FAIL: taso (length=%0d) ei valmistunut, wait_cycles=%0d, status=%0d", length, wait_cycles, status);
+            $display("FAIL: taso (length=%0d) ei valmistunut, wait_cycles=%0d, status=%0d, core.stage_done=%0b, lane0.state=%0d, lane1.state=%0d", length, wait_cycles, status, dut.core.stage_done, dut.core.lane0.state, dut.core.lane1.state);
             error_count++;
           end
         end
       end
+    end
     end
     $fclose(fh);
     $display("Koko 7-tasoinen NTT ajettu taysin Wishbone-vaylan kautta");
