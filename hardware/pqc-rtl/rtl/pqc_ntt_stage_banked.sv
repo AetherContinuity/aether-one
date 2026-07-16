@@ -133,6 +133,8 @@ module pqc_ntt_stage_banked #(
   end
   assign bank_conflict_detected = conflict_flag;
 
+  logic [COEFF_W-1:0] fsm_b0, fsm_b1, fsm_b2, fsm_b3;
+
   // M4-FPGA-002C: lukupolku ehdollinen NTT_READ_LATENCY:n mukaan.
   // NTT_READ_LATENCY=0 (oletus): TASMALLEEN alkuperainen always_comb-
   // lohko, ei muutosta. NTT_READ_LATENCY=1: sama kartoitus (bank_rom/
@@ -171,26 +173,56 @@ module pqc_ntt_stage_banked #(
         endcase
       end
     end else begin : g_registered_read
-      // M4-FPGA-004 (2026-07-19): korjattu kayttamaan DEDIKOITUJA
-      // rekistereita per pankki + mux VASTA rekisteroinnin jalkeen -
-      // sama, todistettu rakenne kuin M4-FPGA-003A:n tutkimusproto-
-      // tyypissa (v10, ks. M4_FPGA_003_RC.md). Alkuperainen "case
-      // ennen rekisterointia" -rakenne esti Yosysin memory_dff-
-      // vaihetta tunnistamasta pankkien omia lukurekistereita
-      // puhtaiksi DFF-yhdistyksiksi (todistettu M4-FPGA-003A:ssa).
-      logic [COEFF_W-1:0] b0_a0,b1_a0,b2_a0,b3_a0, b0_b0,b1_b0,b2_b0,b3_b0;
-      logic [COEFF_W-1:0] b0_a1,b1_a1,b2_a1,b3_a1, b0_b1,b1_b1,b2_b1,b3_b1;
-      always_ff @(posedge clk) begin
-        b0_a0<=bank0[pl_a0]; b1_a0<=bank1[pl_a0]; b2_a0<=bank2[pl_a0]; b3_a0<=bank3[pl_a0];
-        b0_b0<=bank0[pl_b0]; b1_b0<=bank1[pl_b0]; b2_b0<=bank2[pl_b0]; b3_b0<=bank3[pl_b0];
-        b0_a1<=bank0[pl_a1]; b1_a1<=bank1[pl_a1]; b2_a1<=bank2[pl_a1]; b3_a1<=bank3[pl_a1];
-        b0_b1<=bank0[pl_b1]; b1_b1<=bank1[pl_b1]; b2_b1<=bank2[pl_b1]; b3_b1<=bank3[pl_b1];
-      end
+      // M4-FPGA-004 Vaihe 3 (2026-07-19): LUKUARBITROINTI - viisi
+      // mahdollista lukulahdetta (lane0.a, lane0.b, lane1.a, lane1.b,
+      // bring-up) arbitroitu YHDEKSI fyysiseksi lukurekisteriksi per
+      // pankki - sama, todistettu rakenne kuin v10-tutkimusproto-
+      // tyypissa (ks. M4_FPGA_003_RC.md). Konfliktittomuustodistus
+      // (BANK_MAPPING_PROOF.md) takaa etta korkeintaan yksi FSM-
+      // lahteista osuu mihin tahansa yksittaiseen pankkiin per sykli.
+      //
+      // Bring-up:n oma lukuportti (read_en/read_addr) AIKAJAETTU
+      // FSM:n oman arbitroidun lukupolun kanssa - EI kaksi erillista
+      // fyysista porttia. OLETUS (kayttajan oma, dokumentoitu
+      // M4_FPGA_003_RC.md:ssa): bring-up-luku ei koskaan ole
+      // aktiivinen SAMALLA syklilla kuin operatiivinen NTT-laskenta.
+      logic [5:0] shared_raddr0, shared_raddr1, shared_raddr2, shared_raddr3;
       always_comb begin
-        case (pb_a0) 2'd0: rdata_a0=b0_a0; 2'd1: rdata_a0=b1_a0; 2'd2: rdata_a0=b2_a0; default: rdata_a0=b3_a0; endcase
-        case (pb_b0) 2'd0: rdata_b0=b0_b0; 2'd1: rdata_b0=b1_b0; 2'd2: rdata_b0=b2_b0; default: rdata_b0=b3_b0; endcase
-        case (pb_a1) 2'd0: rdata_a1=b0_a1; 2'd1: rdata_a1=b1_a1; 2'd2: rdata_a1=b2_a1; default: rdata_a1=b3_a1; endcase
-        case (pb_b1) 2'd0: rdata_b1=b0_b1; 2'd1: rdata_b1=b1_b1; 2'd2: rdata_b1=b2_b1; default: rdata_b1=b3_b1; endcase
+        for (int tb = 0; tb < 4; tb++) begin
+          logic [5:0] raddr_t;
+          raddr_t = '0;
+          if (FPGA_BRINGUP && read_en && bank_rom[read_addr] == tb[1:0]) begin
+            raddr_t = local_rom[read_addr];
+          end else if (!(FPGA_BRINGUP && read_en)) begin
+            if (pb_a0 == tb[1:0]) raddr_t = pl_a0;
+            else if (pb_b0 == tb[1:0]) raddr_t = pl_b0;
+            else if (pb_a1 == tb[1:0]) raddr_t = pl_a1;
+            else if (pb_b1 == tb[1:0]) raddr_t = pl_b1;
+          end
+          case (tb)
+            0: shared_raddr0 = raddr_t;
+            1: shared_raddr1 = raddr_t;
+            2: shared_raddr2 = raddr_t;
+            default: shared_raddr3 = raddr_t;
+          endcase
+        end
+      end
+
+      always_ff @(posedge clk) begin
+        fsm_b0 <= bank0[shared_raddr0];
+        fsm_b1 <= bank1[shared_raddr1];
+        fsm_b2 <= bank2[shared_raddr2];
+        fsm_b3 <= bank3[shared_raddr3];
+      end
+
+      // FSM:n neljan kuluttajan (a0,b0,a1,b1) oma data haetaan
+      // SIITA pankista jonka se itse kohdisti - konfliktittomuus-
+      // todistus takaa etta VAIN YKSI pankeista voi tasmata.
+      always_comb begin
+        case (pb_a0) 2'd0: rdata_a0=fsm_b0; 2'd1: rdata_a0=fsm_b1; 2'd2: rdata_a0=fsm_b2; default: rdata_a0=fsm_b3; endcase
+        case (pb_b0) 2'd0: rdata_b0=fsm_b0; 2'd1: rdata_b0=fsm_b1; 2'd2: rdata_b0=fsm_b2; default: rdata_b0=fsm_b3; endcase
+        case (pb_a1) 2'd0: rdata_a1=fsm_b0; 2'd1: rdata_a1=fsm_b1; 2'd2: rdata_a1=fsm_b2; default: rdata_a1=fsm_b3; endcase
+        case (pb_b1) 2'd0: rdata_b1=fsm_b0; 2'd1: rdata_b1=fsm_b1; 2'd2: rdata_b1=fsm_b2; default: rdata_b1=fsm_b3; endcase
       end
     end
   endgenerate
@@ -306,24 +338,40 @@ module pqc_ntt_stage_banked #(
       end
       end
 
-      // Luku: REKISTEROITY, YHDEN SYKLIN viive read_en:sta read_data:an
-      // (osoitteen dekoodaus bank_rom/local_rom:sta on kombinatorinen,
-      // mutta TULOS rekisteroidaan - standardi synkronisen muistin
-      // lukukuvio, BRAM-inferoinnille "luonnollinen" muoto). read_valid
-      // tasmaa TASMALLEEN read_data:n saatavuuden kanssa (sama viive).
-      always_ff @(posedge clk) begin
-        if (reset) begin
-          read_valid <= 1'b0;
-        end else begin
-          read_valid <= read_en;
-          if (read_en) begin
-            case (bank_rom[read_addr])
-              2'd0: read_data <= bank0[local_rom[read_addr]];
-              2'd1: read_data <= bank1[local_rom[read_addr]];
-              2'd2: read_data <= bank2[local_rom[read_addr]];
-              default: read_data <= bank3[local_rom[read_addr]];
-            endcase
+      // Luku: NTT_READ_LATENCY=0:lla oma erillinen rekisteroity
+      // lukupolku (kuten aiemmin). NTT_READ_LATENCY=1:lla read_data
+      // haetaan JAETUSTA arbitroidusta lukurekisterista (ylla,
+      // g_registered_read) - EI erillista fyysista lukuporttia.
+      if (NTT_READ_LATENCY == 0) begin : g_bringup_read_direct
+        always_ff @(posedge clk) begin
+          if (reset) begin
+            read_valid <= 1'b0;
+          end else begin
+            read_valid <= read_en;
+            if (read_en) begin
+              case (bank_rom[read_addr])
+                2'd0: read_data <= bank0[local_rom[read_addr]];
+                2'd1: read_data <= bank1[local_rom[read_addr]];
+                2'd2: read_data <= bank2[local_rom[read_addr]];
+                default: read_data <= bank3[local_rom[read_addr]];
+              endcase
+            end
           end
+        end
+      end else begin : g_bringup_read_shared
+        logic [1:0] read_bank_sel_reg;
+        always_ff @(posedge clk) begin
+          if (reset) read_valid <= 1'b0;
+          else read_valid <= read_en;
+          read_bank_sel_reg <= bank_rom[read_addr];
+        end
+        always_comb begin
+          case (read_bank_sel_reg)
+            2'd0: read_data = fsm_b0;
+            2'd1: read_data = fsm_b1;
+            2'd2: read_data = fsm_b2;
+            default: read_data = fsm_b3;
+          endcase
         end
       end
     end else begin : g_no_bringup
