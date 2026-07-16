@@ -180,3 +180,69 @@ pipelinointi vaatii ja kuinka paljon Fmax todella nousee - naita EI
 VIELA TIEDETA, ne pitaa MITATA toteutuksen jalkeen. Taulukko on
 tarkoitettu havainnollistamaan PAATOKSENTEON LOGIIKKAA (miksi pelkka
 Fmax ei riita), ei ennustamaan lopputulosta.
+
+## M4-FPGA-007 koe: yksi rekisterivaihe (kayttajan oma, tarkasti rajattu ehdotus)
+
+**Toteutus:** uusi tila `S_COMPUTE1` lisatty `lane_fsm`:aan (eristetty
+tutkimusprototyyppi, `fpga/timing_reports/pqc_rvv_cluster_2lane_1stage_pipeline.sv`).
+Katkaisee kolmen kertolaskun ketjun: Vaihe 1 laskee ENSIMMAISEN
+kertolaskun (`b_reg*zeta_in` FORWARD:lle, `(b-a)*zeta_in` INVERSE:lle)
+ja REKISTEROI sen (`mult_term`). Vaihe 2 (entinen `S_COMPUTE`) kayttaa
+rekisteroitua `mult_term`:ia Montgomery-redusointiin + lopulliseen
+yhteen-/vahennyslaskuun.
+
+**Todennettu ensin (kayttajan oma jarjestys):**
+1. Golden trace (koko 7-tasoinen ajo, pipelinoitu vs. alkuperainen):
+   **PASS, kaikki 64 tasoa tasmaavat taydellisesti.**
+2. Syklimaara: **2436** (perustaso 1988 + 448 = tasmaa TARKALLEEN
+   +1 sykli/lane-iteraatio -odotukseen).
+3. Synteesi: **DP16KD=4 sailyi.**
+4. Uusi P&R-ajo samalla LFE5U-25F-kohteella.
+
+## TULOSTAULUKKO: mitattu, ei arvioitu
+
+| Mittari | Perustaso (0 pipeline-vaihetta) | 1 pipeline-vaihe | Muutos |
+|---|---|---|---|
+| Fmax | 21.21 MHz | **30.40 MHz** | **1.43x** |
+| Sykliä/NTT | 1988 | 2436 | 1.23x |
+| **us/NTT (lapimenoaika)** | **93.73 us** | **80.13 us** | **-14.5% (parannus)** |
+| DP16KD | 4 | 4 | ei muutosta |
+| Kriittinen polku | butterfly-aritmetiikka (bp_reg, 3 ketjutettua kertolaskua) | **DP16KD:n oma lukurekisteri (core.bank3)** | vaihtui |
+
+**TULOS: MITATTU NETTOPARANNUS +14.5% lapimenoajassa yhdella ainoalla
+rekisterivaiheella.** Tama tasmaa lahella aiempaa skenaarioanalyysin
+"+1 sykli/bf, Fmax x1.5" -riviä (arvioitu +18%, toteutunut +14.5%) -
+skenaarioanalyysin metodologia osoittautui kohtuullisen tarkaksi
+tallä kertaa, vaikka se oli tarkoitettu vain paatoksentekologiikan
+havainnollistamiseen, ei ennusteeksi.
+
+## Uusi kriittinen polku: DP16KD:n oma lukurekisteri
+
+Pipelinoinnin jalkeen kriittinen polku SIIRTYI aritmetiikasta
+`core.bank3`:n omaan lukurekisteriin (`DOB5`-signaali, DP16KD:n oma
+data-out-portti) - 5.2 ns logiikkaa, 13.3 ns reititysta (yhteensa
+18.5 ns, paljon lyhyempi kuin aiempi 43.4 ns).
+
+Tama on ODOTETTU, TERVETULLUT ilmio: yhden pullonkaulan poistaminen
+paljasti SEURAAVAN, PIENEMMAN pullonkaulan (BRAM:n oma ajoitus) -
+tama on tyypillinen iteroivan optimoinnin kuvio. BRAM:n oma
+lukuviive on todennakoisesti lahella ECP5:n DP16KD:n omaa
+fyysista rajaa taalla koolla/konfiguraatiolla - lisaoptimointi
+vaatisi todennakoisesti BRAM:n oman lukupolun (esim. ylimaarainen
+pipeline-rekisteri BRAM-ulostulon jalkeen) tarkastelua, JOKA ON
+OMA, ERILLINEN seuraava tutkimuskysymyksensa.
+
+## Johtopaatos
+
+**Yhden rekisterivaiheen koe oli MENESTYS mitatun kriteerin
+(lapimenoaika) mukaan: +14.5% parannus.** Kayttajan oma metodologia
+(rajattu koe, mittaa objektiivisesti ENNEN suurempaa investointia)
+todistautui oikeaksi lahestymistavaksi - pieni, kohdennettu muutos
+antoi mitattavan, positiivisen tuloksen ilman etta koko butterflyn
+tarvinnut uudelleensuunnitella.
+
+**Ei viela paatosta jatkotoimista tuotantoytimeen integroinnista** -
+tama on edelleen tutkimusprototyyppi (`fpga/timing_reports/`-
+hakemistossa). Mahdollinen seuraava askel (jos halutaan jatkaa):
+sama menetelma toistettuna BRAM:n omalle lukuviiveelle, TAI paatos
+etta +14.5% on jo riittava parannus taman tyopaketin tarpeisiin.
