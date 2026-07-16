@@ -457,3 +457,41 @@ silmukan sisainen `case`-rakenne tai `tb[1:0]`-tyyppimuunnos ei
 kayttaydy odotetusti Icarus Verilogissa, tai alkuperainen
 funktiopohjainen logiikka itsessaan sisalsi jo virheen jota ei
 aiemmin havaittu koska sita ei koskaan ajettu simulaationa).
+
+## Kolmivaiheinen debug (kayttajan oma menetelma): ongelma kavennettu ajoitukseen
+
+**Testi rakennettu TAYSIN ilman lane_fsm:aa** - vain bring-up-portin
+kautta (load_valid/read_en), jotta kirjoitus- ja lukuarbitrointi
+voidaan testata eristettyna FSM:n omasta ajoituksesta.
+
+- **Vaihe 1** (kirjoita kaikki 256 osoitetta bring-up:n kautta): OK.
+- **Vaihe 2** (lue kaikki 256 osoitetta HIERARKKISESTI, ohittaen
+  lukuarbitroinnin): **0/256 virhetta.** Kirjoituspolku (muisti-
+  organisaatio + kirjoitusarbitrointi) TAYSIN OIKEIN.
+- **Vaihe 3** (lue samat 256 osoitetta ARBITROINNIN KAUTTA,
+  bring-up:n read_en-polku): **0/256 virhetta.** Lukuarbitrointi-
+  logiikka TAYSIN OIKEIN.
+
+**JOHTOPAATOS (kayttajan oma kolmihaarainen paattely):** koska
+MOLEMMAT vaiheet onnistuivat taydellisesti mutta koko 7-tasoinen
+NTT-laskenta (lane_fsm:n kautta) epaonnistui 255/256 osoitteessa,
+**ongelma EI OLE muistiorganisaatiossa EIKA arbitrointilogiikassa
+itsessaan - ongelma on AJOITUKSESSA**, todennakoisesti lane_fsm:n
+oman moniajovuoroiden (a0,b0,a1,b1-luku/kirjoitus useiden syklien
+aikana) ja arbitrointilogiikan valisessa vuorovaikutuksessa.
+
+Tama kaventaa ongelman TASMALLEEN kayttajan oman menetelman
+mukaisesti: EI tarvitse enaa epailla muistiorganisaatiota tai
+arbitrointia - jaljella on VAIN ajoitusvuorovaikutus lane_fsm:n
+kanssa.
+
+## Seuraava askel
+
+Tutkia TASMALLEEN mika ajoitusero syntyy kun lane_fsm (todellinen
+moniajovaiheinen S_REQ_READ->S_WAIT_READ->S_COMPUTE->S_REQ_WRITE-
+sykli) on aktiivinen samanaikaisesti arbitrointilogiikan kanssa -
+todennakoinen ehdokas: pb_a0/pb_b0/pb_a1/pb_b1 (osoitteet joita
+arbitrointi kayttaa VALINTAAN) saattavat MUUTTUA lane_fsm:n oman
+moniajovaiheisen kierroksen aikana ENNEN kuin arbitroitu luku ehtii
+valmistua, aiheuttaen etta arbitrointi valitsee VAARAN pankin
+(vanhentuneen osoitteen perusteella) tietylla syklilla.
