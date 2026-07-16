@@ -24,7 +24,7 @@ module lane_fsm #(
     parameter int SPAD_AW = 15,
     parameter int Q       = 3329,
     parameter int QINV    = 62209,
-    parameter int READ_LATENCY = 0  // M4-FPGA-002D (2026-07-17): 0 =
+    parameter int READ_LATENCY = 0,  // M4-FPGA-002D (2026-07-17): 0 =
         // nollaviiveinen (kombinatorinen) muisti, TASMALLEEN nykyinen
         // kaytos, oletus - EI vaikuta olemassa olevaan kayttoon
         // lainkaan. 1 = yksi ylimaarainen odotussykli grant:n
@@ -32,6 +32,15 @@ module lane_fsm #(
         // luku). Ks. M4_FPGA_BRAM_STUDY.md: lane_fsm todettiin
         // rakennetuksi nollaviiveisen muistin varaan simulaatiokokeella
         // ennen tata muutosta.
+    parameter int PIPELINE_MULT = 0  // M4-FPGA-008 (2026-07-19): 0 =
+        // TASMALLEEN alkuperainen kaytos (kolme kertolaskua yhdessa
+        // syklissa) - EI vaikuta olemassa olevaan kayttoon lainkaan.
+        // 1 = yksi rekisterivaihe ENSIMMAISEN kertolaskun (b*zeta
+        // FORWARD:lle, (b-a)*zeta INVERSE:lle) jalkeen - katkaisee
+        // kolmen kertolaskun ketjun kahteen osaan. Todistettu
+        // M4-FPGA-007:ssa: +14.5% nettoparannus lapimenoajassa
+        // (us/NTT) ECP5:lla, golden trace PASS, DP16KD sailyy. Ks.
+        // fpga/timing_reports/M4_FPGA_006_ANALYSIS.md.
 )(
     input  logic clk,
     input  logic reset,
@@ -74,6 +83,7 @@ module lane_fsm #(
     S_IDLE      = 3'd0,
     S_REQ_READ  = 3'd1,
     S_WAIT_READ = 3'd5,  // M4-FPGA-002D: kaytossa VAIN jos READ_LATENCY=1
+    S_COMPUTE1  = 3'd6,  // M4-FPGA-008: kaytossa VAIN jos PIPELINE_MULT=1
     S_COMPUTE   = 3'd2,
     S_REQ_WRITE = 3'd3,
     S_DONE      = 3'd4;
@@ -82,6 +92,7 @@ module lane_fsm #(
   assign idx_out = idx;
   logic [COEFF_W-1:0] a_reg, b_reg;
   logic [COEFF_W-1:0] ap_reg, bp_reg;
+  logic [2*COEFF_W-1:0] mult_term;  // M4-FPGA-008: kaytossa VAIN jos PIPELINE_MULT=1
 
   assign mem_addr_a  = base_addr + idx * stride;
   assign mem_addr_b  = mem_addr_a + pair_dist;
@@ -156,7 +167,7 @@ module lane_fsm #(
               // TASMALLEEN alkuperainen kaytos (nollaviiveinen muisti)
               a_reg <= mem_rdata_a;
               b_reg <= mem_rdata_b;
-              state <= S_COMPUTE;
+              state <= (PIPELINE_MULT == 0) ? S_COMPUTE : S_COMPUTE1;
             end else begin
               // M4-FPGA-002D: odota yksi ylimaarainen sykli ennen
               // nayttestysta (rekisteroidyn muistin tulos ei ole
@@ -172,23 +183,51 @@ module lane_fsm #(
           // tanne READ_LATENCY=0:lla)
           a_reg <= mem_rdata_a;
           b_reg <= mem_rdata_b;
+          state <= (PIPELINE_MULT == 0) ? S_COMPUTE : S_COMPUTE1;
+        end
+
+        // M4-FPGA-008: kaytossa VAIN jos PIPELINE_MULT=1 (muuten tama
+        // tila ei koskaan aktivoidu). Vaihe 1: laske ENSIMMAINEN
+        // kertolasku ja REKISTEROI se - katkaisee kolmen kertolaskun
+        // ketjun kahteen osaan. Todistettu M4-FPGA-007:ssa: +14.5%
+        // nettoparannus lapimenoajassa (us/NTT), golden trace PASS,
+        // DP16KD sailyy synteesissa.
+        S_COMPUTE1: begin
+          if (mode == 1'b0) begin
+            mult_term <= b_reg * zeta_in;
+          end else begin
+            mult_term <= mod_sub(b_reg, a_reg) * zeta_in;
+          end
           state <= S_COMPUTE;
         end
 
         S_COMPUTE: begin
-          if (mode == 1'b0) begin
-            // FORWARD (NTT, Algoritmi 9): t=zeta*b ENSIN, sama t
-            // molemmissa ulostuloissa.
-            ap_reg   <= mod_add(a_reg, montgomery_reduce(b_reg * zeta_in));
-            bp_reg   <= mod_sub(a_reg, montgomery_reduce(b_reg * zeta_in));
+          if (PIPELINE_MULT == 0) begin
+            if (mode == 1'b0) begin
+              // FORWARD (NTT, Algoritmi 9): t=zeta*b ENSIN, sama t
+              // molemmissa ulostuloissa.
+              ap_reg   <= mod_add(a_reg, montgomery_reduce(b_reg * zeta_in));
+              bp_reg   <= mod_sub(a_reg, montgomery_reduce(b_reg * zeta_in));
+            end else begin
+              // INVERSE (NTT^-1, Algoritmi 10): EI zetaa a+b-ulostulossa;
+              // zeta vasta (b-a):n jalkeen TOISESSA ulostulossa. Ks.
+              // NTT_INVERSE_DESIGN_NOTE.md §2/§3 - vahvistettu
+              // golden-mallista (kyber_ntt_golden.py:n ntt_inv) ennen
+              // tata koodia.
+              ap_reg   <= mod_add(a_reg, b_reg);
+              bp_reg   <= montgomery_reduce(mod_sub(b_reg, a_reg) * zeta_in);
+            end
           end else begin
-            // INVERSE (NTT^-1, Algoritmi 10): EI zetaa a+b-ulostulossa;
-            // zeta vasta (b-a):n jalkeen TOISESSA ulostulossa. Ks.
-            // NTT_INVERSE_DESIGN_NOTE.md §2/§3 - vahvistettu
-            // golden-mallista (kyber_ntt_golden.py:n ntt_inv) ennen
-            // tata koodia.
-            ap_reg   <= mod_add(a_reg, b_reg);
-            bp_reg   <= montgomery_reduce(mod_sub(b_reg, a_reg) * zeta_in);
+            // M4-FPGA-008: mult_term laskettu JO S_COMPUTE1:ssa
+            // (rekisteroity) - tama vaihe tekee VAIN Montgomery-
+            // redusoinnin + lopullisen yhteen-/vahennyslaskun.
+            if (mode == 1'b0) begin
+              ap_reg <= mod_add(a_reg, montgomery_reduce(mult_term));
+              bp_reg <= mod_sub(a_reg, montgomery_reduce(mult_term));
+            end else begin
+              ap_reg <= mod_add(a_reg, b_reg);
+              bp_reg <= montgomery_reduce(mult_term);
+            end
           end
           req      <= 1'b1;
           is_write <= 1'b1;

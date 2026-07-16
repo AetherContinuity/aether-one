@@ -34,7 +34,7 @@ module pqc_ntt_stage_banked #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter bit FPGA_BRINGUP = 1'b0,  // oletus 0: ei vaikutusta olemassa olevaan kayttoon
-    parameter int NTT_READ_LATENCY = 0  // M4-FPGA-002C (2026-07-17): 0 =
+    parameter int NTT_READ_LATENCY = 0,  // M4-FPGA-002C (2026-07-17): 0 =
         // TASMALLEEN nykyinen kaytos (kombinatorinen pankkiluku,
         // lane_fsm:n oma READ_LATENCY=0) - EI vaikuta olemassa olevaan
         // kayttoon lainkaan. 1 = rekisteroity pankkiluku (BRAM-
@@ -43,6 +43,13 @@ module pqc_ntt_stage_banked #(
         // lane_fsm:n ajoitusprotokolla muuttuvat - butterfly,
         // osoitegeneraattori, bank_rom/local_rom-kartoitus ja
         // kierrosjarjestys pysyvat TAYSIN koskemattomina.
+    parameter int NTT_PIPELINE_MULT = 0  // M4-FPGA-008 (2026-07-19): 0 =
+        // TASMALLEEN nykyinen kaytos - EI vaikuta olemassa olevaan
+        // kayttoon lainkaan. 1 = valittaa lane_fsm:n oman
+        // PIPELINE_MULT=1:n (yksi rekisterivaihe kolmen kertolaskun
+        // ketjussa). Todistettu M4-FPGA-007:ssa: +14.5% nettoparannus
+        // lapimenoajassa ECP5:lla. Ks. fpga/timing_reports/
+        // M4_FPGA_006_ANALYSIS.md.
 )(
     input  logic clk,
     input  logic reset,
@@ -102,7 +109,7 @@ module pqc_ntt_stage_banked #(
   assign grant0 = req0;
   assign grant1 = req1;
 
-  lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY)) lane0 (
+  lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY), .PIPELINE_MULT(NTT_PIPELINE_MULT)) lane0 (
     .clk(clk), .reset(reset), .start(start),
     .base_addr(base_addr_lane0), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(mode),
     .mem_addr_a(addr_a0), .mem_addr_b(addr_b0),
@@ -113,7 +120,7 @@ module pqc_ntt_stage_banked #(
     .state(state0_w), .done(done0), .idx_out(idx0)
   );
 
-  lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY)) lane1 (
+  lane_fsm #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .READ_LATENCY(NTT_READ_LATENCY), .PIPELINE_MULT(NTT_PIPELINE_MULT)) lane1 (
     .clk(clk), .reset(reset), .start(start),
     .base_addr(base_addr_lane1), .stride(8'd1), .count(count), .pair_dist(pair_dist), .mode(mode),
     .mem_addr_a(addr_a1), .mem_addr_b(addr_b1),
