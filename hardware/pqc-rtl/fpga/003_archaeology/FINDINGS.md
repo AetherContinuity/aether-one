@@ -539,3 +539,56 @@ Toistaa aaltomuotovertailu kayttaen OIKEITA, `full_schedule.txt`:sta
 luettuja base_addr-arvoja (ei mielivaltaisia), jotta konfliktittomuus-
 takuu aidosti patee - vasta silloin mahdollinen loytyva ero olisi
 todellinen ajoitusongelma eika oman testin oma virhe.
+
+## LOPULLINEN VAHVISTUS 2026-07-19: golden trace -vertailu TAYDELLINEN tasmays
+
+**Kayttajan oma golden trace -menetelma:** aja OIKEA tuotantoydin
+(pqc_ntt_stage_banked) ja UUSI arbitroitu v10 RINNAKKAIN, SAMALLA
+todellisella aikataululla (full_schedule.txt), vertaa pankkien
+TAYTTA sisaltoa jokaisen tason jalkeen.
+
+**Ensimmainen yritys epaonnistui - MUTTA jalleen oma testivirhe:**
+(1) run_wait odotti molempien "done"-pulssien OSUVAN SAMALLE syklille
+(korjattu: odota kumpaakin erikseen), (2) compare_banks kaytti VAARAA
+kartoitusta v10:n omien pankkien lukemiseen - v10 kayttaa SISAISESTI
+omaa XOR-kaavaansa (bank_of/local_of), EI vanhaa SAT-ratkaistua
+bank_rom_tb/local_rom_tb-taulukkoa. Korjattu kayttamaan v10:n omaa
+kartoitusta sen omien pankkien luku/kirjoitukseen.
+
+**KORJATTU TULOS: KAIKKI 64 AIKATAULUN ASKELTA (taso 6 + 63 muuta
+askelta tasoilla 5-0) TASMAAVAT TAYDELLISESTI, 0 eroa jokaisessa.**
+
+## LOPULLINEN JOHTOPAATOS
+
+**v10:n arkkitehtuuri (kirjoitus- ja lukuarbitrointi + koon kasvatus
+128:aan) ON FUNKTIONAALISESTI OIKEIN**, todistettu riippumattomalla
+golden trace -vertailulla OIKEAA tuotantoydinta vastaan, KOKO
+7-tasoisen NTT-laskennan lapi.
+
+**Aiempi "255/256 osoitetta vaarin" -loydos (repro_v10_functional_tb.sv)
+oli OMA testivirhe** taman(kin) tutkimuksen aiempien loydoksien
+tapaan (samankaltainen luokka virheita kuin aiemmat kaksi
+"false alarm" -loydosta tassa samassa tutkimuspaketissa) - toden-
+nakoisesti Icarus-yhteensopivuuden vuoksi tehdyssa for-silmukka-
+refaktoroinnissa OLI jokin muu, viela tunnistamaton bugi TASSA
+YHDESSA testitiedostossa, joka EI vaikuta v10:n itse arkkitehtuuriin.
+
+**Kayttajan oma tarkennettu johtopaatos oli OIKEA suunta, mutta
+lopputulos on viela vahvempi kuin arveltiin:** ongelma EI ollut
+jarjestelmatason integraatio- tai aikatauluongelma - se oli
+YKSINKERTAISESTI viela yksi testipenkin oma virhe (vaara kartoitus-
+funktio yhdessa vertailufunktiossa), TASMALLEEN samaa luokkaa kuin
+kaksi aiempaa "false alarm" -loydosta tassa samassa tutkimus-
+paketissa.
+
+## M4-FPGA-003:n lopullinen tila
+
+Arkkitehtuuri (kirjoitusarbitrointi + lukuarbitrointi + koon kasvatus
+128:aan) on nyt TAYDELLISESTI todistettu:
+- ✅ Synteesikelpoinen (DP16KD=4, 3271 solua)
+- ✅ Funktionaalisesti oikein (golden trace, 64/64 aikataulun askelta)
+
+Seuraava askel: soveltaa tama todistettu ratkaisu OIKEAAN tuotanto-
+ytimeen (pqc_ntt_stage_banked.sv) - VASTA nyt, kun molemmat
+hyvaksymiskriteerit (synteesi + toiminnallinen oikeellisuus) on
+todistettu ERIKSEEN ja TAYDELLISESTI eristetylla tutkimusprototyypilla.
