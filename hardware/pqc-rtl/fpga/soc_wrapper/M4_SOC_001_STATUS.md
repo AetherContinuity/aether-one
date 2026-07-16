@@ -60,3 +60,35 @@ taso + 256 tuloksen luku), tasmaa golden-malliin taydellisesti.
   toiminnallinen (simulaatio), ei viela P&R-vahvistettu.
 - **Ei viela tuotantointegraatiota** - pysyy tutkimusprototyyppina
   `fpga/`-hakemistossa.
+
+## Synteesi + P&R -vahvistus (2026-07-19)
+
+Wishbone-kaare synteesoitu ja sijoitettu/reititetty LFE5U-25F:lla
+(CABGA381), sama menetelma kuin M4-FPGA-005/007:ssa.
+
+| Konfiguraatio | DP16KD | Solumaara | Fmax |
+|---|---|---|---|
+| NTT_PIPELINE_MULT=0 (oletus) | 4 | 3462 | 21.53 MHz |
+| **NTT_PIPELINE_MULT=1 (M4-FPGA-008:n todistettu optimointi)** | **4** | **3506** | **30.54 MHz** |
+
+**Fmax tasmaa lahella aiempaa suoraa ydinmittausta (30.40 MHz,
+M4-FPGA-007)** - Wishbone-kaare EI lisaa merkittavaa ylimaaraista
+viivetta kriittiselle polulle. Tama vahvistaa etta vaylaintegraatio
+on TAYSIN yhteensopiva jo todistetun pipelinointioptimoinnin kanssa.
+
+Resurssienkaytto (NTT_PIPELINE_MULT=1): DP16KD 4/56 (7%), MULT18X18D
+6/28 (21%), TRELLIS_IO VAIN 47/197 (23% - HUOMATTAVASTI vahemman
+kuin suoran ytimen 62%, koska Wishbone-vayla kayttaa kapeampaa,
+standardoitua rajapintaa yksittaisten signaalien sijaan).
+
+## M4-SoC-001 KOKONAISUUDESSAAN VALMIS
+
+- ✅ Toiminnallinen oikeellisuus (golden trace, koko NTT Wishbone-
+  vaylan kautta)
+- ✅ DP16KD=4 sailyy synteesissa
+- ✅ Fmax yhteensopiva M4-FPGA-008:n pipelinoinnin kanssa (30.54 MHz)
+- ✅ TRELLIS_IO-kaytto parani merkittavasti (62%->23%) vaylan
+  standardoinnin ansiosta
+
+Pysyy toistaiseksi tutkimusprototyyppina - tuotantointegraatio
+(jos halutaan) on oma, seuraava paatoksensa.
