@@ -292,3 +292,68 @@ olisi ollut DP16KD:n oma, muuttumaton fyysinen raja.
 **Ei viela toteutettu eika mitattu** - tama vaatisi OMAN, uuden,
 tarkasti rajatun kokeensa (sama menetelma kuin M4-FPGA-007:ssa)
 ennen paatoksentekoa.
+
+## M4-FPGA-006B koe: osoitteen rekisterointi - REHELLINEN NEGATIIVINEN TULOS
+
+**Toteutus:** rekisteroitu `shared_raddr0-3` (lukuarbitroinnin oma
+osoite) YHDEN SYKLIN ennen kayttoa BRAM:n osoitteena - uusi
+`S_WAIT_READ2`-tila lisatty (tutkimusprototyyppi,
+`pqc_rvv_cluster_2lane_addr_pipeline.sv` +
+`pqc_ntt_stage_banked_addr_pipe.sv`).
+
+**Todennettu ensin (sama jarjestys kuin M4-FPGA-007):**
+1. Golden trace: PASS, kaikki 64 tasoa tasmaavat.
+2. Bring-up-luku (2-syklinen viive synkronoitu): PASS 20/20.
+3. Syklimaara: **2884** (tasmaa tarkalleen "+2 sykli/bf"-skenaarioon:
+   1988 + 2x448 = 2884).
+4. DP16KD=4 sailyi synteesissa.
+
+## TULOSTAULUKKO
+
+| Mittari | 1 pipeline-vaihe (M4-FPGA-007) | + osoitteen rekisterointi | Muutos |
+|---|---|---|---|
+| Fmax | 30.40 MHz | 30.46 MHz | **+0.2% (ei merkittava)** |
+| Sykliä/NTT | 2436 | 2884 | 1.18x |
+| **us/NTT** | **80.13** | **94.68** | **-18.2% (HUONONTUU)** |
+| DP16KD | 4 | 4 | ei muutosta |
+
+**TULOS: NETTOTULOS ON HUONOMPI kuin 1-vaiheinen pipeline.**
+Osoitteen rekisterointi lisasi yhden sykliin per iteraatio ilman
+merkittavaa Fmax-hyotya.
+
+## Selitys: kaksi lahes yhta pitkaa polkua kilpailivat
+
+Uuden P&R-ajon kriittinen polku EI OLLUT enaa BRAM-osoite - se
+palasi `core.lane0.bp_reg`:iin (aritmetiikka, sisaltaa `CCU2C`-
+carry-chain-yksikoita) - **17.3 ns logiikkaa, 15.6 ns reititysta**
+(32.9 ns yhteensa, ~30.4 MHz).
+
+**Tama paljastaa: M4-FPGA-007:n oma 1-vaiheinen pipeline JATTI
+JALJELLE toisen, LAHES YHTA PITKAN polun** (montgomery_reduce:n
+OMAT KAKSI jaljella olevaa kertolaskua, jotka eivat viela olleet
+pipelinoituja) - taman polun pituus oli aiemmin VAIN HIEMAN lyhyempi
+kuin BRAM-osoitepolku (joka nayttaytyi silloin kriittisena), mutta
+KUN BRAM-osoitepolku KORJATTIIN (rekisteroitiin), aritmetiikkapolku
+NOUSI TAKAISIN kriittiseksi - JA sen oma pituus ei ollut riittavasti
+lyhyempi etta kokonaisFmax olisi noussut.
+
+**JOHTOPAATOS: BRAM-osoitteen rekisterointi YKSINAAN ei riita, koska
+kaksi lahes yhta pitkaa pullonkaulaa (BRAM-osoite JA jaljella oleva
+Montgomery-kertolaskuketju) rajoittavat vuorotellen.** Molemmat
+tarvitsisivat samanaikaisen kasittelyn (esim. lisata TOINEN
+aritmeettinen pipeline-vaihe montgomery_reduce:n kahden jaljella
+olevan kertolaskun valiin, YHDESSA BRAM-osoitteen rekisteroinnin
+kanssa) jotta kumpikaan ei olisi enaa hallitseva.
+
+## Kayttajan oma hyvaksymiskriteeri toteutui: rehellinen mittaus
+
+Tama on TASMALLEEN se tulos jonka kayttaja ennakoi mahdolliseksi:
+"jos pullonkaula on itse muistilohkon ominaisuus, lisapipelining
+ei ehka enaa tuo yhta suurta hyotya". Tassa TAPAUKSESSA sita EI OLLUT
+DP16KD:n oma kiintea rajoite (kuten aiemmin todettiin), MUTTA silti
+tama YKSITTAINEN lisays ei riittanyt - koska JOKIN MUU (aritmetiikka)
+oli LAHES yhta pitka pullonkaula.
+
+**Tama koe HYLATAAN nettotuloksen (-18.2%) perusteella.** M4-FPGA-007:n
+1-vaiheinen versio (Fmax=30.40MHz, 80.13us/NTT) pysyy PARHAANA
+mitattuna tuloksena taman tutkimuksen aikana.
