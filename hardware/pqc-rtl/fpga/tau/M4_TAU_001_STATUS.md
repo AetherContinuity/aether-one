@@ -1,0 +1,50 @@
+# M4-TAU-001: TAU-audit-loki (D4-yhteensopivuus) - Osa 1 VALMIS
+
+**Paivamaara:** 2026-07-19
+**Tila:** Audit-loki (hash-ketjutus + lukurajapinta) TOIMII,
+todennettu Python-referenssia vasten.
+
+## Toteutus
+
+`pqc_tau_audit_log.sv` - D4 (Audit Continuity) -yhteensopiva
+hash-ketjutettu audit-loki. Kayttaa UUDELLEEN jo olemassa olevaa,
+todennettua SHA3-256-ydinta (pqc_sha3_256.sv, M3 Issue #12) - ei
+uutta kryptografista primitiivia.
+
+**Ketjutuskaava:** `chain_hash[n] = SHA3-256(chain_hash[n-1] ||
+decision_hash[n] || seq[n])` - muuttumaton, tamperoinnin paljastava
+ketju (klassinen hash-chain-periaate).
+
+## Loydetty ja korjattu bugi: tavujarjestyskonventio
+
+Ensimmainen testiajo epaonnistui - chain_hash ei tasmannyt Python-
+referenssiin. Juurisyy loydettiin tarkastelemalla projektin OMAA,
+jo vakiintunutta `pack_bytes()`-konventiota
+(m2-golden/gen_sha3_256_vectors.py): tavu 0 sijoittuu VAHITEN
+merkitsevaksi tavuksi (`val |= byte << (i*8)`), EI tavanomaista
+`.hex()`-jarjestysta.
+
+Korjaus: msg_in-konkatenaation jarjestys vaihdettu
+`{seq_counter, decision_hash_reg, current_chain_head}` (chain_head
+ALIMPANA, matkien pack_bytes-konventiota), ja Python-golden-referenssi
+generoitu kayttaen samaa `pack_bytes()`-funktiota kuin projektin muu
+SHA3-testivektorien generointi.
+
+## Todennettu
+
+- Kolme perakkaista audit-loki-merkintaa kirjoitettu, chain_hash
+  tasmaa Python-referenssiin JOKAISESSA merkinnassa.
+- Lukurajapinta (deferred reconciliation - TN-002:n oma vaatimus:
+  paikallinen loki, luettavissa myohemmin ilman ulkoista yhteytta)
+  palauttaa oikean datan jokaiselle merkinnalle.
+
+## Jaljella (M4-TAU-001:n loput osat)
+
+1. Watchdog/heartbeat-logiikka ECU<->TAU-viestintaa varten
+2. Attestaatioprotokollan runko (ECU submitoi decision_hash -> TAU
+   validoi -> TAU lokittaa) - VAIN hash-commitment tassa vaiheessa,
+   EI taytta Dilithium-allekirjoitusta (M5:n oma tyo)
+3. Integraatio olemassa olevaan Wishbone-vaylakaareen (M4-SoC-001)
+4. Istuntoavaimen muodostus ML-KEM:n kautta (VERA Agent: "Kyber for
+   key exchange") - vaikeampi, laajempi osa, todennakoisesti oma
+   valivaihe
