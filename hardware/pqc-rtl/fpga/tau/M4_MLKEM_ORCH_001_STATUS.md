@@ -123,3 +123,34 @@ konkreettiseksi askeleeksi.
   hierarkkista kirjoitusta) - SEURAAVA konkreettinen askel
 ❌ Matriisikertolasku, ByteEncode, H(ek), kokoaminen - viela
   toteuttamatta
+
+## NTT-forward-vaiheen toteutusyritys - LOYDETTY BUGI, EI VIELA RATKAISTU (2026-07-19)
+
+Rakennettu: NTT-aikataulun ROM (`mlkem_ntt_schedule_rom.memh`, 64
+merkintaa), FSM-tilat lataukselle (bring-up load_valid), aikataulun
+ajolle (64 perakkaista start-pulssia ROM:sta), ja tuloksen lukemiselle
+(bring-up read_en/read_data).
+
+**TULOS: FSM jumiutuu tilaan 14 (S_NTT_FWD_READ, oletettavasti)
+useiksi tuhansiksi sykleiksi, sitten SIIRTYY YLLATTAEN takaisin
+tilaan 0 (S_IDLE) - viittaa etta jokin osa siirtymalogiikkaa tuottaa
+KELVOTTOMAN tila-arvon joka osuu `default: state <= S_IDLE;`
+-haaraan.**
+
+`s_hat[0]`:n ensimmaiset 32 bittia (`06f606f6`) nayttavat epailyttavan
+TOISTUVALTA kuviolta - EI VIELA VARMISTETTU onko tama aito NTT-tulos
+vai merkki viallisesta lukuindeksoinnista (esim. `read_idx-8'd1`-
+kompensaatiolla, jota kaytin 1-syklin lukuviiveen huomioimiseen,
+saattaa olla off-by-one- tai ajoitusvirhe).
+
+**EI VIELA RATKAISTU.** Todennakoisia jatkoaskelia:
+1. Debugata TASMALLEEN missa kohtaa tila-arvo menee kelvottomaksi
+   (lisata state-tulostus jokaiselle syklille lyhyella aikavalilla).
+2. Tarkistaa read_idx/read_valid-ajoitus tarkasti (mahdollinen
+   off-by-one bring-up-lukupolun 1-syklin viiveen kompensoinnissa).
+3. Tarkistaa `ntt_schedule_rom`:n oma pakkaus/purku (bittikentat
+   `entry[57:50]` yms.) - mahdollinen virhe pakkausjarjestyksessa.
+
+**TAMA ON REHELLISESTI KIRJATTU KESKENERAISEKSI** - ei viela
+toimiva NTT-forward-vaihe, vaativa oman debug-kierroksensa ennen
+jatkoa matriisikertolaskuun.

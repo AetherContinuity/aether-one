@@ -60,16 +60,27 @@ module pqc_mlkem_keygen_core #(
   logic ntt_mode;
   logic [SPAD_AW-1:0] base_addr_lane0, base_addr_lane1;
   logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+  logic ntt_load_valid, ntt_read_en, ntt_read_valid;
+  logic [7:0] ntt_load_addr, ntt_read_addr;
+  logic [COEFF_W-1:0] ntt_load_data, ntt_read_data;
 
-  pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) ntt_dut (
+  pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .FPGA_BRINGUP(1)) ntt_dut (
     .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
     .pair_dist(ntt_pair_dist), .mode(ntt_mode),
     .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
     .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
     .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
-    .load_valid(1'b0), .load_addr(8'd0), .load_data(16'd0),
-    .read_en(1'b0), .read_addr(8'd0), .read_valid(), .read_data()
+    .load_valid(ntt_load_valid), .load_addr(ntt_load_addr), .load_data(ntt_load_data),
+    .read_en(ntt_read_en), .read_addr(ntt_read_addr), .read_valid(ntt_read_valid), .read_data(ntt_read_data)
   );
+
+  // --- NTT-aikataulun ROM (M4-MLKEM-ORCH-001): 64 merkintaa (taso 6
+  // + full_schedule.txt), pakattu 64-bittisiksi sanoiksi:
+  // {length[8], base0[9], zeta0[16], base1[9], zeta1[16]} ---
+  logic [63:0] ntt_schedule_rom [0:63];
+  initial begin
+    $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", ntt_schedule_rom);
+  end
 
   logic sha512_start, sha512_done;
   logic [8*72-1:0] sha512_msg_in;
@@ -136,7 +147,8 @@ module pqc_mlkem_keygen_core #(
     S_IDLE, S_RESET_SHA512, S_START_SHA512, S_WAIT_SHA512,
     S_RESET_SNTT, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
     S_RESET_CBD, S_START_CBD, S_WAIT_CBD, S_CBD_NEXT,
-    S_NTT_FWD_RESET, S_NTT_FWD_START, S_NTT_FWD_WAIT, S_NTT_FWD_NEXT,
+    S_NTT_FWD_LOAD, S_NTT_FWD_SCHED_START, S_NTT_FWD_SCHED_WAIT,
+    S_NTT_FWD_READ, S_NTT_FWD_NEXT,
     S_MATMUL, S_MATMUL_NEXT,
     S_ENCODE_T, S_ENCODE_S,
     S_RESET_SHA256, S_START_SHA256, S_WAIT_SHA256,
@@ -145,17 +157,13 @@ module pqc_mlkem_keygen_core #(
   state_e state, return_state;
 
   logic [1:0] i_ctr, j_ctr;
-  logic [1:0] n_ctr;         // 0..2K-1 laskuri PRF/CBD-kutsuille
-  logic [1:0] fwd_ctr;       // 0..2K-1 laskuri NTT-forward-kutsuille
-  logic [1:0] mm_i, mm_j;    // matriisikertolaskun indeksit
+  logic [1:0] n_ctr;
+  logic [1:0] fwd_ctr;
+  logic [1:0] mm_i, mm_j;
   logic [256*COEFF_W-1:0] mm_acc;
-
-  // --- NTT-forward-aliajo (sama rakenne kuin run_forward_ntt-tehtava
-  // testipenkissa: koko 7-tasoinen NTT yhdelle polynomille) ---
-  logic [2:0] fwd_level;
-  logic [7:0] fwd_length, fwd_base0, fwd_base1;
-  logic [15:0] fwd_zeta0, fwd_zeta1;
-  int fwd_fh;
+  logic [7:0] load_idx, read_idx;
+  logic [5:0] sched_idx;
+  logic [256*COEFF_W-1:0] fwd_poly_in, fwd_poly_out;
 
   always_ff @(posedge clk) begin
     ntt_start <= 1'b0;
@@ -236,10 +244,95 @@ module pqc_mlkem_keygen_core #(
         S_CBD_NEXT: begin
           if (n_ctr == 2*K-1) begin
             fwd_ctr <= 2'd0;
-            state <= S_NTT_FWD_START;
+            load_idx <= 8'd0;
+            fwd_poly_in <= s_vec[0];
+            state <= S_NTT_FWD_LOAD;
           end else begin
             n_ctr <= n_ctr + 2'd1;
             state <= S_START_CBD;
+          end
+        end
+
+        // --- NTT-forward: 4 kertaa (s_vec[0], s_vec[1], e_vec[0],
+        // e_vec[1]) -> s_hat[0], s_hat[1], e_hat[0], e_hat[1].
+        // Kayttaa ytimen omaa FPGA_BRINGUP-rajapintaa (load_valid/
+        // load_addr/load_data, read_en/read_addr/read_valid/
+        // read_data) - EI hierarkkista suoraa kirjoitusta (joka EI
+        // ole synteesikelpoinen). ---
+        S_NTT_FWD_LOAD: begin
+          ntt_load_valid <= 1'b1;
+          ntt_load_addr  <= load_idx;
+          ntt_load_data  <= fwd_poly_in[load_idx*COEFF_W +: COEFF_W];
+          if (load_idx == 8'd255) begin
+            sched_idx <= 6'd0;
+            state <= S_NTT_FWD_SCHED_START;
+          end else begin
+            load_idx <= load_idx + 8'd1;
+          end
+        end
+
+        S_NTT_FWD_SCHED_START: begin
+          ntt_load_valid <= 1'b0;
+          begin
+            logic [63:0] entry;
+            entry = ntt_schedule_rom[sched_idx];
+            ntt_pair_dist   <= entry[57:50];
+            base_addr_lane0 <= entry[49:41];
+            zeta_lane0      <= entry[40:25];
+            base_addr_lane1 <= entry[24:16];
+            zeta_lane1      <= entry[15:0];
+            ntt_count       <= entry[57:50];
+          end
+          ntt_mode  <= 1'b0;
+          ntt_start <= 1'b1;
+          state <= S_NTT_FWD_SCHED_WAIT;
+        end
+
+        S_NTT_FWD_SCHED_WAIT: begin
+          if (stage_done) begin
+            if (sched_idx == 6'd63) begin
+              read_idx <= 8'd0;
+              state <= S_NTT_FWD_READ;
+            end else begin
+              sched_idx <= sched_idx + 6'd1;
+              state <= S_NTT_FWD_SCHED_START;
+            end
+          end
+        end
+
+        S_NTT_FWD_READ: begin
+          ntt_read_en   <= 1'b1;
+          ntt_read_addr <= read_idx;
+          if (ntt_read_valid) begin
+            case (fwd_ctr)
+              2'd0: s_hat[0][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd1: s_hat[1][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd2: e_hat[0][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
+              default: e_hat[1][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
+            endcase
+            if (read_idx == 8'd255) begin
+              ntt_read_en <= 1'b0;
+              state <= S_NTT_FWD_NEXT;
+            end else begin
+              read_idx <= read_idx + 8'd1;
+            end
+          end
+        end
+
+        S_NTT_FWD_NEXT: begin
+          if (fwd_ctr == 2'd3) begin
+            mm_i <= 2'd0; mm_j <= 2'd0;
+            mm_acc <= '0;
+            state <= S_DONE;  // TILAPAINEN - matriisikertolasku jne. seuraavaksi
+          end else begin
+            fwd_ctr <= fwd_ctr + 2'd1;
+            load_idx <= 8'd0;
+            case (fwd_ctr + 2'd1)
+              2'd1: fwd_poly_in <= s_vec[1];
+              2'd2: fwd_poly_in <= e_vec[0];
+              default: fwd_poly_in <= e_vec[1];
+            endcase
+            state <= S_NTT_FWD_LOAD;
           end
         end
 
