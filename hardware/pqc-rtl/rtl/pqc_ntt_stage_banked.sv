@@ -195,36 +195,86 @@ module pqc_ntt_stage_banked #(
     end
   endgenerate
 
-  always_ff @(posedge clk) begin
-    if (grant0 && is_write0) begin
-      case (pb_a0)
-        2'd0: bank0[pl_a0] <= wdata_a0;
-        2'd1: bank1[pl_a0] <= wdata_a0;
-        2'd2: bank2[pl_a0] <= wdata_a0;
-        default: bank3[pl_a0] <= wdata_a0;
-      endcase
-      case (pb_b0)
-        2'd0: bank0[pl_b0] <= wdata_b0;
-        2'd1: bank1[pl_b0] <= wdata_b0;
-        2'd2: bank2[pl_b0] <= wdata_b0;
-        default: bank3[pl_b0] <= wdata_b0;
-      endcase
+  generate
+    if (NTT_READ_LATENCY == 0) begin : g_write_direct
+      // TASMALLEEN alkuperainen kaytos - EI muutosta.
+      always_ff @(posedge clk) begin
+        if (grant0 && is_write0) begin
+          case (pb_a0)
+            2'd0: bank0[pl_a0] <= wdata_a0;
+            2'd1: bank1[pl_a0] <= wdata_a0;
+            2'd2: bank2[pl_a0] <= wdata_a0;
+            default: bank3[pl_a0] <= wdata_a0;
+          endcase
+          case (pb_b0)
+            2'd0: bank0[pl_b0] <= wdata_b0;
+            2'd1: bank1[pl_b0] <= wdata_b0;
+            2'd2: bank2[pl_b0] <= wdata_b0;
+            default: bank3[pl_b0] <= wdata_b0;
+          endcase
+        end
+        if (grant1 && is_write1) begin
+          case (pb_a1)
+            2'd0: bank0[pl_a1] <= wdata_a1;
+            2'd1: bank1[pl_a1] <= wdata_a1;
+            2'd2: bank2[pl_a1] <= wdata_a1;
+            default: bank3[pl_a1] <= wdata_a1;
+          endcase
+          case (pb_b1)
+            2'd0: bank0[pl_b1] <= wdata_b1;
+            2'd1: bank1[pl_b1] <= wdata_b1;
+            2'd2: bank2[pl_b1] <= wdata_b1;
+            default: bank3[pl_b1] <= wdata_b1;
+          endcase
+        end
+      end
+    end else begin : g_write_arbitrated
+      // M4-FPGA-004 Vaihe 2 (2026-07-19): VIISI mahdollista kirjoitus-
+      // lahdetta (lane0.a, lane0.b, lane1.a, lane1.b, bring-up)
+      // arbitroitu YHDEKSI fyysiseksi kirjoitusportiksi per pankki -
+      // sama, todistettu rakenne kuin v10-tutkimusprototyypissa
+      // (ks. M4_FPGA_003_RC.md). Konfliktittomuustodistus
+      // (BANK_MAPPING_PROOF.md) takaa etta korkeintaan yksi FSM-
+      // lahteista osuu mihin tahansa yksittaiseen pankkiin per sykli -
+      // arbitrointi on siis matemaattisesti perusteltu, ei
+      // optimointikikka. Prioriteettijarjestys: bring-up > lane0.a >
+      // lane0.b > lane1.a > lane1.b (vastaa v10:aa).
+      logic we0_arb, we1_arb, we2_arb, we3_arb;
+      logic [5:0] waddr0_arb, waddr1_arb, waddr2_arb, waddr3_arb;
+      logic [COEFF_W-1:0] wdata0_arb, wdata1_arb, wdata2_arb, wdata3_arb;
+
+      always_comb begin
+        for (int tb = 0; tb < 4; tb++) begin
+          logic we_t; logic [5:0] waddr_t; logic [COEFF_W-1:0] wdata_t;
+          we_t = 1'b0; waddr_t = '0; wdata_t = '0;
+          if (FPGA_BRINGUP && load_valid && bank_rom[load_addr] == tb[1:0]) begin
+            we_t = 1'b1; waddr_t = local_rom[load_addr]; wdata_t = load_data;
+          end else if (grant0 && is_write0 && pb_a0 == tb[1:0]) begin
+            we_t = 1'b1; waddr_t = pl_a0; wdata_t = wdata_a0;
+          end else if (grant0 && is_write0 && pb_b0 == tb[1:0]) begin
+            we_t = 1'b1; waddr_t = pl_b0; wdata_t = wdata_b0;
+          end else if (grant1 && is_write1 && pb_a1 == tb[1:0]) begin
+            we_t = 1'b1; waddr_t = pl_a1; wdata_t = wdata_a1;
+          end else if (grant1 && is_write1 && pb_b1 == tb[1:0]) begin
+            we_t = 1'b1; waddr_t = pl_b1; wdata_t = wdata_b1;
+          end
+          case (tb)
+            0: begin we0_arb = we_t; waddr0_arb = waddr_t; wdata0_arb = wdata_t; end
+            1: begin we1_arb = we_t; waddr1_arb = waddr_t; wdata1_arb = wdata_t; end
+            2: begin we2_arb = we_t; waddr2_arb = waddr_t; wdata2_arb = wdata_t; end
+            default: begin we3_arb = we_t; waddr3_arb = waddr_t; wdata3_arb = wdata_t; end
+          endcase
+        end
+      end
+
+      always_ff @(posedge clk) begin
+        if (we0_arb) bank0[waddr0_arb] <= wdata0_arb;
+        if (we1_arb) bank1[waddr1_arb] <= wdata1_arb;
+        if (we2_arb) bank2[waddr2_arb] <= wdata2_arb;
+        if (we3_arb) bank3[waddr3_arb] <= wdata3_arb;
+      end
     end
-    if (grant1 && is_write1) begin
-      case (pb_a1)
-        2'd0: bank0[pl_a1] <= wdata_a1;
-        2'd1: bank1[pl_a1] <= wdata_a1;
-        2'd2: bank2[pl_a1] <= wdata_a1;
-        default: bank3[pl_a1] <= wdata_a1;
-      endcase
-      case (pb_b1)
-        2'd0: bank0[pl_b1] <= wdata_b1;
-        2'd1: bank1[pl_b1] <= wdata_b1;
-        2'd2: bank2[pl_b1] <= wdata_b1;
-        default: bank3[pl_b1] <= wdata_b1;
-      endcase
-    end
-  end
+  endgenerate
 
   assign stage_done = done0 && done1;
 
@@ -238,6 +288,11 @@ module pqc_ntt_stage_banked #(
   // lohko synteesoituu pois - taysin identtinen aiempaan nahden.
   generate
     if (FPGA_BRINGUP) begin : g_bringup
+      // M4-FPGA-004: kirjoitus tapahtuu TASSA VAIN kun NTT_READ_LATENCY=0
+      // - kun =1, arbitroitu kirjoituslohko (ylla) kasittelee bring-up:n
+      // oman load_valid-polun jo osana viiden lahteen arbitrointia,
+      // jotta EI synny kaksinkertaista kirjoitusta samaan pankkiin.
+      if (NTT_READ_LATENCY == 0) begin : g_bringup_write_direct
       // Kirjoitus: synkroninen, yksi kirjoitusportti (kuten aiemmin)
       always_ff @(posedge clk) begin
         if (load_valid) begin
@@ -248,6 +303,7 @@ module pqc_ntt_stage_banked #(
             default: bank3[local_rom[load_addr]] <= load_data;
           endcase
         end
+      end
       end
 
       // Luku: REKISTEROITY, YHDEN SYKLIN viive read_en:sta read_data:an
