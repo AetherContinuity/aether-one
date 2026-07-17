@@ -35,9 +35,12 @@ module pqc_mlkem_decaps_a_core #(
     input  logic start,
     input  logic [8*768-1:0] c_in,      // tiiviisti pakattu siffertext (768 tavua)
     input  logic [8*768-1:0] dkPKE_in,  // dkPKE (768 tavua, K*384)
+    input  logic [255:0] h_in,          // H(ek), G-vaiheen syote
 
     output logic done,
-    output logic [255:0] m_prime_out
+    output logic [255:0] m_prime_out,
+    output logic [255:0] K_prime_out,
+    output logic [255:0] r_prime_out
 );
 
   // --- NTT-ydin (bring-up-rajapinta, sama kuin KeyGenissa) ---
@@ -116,6 +119,15 @@ module pqc_mlkem_decaps_a_core #(
   logic [255:0] benc1_in, benc1_out;
   pqc_byteencode_d1 benc1_dut (.f_in(benc1_in), .b_out(benc1_out));
 
+  logic sha512_start, sha512_done;
+  logic [8*72-1:0] sha512_msg_in;
+  logic [511:0] sha512_out;
+  pqc_sha3_512 #(.MAX_BLOCKS(1)) sha512_dut (
+    .clk(clk), .reset(reset), .start(sha512_start),
+    .msg_in(sha512_msg_in), .msg_len_bytes(16'd64),
+    .digest_out(sha512_out), .done(sha512_done)
+  );
+
   // --- Tallennusrekisterit ---
   logic [256*COEFF_W-1:0] u_prime [0:K-1], v_prime;
   logic [256*COEFF_W-1:0] s_hat [0:K-1];
@@ -129,7 +141,8 @@ module pqc_mlkem_decaps_a_core #(
     S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT, S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT,
     S_MATMUL, S_MATMUL_NEXT,
     S_INV_LOAD, S_INV_SCHED_SETUP, S_INV_SCHED_START, S_INV_SCHED_WAIT, S_INV_READ, S_INV_READ_WAIT,
-    S_SCALE, S_SUB, S_ENCODE_M_SETUP, S_ENCODE_M, S_DONE
+    S_SCALE, S_SUB, S_ENCODE_M_SETUP, S_ENCODE_M,
+    S_START_SHA512, S_WAIT_SHA512, S_DONE
   } state_e;
   state_e state;
 
@@ -142,6 +155,7 @@ module pqc_mlkem_decaps_a_core #(
   always_ff @(posedge clk) begin
     ntt_start <= 1'b0;
     ntt_load_valid <= 1'b0;
+    sha512_start <= 1'b0;
     done <= 1'b0;
 
     if (reset) begin
@@ -341,10 +355,29 @@ module pqc_mlkem_decaps_a_core #(
 
         S_ENCODE_M: begin
           benc1_in[m_bit_idx] <= c1_compress_out[0];
-          if (m_bit_idx == 8'd255) state <= S_DONE;
-          else begin
+          if (m_bit_idx == 8'd255) begin
+            sha512_msg_in <= '0;
+            state <= S_START_SHA512;
+          end else begin
             m_bit_idx <= m_bit_idx + 8'd1;
             state <= S_ENCODE_M_SETUP;
+          end
+        end
+
+        // --- G(m'||h) -> (K', r') - sama kaava kuin M4-MLKEM-
+        // ORCH-001:ssa (KeyGenin oma SHA3-512-vaihe) ---
+        S_START_SHA512: begin
+          sha512_msg_in[255:0]   <= benc1_out;
+          sha512_msg_in[511:256] <= h_in;
+          sha512_start <= 1'b1;
+          state <= S_WAIT_SHA512;
+        end
+
+        S_WAIT_SHA512: begin
+          if (sha512_done) begin
+            K_prime_out <= sha512_out[255:0];
+            r_prime_out <= sha512_out[511:256];
+            state <= S_DONE;
           end
         end
 

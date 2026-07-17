@@ -80,3 +80,35 @@ bit_corrupted) LAPAISEVAT.**
   Compress+ByteEncode x2 (DU, DV))
 - Wishbone-integraatio TAU-kehykseen (sama malli kuin KeyGenissa)
 - Synteesi + P&R -vahvistus
+
+## Phase G lisatty ja todennettu (2026-07-19, jatko)
+
+Laajennettu `pqc_mlkem_decaps_a_core.sv` sisaltamaan myos G-vaiheen:
+G(m'||h) -> (K', r') via SHA3-512 - sama, jo todistettu kaava kuin
+M4-MLKEM-ORCH-001:ssa (KeyGenin oma SHA3-512-kaynnistys).
+
+**Testitulos (kaikki kolme jaadytettya tapausta):**
+```
+OK valid: m' tasmaa taydellisesti golden-malliin
+OK valid: K' tasmaa taydellisesti golden-malliin
+OK valid: r' tasmaa taydellisesti golden-malliin
+OK byte_corrupted: m'/K'/r' tasmaavat
+OK bit_corrupted: m'/K'/r' tasmaavat
+```
+
+**PASS TAYDELLISESTI kaikille kolmelle tapaukselle, kaikille kolmelle
+arvolle (m', K', r').**
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt(dkPKE,c) -> m' | ✅ TODENNETTU |
+| Phase G: G(m'\|\|h) -> (K',r') | ✅ TODENNETTU |
+| Phase B: K-PKE.Encrypt(ekPKE,m',r') -> c', vertailu, FO-valinta | ❌ Ei viela aloitettu - LAAJA |
+| Wishbone-integraatio | ❌ Ei viela aloitettu |
+| Synteesi + P&R | ❌ Ei viela aloitettu |
+
+Seuraava askel: Phase B, joka on lahes yhta laaja kuin koko
+KeyGen-orkestrointi (SampleNTT, PRF+CBD x2, matriisikertolasku x2,
+NTT-forward x2, Compress+ByteEncode x2).

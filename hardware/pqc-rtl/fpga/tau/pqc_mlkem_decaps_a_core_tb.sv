@@ -13,14 +13,16 @@ module pqc_mlkem_decaps_a_core_tb;
 
   logic clk, reset, start, done;
   logic [8*768-1:0] c_in, dkPKE_in;
-  logic [255:0] m_prime_out;
+  logic [255:0] h_in;
+  logic [255:0] m_prime_out, K_prime_out, r_prime_out;
 
   always #5 clk = ~clk;
 
   pqc_mlkem_decaps_a_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K), .DU(DU), .DV(DV)) dut (
     .clk(clk), .reset(reset), .start(start),
-    .c_in(c_in), .dkPKE_in(dkPKE_in),
-    .done(done), .m_prime_out(m_prime_out)
+    .c_in(c_in), .dkPKE_in(dkPKE_in), .h_in(h_in),
+    .done(done), .m_prime_out(m_prime_out),
+    .K_prime_out(K_prime_out), .r_prime_out(r_prime_out)
   );
 
   int fh, scan_ok, error_count, case_count;
@@ -36,6 +38,7 @@ module pqc_mlkem_decaps_a_core_tb;
     scan_ok = $fscanf(fh, "%h\n", dkPKE);
     scan_ok = $fscanf(fh, "%h\n", h_val);
     dkPKE_in = dkPKE;
+    h_in = h_val;
 
     repeat (3) @(posedge clk);
     reset = 0;
@@ -73,6 +76,16 @@ module pqc_mlkem_decaps_a_core_tb;
             $display("  golden: %h", m_prime_expect);
             error_count++;
           end else $display("OK %s: m' tasmaa taydellisesti golden-malliin (%0d syklia)", tag, wait_cycles);
+
+          if (K_prime_out !== K_prime_expect) begin
+            $display("FAIL %s: K' EI tasmaa", tag);
+            error_count++;
+          end else $display("OK %s: K' tasmaa taydellisesti golden-malliin", tag);
+
+          if (r_prime_out !== r_prime_expect) begin
+            $display("FAIL %s: r' EI tasmaa", tag);
+            error_count++;
+          end else $display("OK %s: r' tasmaa taydellisesti golden-malliin", tag);
         end
       end
 
