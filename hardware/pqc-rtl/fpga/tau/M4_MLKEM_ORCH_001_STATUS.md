@@ -245,3 +245,53 @@ FSM:n omaa tallennusta) suoraan `pqc_prf_samplepolycbd`-moduulin
 OMAAN, jo aiemmin todistettuun testipenkkiin nahden - onko vika
 itse CBD-moduulissa (epatodennakoista, koska aiemmin todistettu)
 vai VAIN taman uuden FSM:n omassa kytkennassa/tallennuksessa.
+
+## TARKEA KORJAUS: aiempi "sigma-bugi" OLI oma referenssivirheeni (2026-07-19, jatko)
+
+**Loydetty:** `d_seed` luetaan testipenkkiin `$fscanf(fh,"%h",d_seed)`:lla,
+joka tulkitsee hex-merkkijonon TAVANOMAISENA (MSB-ensin) numerona -
+EI `pack_bytes()`-konvention (LSB-ensin) mukaisesti. Kun laskin OMAN
+Python-referenssini aiemmin kayttaen `bytes.fromhex()`:ia SUORAAN,
+sain d_seed:n VAARASSA tavujarjestyksessa verrattuna siihen miten
+RTL sen todellisuudessa kayttaa.
+
+**Korjattu laskemalla d_seed uudelleen:** luetaan hex-arvo
+kokonaislukuna (`int(hex,16)`), sitten PURETAAN se `pack_bytes()`-
+konvention mukaisesti tavuiksi (`unpack_bytes`) - tama vastaa
+TASMALLEEN mita $fscanf+RTL yhdessa tuottavat.
+
+**TULOS: koko 512-bittinen SHA3-512-digest (seka rho etta sigma)
+TASMASI TAYDELLISESTI RTL:n aiemmin nayttamiin arvoihin**, kun
+laskin sen UUDELLEEN taman oikean d_seed-kasittelyn kanssa. Tama
+VAHVISTAA etta SHA3-512-vaihe (rho+sigma) ON JA ON OLLUT KOKO AJAN
+OIKEIN - aiempi "sigma ei tasmaa" -loydos OLI OMA REFERENSSIVIRHEENI,
+EI RTL-bugi.
+
+## s_hat EI VIELA TASMAA - jaljella oleva, aito bugi
+
+Uusittu koko s_hat[0]/s_hat[1]-vertailu OIKEALLA d_seed-kasittelylla
+(kayttaen `kpke_keygen()`-referenssifunktiota suoraan samalla
+korjatulla d_seed:lla). **TULOS: s_hat[0] JA s_hat[1] EIVAT VIELA
+TASMAA - kaikki 256 kerrointa eroavat MOLEMMISSA.**
+
+**Uusi vihje:** viimeinen kerroin `s_hat[0][255]` on **`x`
+(alustamaton/tuntematon)** RTL:ssa - tama viittaa VAHVASTI etta
+lukusilmukan (`S_NTT_FWD_READ`) omassa RAJATAPAUKSESSA (viimeinen,
+255. kerroin) on off-by-one-tyyppinen virhe joka jattaa SEN
+kirjoittamatta kokonaan.
+
+## Yhteenveto oikeista, todennetuista loydoksista
+
+✅ SHA3-512 (rho+sigma): OIKEIN - aiempi "bugi" oli oma referenssivirhe
+✅ SampleNTT-silmukka: etenee oikein (aiemmin todennettu)
+✅ Lukuvaiheen duplikaattibugi: KORJATTU (kombinatorinen read_en/addr)
+❌ s_hat[0]/s_hat[1]: EIVAT VIELA TASMAA - JALJELLA OLEVA, AITO BUGI
+   - Uusi vihje: viimeinen kerroin jaa alustamattomaksi (off-by-one
+     lukusilmukan rajatapauksessa)
+
+**EI VIELA RATKAISTU.** Seuraava askel: korjata lukusilmukan
+rajatapaus (255. kerroin), sitten TOISTAA taydellinen vertailu -
+jos MYOS muut kertoimet ovat viela vaarin senkin jalkeen, tutkia
+CBD-vaiheen omaa n_ctr->s_vec/e_vec-tallennusindeksointia tarkemmin
+(esim. onko n_ctr:n JAKO s_vec:n vai e_vec:n valilla, ja MIKA
+tarkka alaindeksi, oikein toteutettu).
