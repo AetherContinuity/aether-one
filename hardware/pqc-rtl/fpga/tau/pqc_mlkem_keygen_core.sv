@@ -132,6 +132,19 @@ module pqc_mlkem_keygen_core #(
   pqc_byteencode_dparam #(.D(12)) benc12_0 (.f_in(benc12_in[0]), .b_out(benc12_out[0]));
   pqc_byteencode_dparam #(.D(12)) benc12_1 (.f_in(benc12_in[1]), .b_out(benc12_out[1]));
 
+  // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): pqc_byteencode_dparam
+  // odottaa kertoimet TIIVIISTI pakattuina 12 bittiin/kerroin (256*12
+  // bittia), MUTTA oma polynomiedustuksemme kayttaa 16 bittia/kerroin
+  // (256*16 bittia, COEFF_W). Suora leveyseroinen assign katkaisisi/
+  // sekoittaisi pakkauksen - taman vuoksi tarvitaan eksplisiittinen
+  // uudelleenpakkaus (kukin kertoimen oma 12-bittinen ARVO poimitaan
+  // ja pakataan TIIVIISTI).
+  function automatic [256*12-1:0] repack16_to_12(input logic [256*COEFF_W-1:0] wide);
+    for (int k = 0; k < 256; k++) begin
+      repack16_to_12[k*12 +: 12] = wide[k*COEFF_W +: COEFF_W];
+    end
+  endfunction
+
   // --- Tallennusrekisterit (K=2-kokoiset taulukot) ---
   logic [255:0] rho, sigma;
   logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
@@ -445,8 +458,8 @@ module pqc_mlkem_keygen_core #(
 
   // ByteEncode12: S_ENCODE_T kayttaa t_hat:ia, S_ENCODE_S kayttaa s_hat:ia -
   // yhteiskaytto SAMOJEN kombinatoristen instanssien kanssa eri aikoina.
-  assign benc12_in[0] = (state == S_ENCODE_S) ? s_hat[0] : t_hat[0];
-  assign benc12_in[1] = (state == S_ENCODE_S) ? s_hat[1] : t_hat[1];
+  assign benc12_in[0] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[0]) : repack16_to_12(t_hat[0]);
+  assign benc12_in[1] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[1]) : repack16_to_12(t_hat[1]);
 
   assign ek_out = ek_reg;
   assign dk_out = dk_reg;

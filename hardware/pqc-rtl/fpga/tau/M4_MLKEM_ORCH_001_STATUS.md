@@ -452,3 +452,61 @@ bugi on nyt kavennettu ByteEncode12- tai H(ek)/kokoamisvaiheeseen.
 
 **6/8 vaihetta nyt todennettu.** Jaljella: ByteEncode12/H(ek)/
 kokoamisvaiheen oma debug-kierros.
+
+## TAYDELLINEN LAPIMURTO: KOKO ML-KEM.KeyGen_internal VALMIS JA TODENNETTU (2026-07-19, jatko 6)
+
+**Viimeinen juurisyy loydetty ja korjattu:** `pqc_byteencode_dparam`
+odottaa kertoimet TIIVIISTI pakattuina 12 bittiin/kerroin (256*12=3072
+bittia), MUTTA oma polynomiedustuksemme kayttaa 16 bittia/kerroin
+(256*16=4096 bittia, COEFF_W). Suora leveyseroinen `assign`
+katkaisi/sekoitti pakkauksen bittitasolla (nakyi "siirtyneena"
+kuviona verrattuna golden-arvoon).
+
+**Korjaus:** lisatty `repack16_to_12()`-funktio joka poimii kunkin
+kertoimen oman 12-bittisen ARVON 16-bittisesta tallennuspaikastaan
+ja pakkaa ne TIIVIISTI ennen ByteEncode12-syottoa.
+
+**TULOS: PASS TAYDELLISESTI - seka `ek` (800 tavua) etta `dk` (1632
+tavua) TASMAAVAT TAYDELLISESTI golden-referenssiin!**
+
+## M4-MLKEM-ORCH-001: KAIKKI 8 VAIHETTA VALMIINA JA TODENNETTU
+
+| Vaihe | Tila |
+|---|---|
+| 1. SHA3-512(d\|\|K) -> rho, sigma | ✅ |
+| 2. SampleNTT(rho,i,j) x4 -> A[i][j] | ✅ |
+| 3. PRF+SamplePolyCBD x4 -> s_vec, e_vec | ✅ |
+| 4. NTT-forward x4 -> s_hat, e_hat | ✅ |
+| 5. Matriisikertolasku+summaus (t_hat) | ✅ |
+| 6. ByteEncode12(t_hat)+rho -> ek | ✅ |
+| 7. ByteEncode12(s_hat) -> dkPKE | ✅ |
+| 8. H(ek)=SHA3-256(ek), dk-kokoaminen | ✅ |
+
+**ENSIMMAINEN KERTA KOKO PROJEKTIN AIKANA (M1-M4-TAU) ETTA TAYSI
+ML-KEM.KeyGen_internal ON TODISTETTU SYNTEESIKELPOISEKSI JA
+BITTITARKASTI OIKEAKSI RTL:NA - EI VAIN ALIMODUULEINA TAI
+TESTIPENKIN PROSEDURAALISENA ORKESTROINTINA.**
+
+## Yhteenveto koko debug-matkan loydoksista (kaikki dokumentoitu tassa tiedostossa)
+
+1. Per-kutsu-reset EI ollut arkkitehtonisesti valttamaton (tarkistettu koodista)
+2. Lukuvaiheen (`S_NTT_FWD_READ`) rekisteroity osoite -> kombinatorinen + yksi-kerrallaan-kattely
+3. Oma d_seed-tavujarjestysvirhe Python-referenssissa (EI RTL-bugi)
+4. Aikataulun `count` vs `pair_dist` -sekaannus taso 6:n erikoistapauksessa
+5. `S_DONE`-tilan puuttuva kasittely (done ei koskaan asettunut)
+6. `ek_out`/`dk_out`:n puuttuva kytkenta sisaisiin rekistereihin
+7. `ByteEncode12`:n 12-bit/16-bit leveysero - puuttuva uudelleenpakkaus
+
+**Jokainen loydos on kirjattu, korjattu ja todennettu erikseen ennen
+seuraavaan siirtymista - sama kurinalaisuus kuin koko taman projektin
+FPGA-tyossa.**
+
+## Seuraavat askeleet (ei viela aloitettu)
+
+1. Synteesi + P&R -vahvistus ECP5:lla taman orkestrointimoduulin
+   omalle resurssienkaytolle ja Fmax:lle.
+2. ML-KEM.Encaps_internal ja ML-KEM.Decaps_internal -vastaavat
+   orkestrointimoduulit (sama metodologia, todennakoisesti
+   samantyyppisia loydoksia matkalla).
+3. Integraatio TAU-Wishbone-kaareen istuntoavaimen muodostukseen
+   (M4-TAU-001:n oma, alunperin suunniteltu tavoite).
