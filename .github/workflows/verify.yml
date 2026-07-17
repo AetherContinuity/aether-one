@@ -197,6 +197,19 @@ jobs:
       - name: Run K-PKE.KeyGen 10x in same simulation (register-leak/reset check)
         run: bash hardware/pqc-rtl/run_m3_kpke_keygen_multiseed_test.sh
 
+  test-pqc-rtl-m4-tau-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run M4-TAU-001 end-to-end (ECU->Wishbone->KeyGen->audit-loki->ECU, success path)
+        run: bash hardware/pqc-rtl/run_m4_tau_integrated_test.sh
+      - name: Run M4-TAU-001 watchdog interrupt path (heartbeat loss mid-KeyGen -> audit log)
+        run: bash hardware/pqc-rtl/run_m4_tau_watchdog_interrupt_test.sh
+      - name: Run M4-TAU-001 audit log AUDIT_WORD_SEL multi-word regression
+        run: bash hardware/pqc-rtl/run_m4_tau_audit_multiword_test.sh
+
   test-pqc-rtl-verilator-lint:
     runs-on: ubuntu-latest
     steps:
