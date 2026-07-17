@@ -112,3 +112,55 @@ arvolle (m', K', r').**
 Seuraava askel: Phase B, joka on lahes yhta laaja kuin koko
 KeyGen-orkestrointi (SampleNTT, PRF+CBD x2, matriisikertolasku x2,
 NTT-forward x2, Compress+ByteEncode x2).
+
+## Phase B1 VALMIS: A-matriisi + PRF/CBD-kohina (2026-07-19, jatko 2)
+
+**Kayttajan oma B1-B4-jako K-PKE.Encrypt:lle otettu kayttoon** riskien
+hallitsemiseksi Phase B:n laajuuden vuoksi.
+
+**Toteutus:** `pqc_mlkem_decaps_b1_core.sv` - ByteDecode(12) ek:sta,
+SampleNTT(rho,i,j) KxK A-matriisille, PRF+CBD(ETA1) y_vec:lle,
+PRF+CBD(ETA2) e1_vec:lle ja e2_poly:lle. EI VIELA matriisikertolaskuja
+- vain syotteen muodostus todennetaan tassa vaiheessa (kayttajan oma,
+tarkoituksellinen rajaus).
+
+**Uudelleenkaytetty suoraan M4-MLKEM-ORCH-001:sta (KeyGen):**
+SampleNTT+CBD-silmukkarakenne - sama, jo todistettu kaava, eri
+syote (rho/r' KeyGenin sigma/d_seed:n sijaan).
+
+**Loydetty ja korjattu kaksi virhetta ENNEN testausta (ei jaljelle
+jaanytta bugia):**
+1. `ek`:n oikea leveys on 800 tavua (K*384+32=768+32=800), EI 768
+   kuten alun perin oletin kommentissa - korjattu porttimaarittely.
+2. **Kriittinen, aiemmin dokumentoitu Icarus-rajoitus** (ks.
+   `pqc_byteencode_d1.sv`:n oma kommentti): unpacked-taulukko EI
+   toimi oikein porttina. Korjattu litistamalla `A_out`/`y_vec_out`/
+   `e1_vec_out` yhdeksi paketoiduksi vektoriksi kutakin (sisaiset,
+   ei-porttina-kaytettavat unpacked-taulukot pysyvat FSM:n omana
+   tyotilana, litistys tapahtuu VASTA ulostuloportissa `assign`-
+   lauseilla).
+
+**Testitulos:**
+```
+OK: A[0][0] tasmaa taydellisesti
+OK: y_vec[0] tasmaa taydellisesti
+OK: e1_vec[0] tasmaa taydellisesti
+OK: e2_poly tasmaa taydellisesti
+PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
+```
+
+**PASS TAYDELLISESTI kaikille nelja tarkistetulle arvolle - ei
+jaljella olevaa bugia taman kirjoitushetkella.**
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ |
+| Phase B2: NTT + matriisikertolasku | ❌ Seuraava |
+| Phase B3: Compress + ByteEncode -> c' | ❌ |
+| Phase B4: FO-valinta | ❌ |
+| Wishbone-integraatio | ❌ |
+| Synteesi + P&R | ❌ |
