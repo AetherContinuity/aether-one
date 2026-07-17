@@ -85,6 +85,21 @@ module pqc_tau_integrated_wrapper #(
     .log_count(audit_log_count), .log_full(audit_log_full)
   );
 
+  // --- Watchdog (M4-TAU-001 Osa 3/4:n integrointi tahan kokonaisuuteen) ---
+  logic heartbeat_valid;
+  logic [31:0] wd_timeout_cycles;
+  logic wd_config_valid;
+  logic ecu_alive, wd_timeout_event;
+  logic [31:0] wd_cycles_since_heartbeat, wd_timeout_count;
+
+  pqc_tau_watchdog #(.TIMEOUT_CYCLES_DEFAULT(100000)) watchdog (
+    .clk(clk), .reset(rst),
+    .heartbeat_valid(heartbeat_valid),
+    .timeout_cycles(wd_timeout_cycles), .config_valid(wd_config_valid),
+    .ecu_alive(ecu_alive), .timeout_event(wd_timeout_event),
+    .cycles_since_heartbeat(wd_cycles_since_heartbeat), .timeout_count(wd_timeout_count)
+  );
+
   // --- KeyGen-orkestraattori ---
   logic keygen_start, keygen_done;
   logic [255:0] d_seed_buf, z_seed_buf;
@@ -110,6 +125,13 @@ module pqc_tau_integrated_wrapper #(
     256'h5b5f32e23f0b447c0b872006ed81734ec8c305d1bc71f261d07193f31c23b68;
   localparam logic [255:0] KEYGEN_COMPLETED_HASH =
     256'hb634916025159880127a357fd392702fdeab5c38a97e47f846aa588e6617953;
+  // M4-TAU-001 watchdog-integraatio: kiintea tunnistehash sille
+  // erikoistapaukselle etta watchdog keskeyttaa suorituksen KESKEN
+  // KeyGenin oman kaynnin - TAMA lokitetaan AINA, riippumatta ECU:n
+  // omasta tilasta (TN-002:n oma vaatimus: vika lokitetaan vaikka
+  // kayttoyksikko on vaarantunut).
+  localparam logic [255:0] KEYGEN_WATCHDOG_INTERRUPTED_HASH =
+    256'h7d07634cc39e92beabe29262bd672fd15156917f4cfb96b60531dfe36d9e476;
 
   logic keygen_busy;
   logic pending_audit_valid;
@@ -121,38 +143,49 @@ module pqc_tau_integrated_wrapper #(
     end else begin
       if (keygen_start) keygen_busy <= 1'b1;
       if (keygen_done) keygen_busy <= 1'b0;
+      // Watchdog-keskeytys KESKEN KeyGenin oman ajon - pysayta myos
+      // ajon oma tila (ECU ei voi enaa luottaa keskeneraiseen tulokseen)
+      if (wd_timeout_event && keygen_busy) keygen_busy <= 1'b0;
     end
   end
 
-  // --- Audit-kirjoitusarbitrointi: KeyGen-tapahtumat > watchdog >
-  // ECU:n oma (tassa moduulissa ei viela ECU-omaa audit-kirjoitusta,
-  // vain KeyGen-tapahtumat). ---
+  // --- Audit-kirjoitusarbitrointi: watchdog-keskeytys > KeyGen-
+  // omat tapahtumat (kaynnistys/valmistuminen) - sama periaate
+  // kuin pqc_tau_core.sv:ssa (M4-TAU-001 Osa 4). ---
   logic keygen_event_pending;
   logic [255:0] keygen_event_hash;
+  logic pending_watchdog_interrupt;
   always_ff @(posedge clk) begin
     if (rst) begin
       keygen_event_pending <= 1'b0;
+      pending_watchdog_interrupt <= 1'b0;
     end else begin
+      if (wd_timeout_event && keygen_busy) begin
+        pending_watchdog_interrupt <= 1'b1;
+      end else if (audit_write_valid && !audit_write_busy && pending_watchdog_interrupt) begin
+        pending_watchdog_interrupt <= 1'b0;
+      end
+
       if (keygen_start) begin
         keygen_event_pending <= 1'b1;
         keygen_event_hash <= KEYGEN_STARTED_HASH;
       end else if (keygen_done) begin
         keygen_event_pending <= 1'b1;
         keygen_event_hash <= KEYGEN_COMPLETED_HASH;
-      end else if (audit_write_valid && !audit_write_busy) begin
+      end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt) begin
         keygen_event_pending <= 1'b0;
       end
     end
   end
 
-  assign audit_write_valid = keygen_event_pending;
-  assign audit_decision_hash_buf = keygen_event_hash;
+  assign audit_write_valid = pending_watchdog_interrupt || keygen_event_pending;
+  assign audit_decision_hash_buf = pending_watchdog_interrupt ? KEYGEN_WATCHDOG_INTERRUPTED_HASH : keygen_event_hash;
 
   // --- Osoitedekoodaus ---
   wire is_data_range   = (wb_adr_i < 11'h100);
   wire is_ctrl_range   = (wb_adr_i >= 11'h100) && (wb_adr_i <= 11'h107);
   wire is_audit_range  = (wb_adr_i >= 11'h110) && (wb_adr_i <= 11'h119);
-  wire is_keygen_range = (wb_adr_i >= 11'h120) && (wb_adr_i <= 11'h126);
+  wire is_keygen_range = (wb_adr_i >= 11'h120) && (wb_adr_i <= 11'h129);
 
   logic [10:0] word_sel;
   logic keygen_done_sticky;
@@ -161,6 +194,8 @@ module pqc_tau_integrated_wrapper #(
     ctrl_start_pulse <= 1'b0;
     load_valid <= 1'b0;
     keygen_start <= 1'b0;
+    heartbeat_valid <= 1'b0;
+    wd_config_valid <= 1'b0;
 
     if (rst) begin
       ctrl_mode <= 1'b0; ctrl_count <= 8'd0; ctrl_pair_dist <= 8'd0;
@@ -169,6 +204,7 @@ module pqc_tau_integrated_wrapper #(
       word_sel <= 11'd0;
       d_seed_buf <= '0; z_seed_buf <= '0;
       keygen_done_sticky <= 1'b0;
+      wd_timeout_cycles <= 32'd100000;
     end else begin
       if (keygen_done) keygen_done_sticky <= 1'b1;
 
@@ -190,6 +226,7 @@ module pqc_tau_integrated_wrapper #(
           endcase
         end else if (is_audit_range) begin
           case (wb_adr_i[7:0])
+            8'h10: word_sel <= wb_dat_i[10:0];  // AUDIT_WORD_SEL (jaettu word_sel-rekisteri)
             8'h16: audit_read_seq <= wb_dat_i[7:0];
             default: ;
           endcase
@@ -199,6 +236,8 @@ module pqc_tau_integrated_wrapper #(
             8'h21: if (word_sel < 16) d_seed_buf[word_sel*16 +: 16] <= wb_dat_i;
             8'h22: if (word_sel < 16) z_seed_buf[word_sel*16 +: 16] <= wb_dat_i;
             8'h23: begin keygen_start <= 1'b1; keygen_done_sticky <= 1'b0; end
+            8'h27: heartbeat_valid <= 1'b1;  // HEARTBEAT
+            8'h28: begin wd_timeout_cycles <= {16'b0, wb_dat_i}; wd_config_valid <= 1'b1; end  // WATCHDOG_TIMEOUT_CONFIG
             default: ;
           endcase
         end
@@ -240,6 +279,7 @@ module pqc_tau_integrated_wrapper #(
       8'h24: keygen_read_data <= {14'b0, keygen_done_sticky, keygen_busy};
       8'h25: keygen_read_data <= (word_sel < 400) ? ek_out[word_sel*16 +: 16] : 16'd0;
       8'h26: keygen_read_data <= (word_sel < 816) ? dk_out[word_sel*16 +: 16] : 16'd0;
+      8'h29: keygen_read_data <= {14'b0, pending_watchdog_interrupt, ecu_alive};  // WATCHDOG_STATUS
       default: keygen_read_data <= '0;
     endcase
   end

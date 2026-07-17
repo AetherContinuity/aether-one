@@ -66,3 +66,58 @@ seuraava, pieni lisays taman jo toimivan perustan paalle.
    menetelmalla kuin KeyGenissa.
 4. ⏭️ **Dilithium (#17)** - vasta ML-KEM-ketjun ollessa kokonaan
    valmis.
+
+## Watchdog integroitu virhepolulle - VALMIS (2026-07-19, jatko)
+
+**Kayttajan oma nakemys toteutettu tasmalleen:** watchdog on nyt
+integroitu koko TAU-kokonaisuuteen, kattaen SEKA onnistuneen etta
+epaonnistuneen KeyGen-suorituksen:
+
+1. KeyGen kaynnistyy -> audit-lokiin
+2. **Joko** KeyGen valmistuu onnistuneesti (audit-lokiin) **tai**
+   watchdog katkaisee suorituksen (audit-lokiin, ERI tunnistehashilla)
+3. ECU nakee lopputilan Wishbone-rajapinnasta (WATCHDOG_STATUS 0x129)
+
+**Uudet Wishbone-rekisterit:**
+- 0x127: HEARTBEAT (ECU:n oma elossaolomerkki)
+- 0x128: WATCHDOG_TIMEOUT_CONFIG (aikakatkaisukynnys sykleina)
+- 0x129: WATCHDOG_STATUS (luku): [0]=ecu_alive [1]=watchdog_keskeytys_kesken_keygenin
+
+**Loydetty ja korjattu kaksi bugia matkalla:**
+1. Oma testisuunnitteluvirhe: liian lyhyt (100 sykli) aikakatkaisu
+   laukesi jo siementen latauksen aikana, ennen KeyGenin omaa
+   kaynnistysta - korjattu kasvattamalla aikakatkaisua (1000 sykli).
+2. **Todellinen RTL-bugi:** `AUDIT_WORD_SEL` (osoite 0x110) ei ollut
+   koskaan kytketty paivittamaan jaettua `word_sel`-rekisteria -
+   vain `KEYGEN_WORD_SEL` (0x120) teki taman. Tama aiheutti sen
+   etta audit-lokin lukurajapinta AINA palautti VIIMEISIMMAN
+   kaytetyn word_sel-arvon (KeyGenin omasta kayttajasta jaanytta),
+   EI oikeaa, pyydettya sanaa. Korjattu lisaamalla puuttuva
+   kirjoituskasittely.
+
+**Todennettu (pqc_tau_watchdog_interrupt_tb.sv):**
+- Watchdog laukeaa oikein kun ECU lakkaa lahettamasta heartbeatia
+  KESKEN KeyGenin oman ajon
+- Audit-loki sisaltaa TASMALLEEN kaksi merkintaa (kaynnistys +
+  watchdog-keskeytys) - EI "KeyGen valmis" -merkintaa, koska sita
+  ei koskaan saavutettu
+- Toinen merkinta on NIMENOMAAN oikea, erillinen tunnistehash
+  (erottuu selvasti "KeyGen valmis" -hashista)
+
+**Ei regressiota:** alkuperainen paasta-paahan-testi (onnistunut
+KeyGen-ajo) PASSAA edelleen taydellisesti.
+
+## M4-TAU-001: PALVELUKEHYS VALMIS
+
+Kayttajan oma kuvaus toteutunut: "TAU:n 'palvelukehys' on kaytannossa
+valmis." Kaikki nelja peruspalvelua (Wishbone-vayla, KeyGen-
+orkestrointi, audit-loki, watchdog) toimivat YHDESSA, seka
+onnistumis- etta virhepolulla, ja Decaps voidaan seuraavaksi
+rakentaa SAMAN kehyksen sisaan ilman rajapintamuutoksia.
+
+**Kayttajan oma etenemisjarjestys:**
+1. ✅ Wishbone <-> KeyGen
+2. ✅ Audit-loki
+3. ✅ Watchdog loppuun asti integroituna myos virhepolulle
+4. ⏭️ Decaps-orkestraattori (seuraava)
+5. ⏭️ Dilithium (#17)
