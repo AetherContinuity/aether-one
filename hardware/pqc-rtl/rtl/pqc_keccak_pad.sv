@@ -32,13 +32,21 @@ module pqc_keccak_pad #(
 
     total_len_before_pad = msg_len_bytes + 1;  // +1 domain-suffiksitavu
     num_blocks = 8'((total_len_before_pad + RATE_BYTES - 1) / RATE_BYTES);
-    last_byte_idx = int'(num_blocks) * RATE_BYTES - 1;
+    // M4-MLKEM-ORCH-001 (2026-07-19): int'(...)-nimettya tyyppimuunnosta
+    // korvattu 32'(...)-leveyskonversiolla - Yosysin read_verilog -sv
+    // -etuosa ei tue nimettya tyyppimuunnosta tassa kontekstissa
+    // ("unexpected TOK_INT"), mutta leveyskonversio antaa TASMALLEEN
+    // saman arvon/kayttaytymisen. Todennettu: kaikki neljä olemassa
+    // olevaa testitapausta (tyhja, rate-1, tasan rate,
+    // msg_len_bytes-reagointi) pysyvat PASS-tilassa muutoksen
+    // jalkeen - ei regressiota.
+    last_byte_idx = 32'(num_blocks) * RATE_BYTES - 1;
 
     for (int i = 0; i < TOTAL_BYTES; i++) begin
       logic [7:0] byte_val;
-      if (i < int'(msg_len_bytes)) begin
+      if (i < 32'(msg_len_bytes)) begin
         byte_val = msg_in[i*8 +: 8];
-      end else if (i == int'(msg_len_bytes)) begin
+      end else if (i == 32'(msg_len_bytes)) begin
         byte_val = DOMAIN_SUFFIX[7:0];
       end else begin
         byte_val = 8'h00;

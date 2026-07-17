@@ -62,11 +62,14 @@ module pqc_keccak_squeeze #(
         S_EXTRACT: begin
           // Poimi min(RATE_BYTES, jaljella oleva) tavua nykyisesta
           // tilasta out_data:n oikeaan kohtaan.
-          remaining = int'(out_len_bytes) - int'(bytes_done);
+          // M4-MLKEM-ORCH-001 (2026-07-19): int'(...)-nimettya
+          // tyyppimuunnosta korvattu 32'(...)-leveyskonversiolla -
+          // sama syy/korjaus kuin pqc_keccak_pad.sv:ssa.
+          remaining = 32'(out_len_bytes) - 32'(bytes_done);
           take = (remaining < RATE_BYTES) ? remaining : RATE_BYTES;
           for (int i = 0; i < RATE_BYTES; i++) begin
             if (i < take) begin
-              out_data[(int'(bytes_done)+i)*8 +: 8] <= cur_state[i*8 +: 8];
+              out_data[(32'(bytes_done)+i)*8 +: 8] <= cur_state[i*8 +: 8];
             end
           end
           bytes_done <= bytes_done + take[15:0];
