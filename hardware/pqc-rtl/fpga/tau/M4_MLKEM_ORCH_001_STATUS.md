@@ -370,3 +370,52 @@ Jaljittaa TASMALLEEN mika tapahtuu ENSIMMAISEN aikataulun askeleen
 mahdollisesti REAGOI VAARAAN stage_done-pulssin ESIINTYMAAN (esim.
 edellisen ajon oma stage_done, joka ei viela ehtinyt nollaantua
 ennen uutta start-pulssia).
+
+## LAPIMURTO: JUURISYY LOYDETTY JA KORJATTU (2026-07-19, jatko 4)
+
+**LOPULLINEN JUURISYY:** aikataulun ROM pakkasi VAIN YHDEN "length"-
+arvon, kayttaen SITA sekä `pair_dist`:lle etta `count`:lle. TAMA ON
+OIKEIN 63:lle 64:sta aikataulun askeleesta (joissa count=pair_dist=
+length, `full_schedule.txt`:n oma formaatti), MUTTA VAARIN
+ENSIMMAISELLE askeleelle (taso 6): PROVEN-testin oma koodi kayttaa
+`pair_dist<=128` MUTTA `count<=64` - ERI ARVOT taman ERIKOISTAPAUKSEN
+kohdalla!
+
+**Korjaus:** ROM-pakkaus muutettu sisaltamaan `count` ERIKSEEN
+`pair_dist`:sta (72-bittinen sana 64-bittisen sijaan:
+`{count[8],pair_dist[8],base0[9],zeta0[16],base1[9],zeta1[16]}`).
+Taso 6:n oma merkinta paivitetty: `count=64, pair_dist=128`
+(erikoistapaus), kaikki muut 63 merkintaa: `count=pair_dist=length`
+(sama kuin ennen).
+
+**TULOS: PASS TAYDELLISESTI - seka `s_hat[0]` etta `s_hat[1]`
+TASMAAVAT KOKONAAN golden-referenssiin (kaikki 256 kerrointa
+molemmissa)!**
+
+## M4-MLKEM-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| 1. SHA3-512(d\|\|K) -> rho, sigma | ✅ TODENNETTU |
+| 2. SampleNTT(rho,i,j) x4 -> A[i][j] | ✅ TODENNETTU (etenee oikein) |
+| 3. PRF+SamplePolyCBD x4 -> s_vec, e_vec | ✅ TODENNETTU (s_vec[0] tasmaa taydellisesti) |
+| 4. NTT-forward x4 -> s_hat, e_hat | ✅ **TODENNETTU - s_hat[0]/s_hat[1] TASMAAVAT TAYDELLISESTI** |
+| 5. Matriisikertolasku+summaus (t_hat) | ❌ Ei viela toteutettu |
+| 6. ByteEncode12(t_hat)+rho -> ek | ❌ Ei viela toteutettu |
+| 7. ByteEncode12(s_hat) -> dkPKE | ❌ Ei viela toteutettu |
+| 8. H(ek)=SHA3-256(ek), dk-kokoaminen | ❌ Ei viela toteutettu |
+
+**Puolet (4/8) vaiheista nyt taydellisesti todennettu synteesikelpoisena
+RTL:na.** Tama on merkittava virstanpylvas - ensimmainen kerta koko
+projektin aikana etta ML-KEM:n orkestrointilogiikka (ei vain sen
+alimoduulit) on todistetusti synteesikelpoinen JA oikea.
+
+## Metodologinen huomio (talletetaan talteen)
+
+Tama debug-kierros osoitti systemaattisen, vaihe-vaiheelta-eristavan
+testauksen arvon: SHA3-512, SampleNTT, CBD, lataus, luku, ROM-purku
+todistettiin KAIKKI erikseen oikeiksi ENNEN kuin lopullinen juurisyy
+(count vs. pair_dist -sekaannus YHDESSA erikoistapauksessa 64:sta)
+loytyi. Ilman tata kurinalaisuutta olisi ollut helppo epailla vaaria
+komponentteja (esim. lukuvaiheen ajoitusta, jota MYOS korjattiin
+mutta joka EI ollut lopullinen syy).

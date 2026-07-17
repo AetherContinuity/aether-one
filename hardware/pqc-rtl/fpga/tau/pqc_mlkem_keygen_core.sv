@@ -77,7 +77,7 @@ module pqc_mlkem_keygen_core #(
   // --- NTT-aikataulun ROM (M4-MLKEM-ORCH-001): 64 merkintaa (taso 6
   // + full_schedule.txt), pakattu 64-bittisiksi sanoiksi:
   // {length[8], base0[9], zeta0[16], base1[9], zeta1[16]} ---
-  logic [63:0] ntt_schedule_rom [0:63];
+  logic [71:0] ntt_schedule_rom [0:63];
   initial begin
     $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", ntt_schedule_rom);
   end
@@ -147,7 +147,7 @@ module pqc_mlkem_keygen_core #(
     S_IDLE, S_RESET_SHA512, S_START_SHA512, S_WAIT_SHA512,
     S_RESET_SNTT, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
     S_RESET_CBD, S_START_CBD, S_WAIT_CBD, S_CBD_NEXT,
-    S_NTT_FWD_LOAD, S_NTT_FWD_SCHED_START, S_NTT_FWD_SCHED_WAIT,
+    S_NTT_FWD_LOAD, S_NTT_FWD_SCHED_SETUP, S_NTT_FWD_SCHED_START, S_NTT_FWD_SCHED_WAIT,
     S_NTT_FWD_READ, S_NTT_FWD_READ_WAIT, S_NTT_FWD_NEXT,
     S_MATMUL, S_MATMUL_NEXT,
     S_ENCODE_T, S_ENCODE_S,
@@ -265,25 +265,35 @@ module pqc_mlkem_keygen_core #(
           ntt_load_data  <= fwd_poly_in[load_idx*COEFF_W +: COEFF_W];
           if (load_idx == 8'd255) begin
             sched_idx <= 6'd0;
-            state <= S_NTT_FWD_SCHED_START;
+            state <= S_NTT_FWD_SCHED_SETUP;
           end else begin
             load_idx <= load_idx + 8'd1;
           end
         end
 
-        S_NTT_FWD_SCHED_START: begin
+        // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): parametrit
+        // (pair_dist/base_addr/zeta/count) asetetaan OMASSA,
+        // ERILLISESSA syklissaan ENNEN start-pulssia - sama periaate
+        // kuin jo todistetussa suorassa testissa (joka kayttaa
+        // "parametrit; @(posedge clk); start<=1;" -kuviota, EI aseta
+        // molempia SAMALLA syklilla).
+        S_NTT_FWD_SCHED_SETUP: begin
           ntt_load_valid <= 1'b0;
           begin
-            logic [63:0] entry;
+            logic [71:0] entry;
             entry = ntt_schedule_rom[sched_idx];
             ntt_pair_dist   <= entry[57:50];
             base_addr_lane0 <= entry[49:41];
             zeta_lane0      <= entry[40:25];
             base_addr_lane1 <= entry[24:16];
             zeta_lane1      <= entry[15:0];
-            ntt_count       <= entry[57:50];
+            ntt_count       <= entry[65:58];
           end
           ntt_mode  <= 1'b0;
+          state <= S_NTT_FWD_SCHED_START;
+        end
+
+        S_NTT_FWD_SCHED_START: begin
           ntt_start <= 1'b1;
           state <= S_NTT_FWD_SCHED_WAIT;
         end
@@ -295,7 +305,7 @@ module pqc_mlkem_keygen_core #(
               state <= S_NTT_FWD_READ;
             end else begin
               sched_idx <= sched_idx + 6'd1;
-              state <= S_NTT_FWD_SCHED_START;
+              state <= S_NTT_FWD_SCHED_SETUP;
             end
           end
         end
