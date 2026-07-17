@@ -332,3 +332,41 @@ JOKIN ERI KONVENTIO (esim. bittikaannospermutaatio) verrattuna
 suoraan `s_hat = byte_decode(dkPKE)`-purkuun, TAI (b) oma FSM:ni
 `load_idx`:n oma kirjoituskonventio (S_NTT_FWD_LOAD) ei tasmaa
 `read_idx`:n oman lukukonvention kanssa symmetrisesti.
+
+## Definitiivinen kavennus: vika ON aikataulun SUORITUSSILMUKASSA (2026-07-19, jatko 3)
+
+Systemaattinen, vaihe-vaiheelta-eristava testaus suoritettu:
+
+1. **Suora testi (hierarkkinen kirjoitus, sama syote+aikataulu kuin
+   PROVEN M2/M3-testeissa): PASS TAYDELLISESTI.** Tama todistaa
+   ETTA ytin+aikataulu+golden-referenssi ovat KAIKKI oikein YHDESSA.
+2. **Latausvaiheen (bring-up load_valid) tarkistus: PASS
+   TAYDELLISESTI** - kaikki 256 arvoa oikein pankeissa heti latauksen
+   jalkeen.
+3. **Aikataulu-ROM:n purku: PASS TAYDELLISESTI** - kaikki tarkistetut
+   kentat (pair_dist, base0/1, zeta0/1) tasmaavat tarkalleen
+   alkuperaisiin tiedostoihin.
+4. **Pankkien sisalto HETI aikataulun suorituksen JALKEEN (ennen
+   lukuvaihetta): EI TASMAA** - 256/256 arvoa vaarin JO PANKEISSA.
+
+**LOPULLINEN, TAYDELLISESTI KAVENNETTU JOHTOPAATOS: bugi ON
+YKSINOMAAN `S_NTT_FWD_SCHED_START`/`S_NTT_FWD_SCHED_WAIT`-silmukan
+OMASSA `ntt_start`-pulssien laukaisussa/ajoituksessa** - EI
+missaan muualla (lataus, ROM, ydin, golden-referenssi ovat KAIKKI
+erikseen todistettu oikeiksi).
+
+**EI VIELA RATKAISTU.** Todennakoisin jaljella oleva syy: `stage_done`-
+signaalin oma kasittely S_NTT_FWD_SCHED_WAIT:ssa (mahdollisesti
+sama tyyppinen "kadonnut pulssi" -ongelma kuin aiemmin loydettiin
+M4-SoC-001:n Wishbone-integraatiossa, TAI `ntt_start`:n oma
+ajoitus/kesto EI RIITA laukaisemaan ytimen omaa FSM:aa oikein
+JOKAISELLA 64 aikataulun askeleella).
+
+## Seuraava askel
+
+Jaljittaa TASMALLEEN mika tapahtuu ENSIMMAISEN aikataulun askeleen
+(taso 6) aikana verrattuna PROVEN-testin omaan ajoitukseen - onko
+`stage_done` genuiinisti sama PULSSI molemmissa, VAI onko oma FSM:ni
+mahdollisesti REAGOI VAARAAN stage_done-pulssin ESIINTYMAAN (esim.
+edellisen ajon oma stage_done, joka ei viela ehtinyt nollaantua
+ennen uutta start-pulssia).
