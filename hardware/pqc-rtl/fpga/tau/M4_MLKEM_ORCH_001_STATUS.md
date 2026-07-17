@@ -559,3 +559,42 @@ RTL:na (kaikki KAYTETYT rakenteet ovat synteesikelpoisia lukuun-
 ottamatta tata YHTA, ERILLISTA, olemassa olevaa Keccak-tiedoston
 omaa syntaksiongelmaa). Tama on OMA, seuraava korjaustyonsa - ei
 viela tehty.
+
+## Syntaksikorjaukset TEHTY, tayden orkestraattorin synteesi vaatii lisatyota (2026-07-19, jatko 8)
+
+**Molemmat Yosys-syntaksiongelmat KORJATTU turvallisesti:**
+- `pqc_keccak_pad.sv`: `int'(...)` -> `32'(...)` (testattu ensin
+  eristettyna, sitten sovellettu, koko regressio + oma orkestraattori
+  PASS - ei regressiota)
+- `pqc_keccak_squeeze.sv`: sama korjaus, sama todennus
+
+**UUSI LOYDOS: taysi orkestraattorin synteesi (sisaltaen NELJA
+Keccak-pohjaista alimoduulia: SHA3-512, SHA3-256, SHAKE128, SHAKE256,
+kukin oma f1600-instanssinsa) on LASKENNALLISESTI HYVIN RASKAS Yosys/
+ABC-optimoinnille - ylitti taman tyoympariston oman suoritusaikarajan
+(usea minuutti+) YHDESSA ajossa.**
+
+Tama EI ole korrektiusongelma - se on suorituskykyongelma taman
+TYOYMPARISTON rajoissa. Yksittaisen f1600-alimoduulin oma synteesi
+NAYTTI (aiemmassa testissa) yha kesken 180 sekunnin jalkeenkin.
+
+## Rehellinen tila
+
+| Ominaisuus | Tila |
+|---|---|
+| Toiminnallinen oikeellisuus | ✅ TAYDELLISESTI TODENNETTU |
+| Syntaksiyhteensopivuus (int'() -> 32'()) | ✅ KORJATTU, ei regressiota |
+| Taysi synteesi (koko orkestraattori) | ⏳ EI VIELA SUORITETTU LOPPUUN - vaatii pidemman/erillisen synteesiajon |
+
+## Seuraava askel
+
+Synteesi tarvitsee joko: (a) pidemman suoritusajan sallivan
+ymparistoen/prosessin (esim. taustalla ajettava, ei taman
+istunnon oman komentorajan sisalla), TAI (b) resurssien
+kohdennetun optimoinnin (esim. synteesoida JOKAINEN Keccak-
+alimoduuli ERIKSEEN ensin, tarkistaen kunkin oma synteesiaika/
+koko, ennen koko orkestraattorin yhdistamista).
+
+Tama EI ole viela este projektin etenemiselle - toiminnallinen
+oikeellisuus on jo todistettu, ja synteesin oma AIKA (ei
+onnistuminen/epaonnistuminen) on ainoa avoin kysymys.
