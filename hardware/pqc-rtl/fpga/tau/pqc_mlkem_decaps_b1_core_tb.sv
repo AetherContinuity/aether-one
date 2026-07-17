@@ -16,6 +16,8 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [K*256*COEFF_W-1:0] y_hat_out_flat;
   logic [K*256*COEFF_W-1:0] e1_vec_out_flat;
   logic [256*COEFF_W-1:0] e2_poly_out;
+  logic [K*256*COEFF_W-1:0] u_acc_out_flat;
+  logic [256*COEFF_W-1:0] v_acc_out;
 
   always #5 clk = ~clk;
 
@@ -25,7 +27,8 @@ module pqc_mlkem_decaps_b1_core_tb;
     .done(done), .A_out_flat(A_out_flat),
     .y_vec_out_flat(y_vec_out_flat), .y_hat_out_flat(y_hat_out_flat),
     .e1_vec_out_flat(e1_vec_out_flat),
-    .e2_poly_out(e2_poly_out)
+    .e2_poly_out(e2_poly_out),
+    .u_acc_out_flat(u_acc_out_flat), .v_acc_out(v_acc_out)
   );
 
   int fh, scan_ok, error_count;
@@ -94,6 +97,18 @@ module pqc_mlkem_decaps_b1_core_tb;
       $fclose(fh);
       if (y_hat_out_flat[256*COEFF_W-1:0] === y0_hat_golden) $display("OK: y_hat[0] (B2a, NTT-forward) tasmaa taydellisesti");
       else begin $display("FAIL: y_hat[0] EI tasmaa"); error_count++; end
+    end
+
+    begin
+      logic [256*COEFF_W-1:0] u_acc0_golden, v_acc_golden;
+      fh = $fopen("fpga/tau/decaps_b2b1_golden.txt", "r");
+      scan_ok = $fscanf(fh, "%h\n", u_acc0_golden);
+      scan_ok = $fscanf(fh, "%h\n", v_acc_golden);
+      $fclose(fh);
+      if (u_acc_out_flat[256*COEFF_W-1:0] === u_acc0_golden) $display("OK: u_acc[0] (B2b-1, NTT-alueen akkumulointi) tasmaa taydellisesti");
+      else begin $display("FAIL: u_acc[0] EI tasmaa"); error_count++; end
+      if (v_acc_out === v_acc_golden) $display("OK: v_acc (B2b-1) tasmaa taydellisesti");
+      else begin $display("FAIL: v_acc EI tasmaa"); error_count++; end
     end
 
     $display("--------------------------------------------------");

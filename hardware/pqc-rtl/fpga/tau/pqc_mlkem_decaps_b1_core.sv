@@ -40,7 +40,9 @@ module pqc_mlkem_decaps_b1_core #(
     output logic [K*256*COEFF_W-1:0] y_vec_out_flat,
     output logic [K*256*COEFF_W-1:0] y_hat_out_flat,     // B2a: NTT-forward(y_vec)
     output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
-    output logic [256*COEFF_W-1:0] e2_poly_out
+    output logic [256*COEFF_W-1:0] e2_poly_out,
+    output logic [K*256*COEFF_W-1:0] u_acc_out_flat,  // B2b-1: A^T*y_hat (NTT-alueella, ennen INTT:ta)
+    output logic [256*COEFF_W-1:0] v_acc_out           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
 );
 
   // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
@@ -116,11 +118,23 @@ module pqc_mlkem_decaps_b1_core #(
   logic [256*COEFF_W-1:0] y_vec [0:K-1];
   logic [256*COEFF_W-1:0] e1_vec [0:K-1];
 
+  // --- B2b-1: pisteittainen kertolasku + akkumulointi NTT-alueella ---
+  logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+  pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+  logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+  pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+
+  logic [256*COEFF_W-1:0] u_acc [0:K-1];  // A^T*y_hat akkumulaattori, per sarake
+  logic [256*COEFF_W-1:0] v_acc;          // t_hat*y_hat akkumulaattori
+  logic [1:0] mm_col, mm_j;
+
   typedef enum logic [4:0] {
     S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
     S_START_CBD1, S_WAIT_CBD1, S_START_CBD2, S_WAIT_CBD2, S_CBD_NEXT,
     S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT,
-    S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT, S_DONE
+    S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT,
+    S_MATMUL_U, S_MATMUL_U_CAPTURE, S_MATMUL_U_NEXT,
+    S_MATMUL_V, S_MATMUL_V_CAPTURE, S_DONE
   } state_e;
   state_e state;
 
@@ -155,7 +169,14 @@ module pqc_mlkem_decaps_b1_core #(
         end
 
         S_START_SNTT: begin
-          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
+          // KORJAUS (2026-07-19): pqc_samplentt:n omat byte_i/byte_j-
+          // portit vastaavat Python-referenssin sample_ntt(rho,i,j):n
+          // PARAMETREJA VAIHDETTUINA - todistettu vertailemalla A[1][0]
+          // (RTL) suoraan sample_ntt(rho,0,1):een (Python). Vaihdettu
+          // tassa niin etta STORED A[i_ctr][j_ctr] vastaa suoraan
+          // Python-sample_ntt(rho,i_ctr,j_ctr):ta, poistaen implisiittisen
+          // transpoosion myohemmista kaavoista.
+          samplentt_rho <= rho; samplentt_i <= {6'b0,j_ctr}; samplentt_j <= {6'b0,i_ctr};
           samplentt_start <= 1'b1;
           state <= S_WAIT_SNTT;
         end
@@ -285,11 +306,66 @@ module pqc_mlkem_decaps_b1_core #(
 
         S_FWD_NEXT: begin
           if (fwd_ctr == K-1) begin
-            state <= S_DONE;
+            mm_col <= 2'd0; mm_j <= 2'd0;
+            for (int cc = 0; cc < K; cc++) u_acc[cc] <= '0;
+            v_acc <= '0;
+            state <= S_MATMUL_U;
           end else begin
             fwd_ctr <= fwd_ctr + 2'd1;
             load_idx <= 8'd0;
             state <= S_FWD_LOAD;
+          end
+        end
+
+        // --- B2b-1: pisteittainen kertolasku + akkumulointi NTT-
+        // alueella. EI VIELA inverse-NTT:ta - vain lineaarialgebra
+        // NTT-domainissa todennetaan tassa vaiheessa (kayttajan oma
+        // rajaus). u_acc[col] = sum_j(A[j][col]*y_hat[j]).
+        //
+        // KORJAUS (2026-07-19): alkuperainen yksisyklinen versio luki
+        // padd_sum:n SAMALLA syklilla kuin asetti padd_a/padd_b:n -
+        // sama bugiluokka kuin aiemmin loydetty ja korjattu NTT-luku/
+        // Compress-virhe. Korjattu kaksivaiheisella setup/capture-
+        // tilaparilla (aseta operandit, VASTA seuraavalla syklilla
+        // kaappaa summa). ---
+        S_MATMUL_U: begin
+          padd_a <= u_acc[mm_col];
+          padd_b <= mntt_h;
+          state <= S_MATMUL_U_CAPTURE;
+        end
+
+        S_MATMUL_U_CAPTURE: begin
+          u_acc[mm_col] <= padd_sum;
+          if (mm_j == K-1) begin
+            mm_j <= 2'd0;
+            state <= S_MATMUL_U_NEXT;
+          end else begin
+            mm_j <= mm_j + 2'd1;
+            state <= S_MATMUL_U;
+          end
+        end
+
+        S_MATMUL_U_NEXT: begin
+          if (mm_col == K-1) state <= S_MATMUL_V;
+          else begin
+            mm_col <= mm_col + 2'd1;
+            state <= S_MATMUL_U;
+          end
+        end
+
+        // --- v_acc = sum_j(t_hat[j]*y_hat[j]) - sama kaksivaiheinen korjaus ---
+        S_MATMUL_V: begin
+          padd_a <= v_acc;
+          padd_b <= mntt_h;
+          state <= S_MATMUL_V_CAPTURE;
+        end
+
+        S_MATMUL_V_CAPTURE: begin
+          v_acc <= padd_sum;
+          if (mm_j == K-1) state <= S_DONE;
+          else begin
+            mm_j <= mm_j + 2'd1;
+            state <= S_MATMUL_V;
           end
         end
 
@@ -311,5 +387,15 @@ module pqc_mlkem_decaps_b1_core #(
 
   assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT);
   assign ntt_read_addr = read_idx;
+
+  // B2b-1: mntt_f/mntt_g KOMBINATORISIA, indeksoituna rekisteroidyilla
+  // mm_j/mm_col:lla - sama, jo todistettu periaate kuin KeyGenin
+  // omassa matriisikertolaskussa (EI rekisteroida mntt_f/mntt_g:ta
+  // itseaan, koska mntt_h on kombinatorinen niiden pohjalta).
+  assign mntt_f = (state == S_MATMUL_V) ? t_hat[mm_j] : A[mm_j][mm_col];
+  assign mntt_g = y_hat[mm_j];
+
+  assign u_acc_out_flat = {u_acc[1], u_acc[0]};
+  assign v_acc_out = v_acc;
 
 endmodule

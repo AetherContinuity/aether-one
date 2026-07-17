@@ -198,3 +198,58 @@ suoraan).
 | Phase B2b: Matriisikertolasku (A·y, t_hat·y) | ❌ Seuraava |
 | Phase B3: Compress + ByteEncode -> c' | ❌ |
 | Phase B4: FO-valinta | ❌ |
+
+## Phase B2b-1 VALMIS: NTT-alueen lineaarialgebra (2026-07-19, jatko 4)
+
+**Kayttajan oma B2b-1/B2b-2-jako otettu kayttoon.** B2b-1 =
+pisteittainen kertolasku + akkumulointi NTT-alueella, EI VIELA
+inverse-NTT:ta.
+
+**Loydetty ja korjattu bugi: A-matriisi oli TRANSPONOITU.**
+
+Testaus paljasti: RTL:n `A[1][0]` vastasi Python-referenssin
+`sample_ntt(rho,0,1)`:ta, EI `sample_ntt(rho,1,0)`:ta. Syy:
+`pqc_samplentt`:n omat `byte_i`/`byte_j`-portit vastaavat Python-
+referenssin `sample_ntt(rho,i,j)`:n parametreja VAIHDETTUINA
+(ristiin) - tama pysyi HUOMAAMATTA KeyGenissa, koska KeyGenin oma
+matriisikertolaskukaava (`t_hat[i]=sum_j(A[i][j]*s_hat[j])`) ja
+alkuperainen (transponoitu) tallennuskonventio sattuivat olemaan
+KESKENAAN yhteensopivia - vasta Decapsin ERI kaava
+(`u[col]=sum_j(A[j][col]*y_hat[j])`, A^T-tyyppinen kaytto) paljasti
+epasymmetrisen bugin.
+
+**Korjaus:** vaihdettu `samplentt_i`/`samplentt_j`-syote generointi-
+vaiheessa (`samplentt_i<=j_ctr; samplentt_j<=i_ctr;`) niin etta
+tallennettu `A[i][j]` vastaa SUORAAN Python-referenssin
+`sample_ntt(rho,i,j)`:ta - poistaa implisiittisen transpoosion
+kaikista MYOHEMMISTA kaavoista (tama korjaus koskee VAIN Decaps-
+moduulia, EI vaikuta KeyGeniin, joka on erillinen, jo todistettu
+tiedostonsa).
+
+**Testitulos:**
+```
+OK: u_acc[0] (B2b-1, NTT-alueen akkumulointi) tasmaa taydellisesti
+OK: v_acc (B2b-1) tasmaa taydellisesti
+PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
+```
+
+**PASS TAYDELLISESTI - molemmat NTT-alueen akkumulaattorit (u_acc,
+v_acc) tasmaavat golden-malliin.**
+
+**Lisaksi korjattu sama, jo tuttu bugiluokka** (rekisteroity syote +
+kombinatorinen tulos samalla syklilla) matriisikertolaskun omassa
+akkumuloinnissa - kaksivaiheinen setup/capture-tilapari
+(S_MATMUL_U/S_MATMUL_U_CAPTURE, S_MATMUL_V/S_MATMUL_V_CAPTURE).
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ |
+| Phase B2a: NTT-forward y_vec:lle | ✅ |
+| Phase B2b-1: NTT-alueen lineaarialgebra (A*y, t_hat*y) | ✅ |
+| Phase B2b-2: inverse-NTT + skaalaus + normaalialue | ❌ Seuraava |
+| Phase B3: Compress + ByteEncode -> c' | ❌ |
+| Phase B4: FO-valinta | ❌ |
