@@ -161,7 +161,7 @@ module pqc_mlkem_keygen_core #(
   logic [1:0] fwd_ctr;
   logic [1:0] mm_i, mm_j;
   logic [256*COEFF_W-1:0] mm_acc;
-  logic [7:0] load_idx, read_idx;
+  logic [7:0] load_idx, read_idx, read_idx_captured;
   logic [5:0] sched_idx;
   logic [256*COEFF_W-1:0] fwd_poly_in, fwd_poly_out;
 
@@ -301,17 +301,14 @@ module pqc_mlkem_keygen_core #(
         end
 
         S_NTT_FWD_READ: begin
-          ntt_read_en   <= 1'b1;
-          ntt_read_addr <= read_idx;
           if (ntt_read_valid) begin
             case (fwd_ctr)
-              2'd0: s_hat[0][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd1: s_hat[1][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd2: e_hat[0][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
-              default: e_hat[1][{read_idx-8'd1}*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd0: s_hat[0][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd1: s_hat[1][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd2: e_hat[0][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
+              default: e_hat[1][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
             endcase
             if (read_idx == 8'd255) begin
-              ntt_read_en <= 1'b0;
               state <= S_NTT_FWD_NEXT;
             end else begin
               read_idx <= read_idx + 8'd1;
@@ -339,6 +336,20 @@ module pqc_mlkem_keygen_core #(
         default: state <= S_IDLE;
       endcase
     end
+  end
+
+  // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): read_en/read_addr
+  // TAYTYY olla KOMBINATORISIA (ei rekisteroityja) - sama periaate
+  // kuin jo toimivaksi todistetussa Wishbone-lukupolussa
+  // (pqc_ntt_wishbone_wrapper.sv: "assign read_en = ...", EI
+  // rekisteroity <=). Ytimen oma read_valid/read_data tulevat YHDEN
+  // SYKLIN viiveella - read_idx_captured tallentaa MIKA read_idx oli
+  // silloin kun VASTAAVA data lopulta saapuu.
+  assign ntt_read_en   = (state == S_NTT_FWD_READ);
+  assign ntt_read_addr = read_idx;
+
+  always_ff @(posedge clk) begin
+    if (state == S_NTT_FWD_READ) read_idx_captured <= read_idx;
   end
 
   assign debug_rho = rho;

@@ -199,3 +199,49 @@ esimerkissa).
 **EI VIELA RATKAISTU, MUTTA MERKITTAVASTI KAVENNETTU:** ongelma-
 alue on nyt tasan yksi tila (S_NTT_FWD_READ), ei enaa koko NTT-
 forward-sekvenssi.
+
+## KORJATTU lukuvaiheen bugi + LOYDETTY UUSI, AIEMPI bugi (2026-07-19)
+
+**Korjaus 1 - TOTEUTETTU:** `ntt_read_en`/`ntt_read_addr` muutettu
+REKISTEROIDYSTA (`<=`) KOMBINATORISEKSI (`assign`), samalla
+periaatteella kuin jo toimivaksi todistettu Wishbone-lukupolku
+(`pqc_ntt_wishbone_wrapper.sv`). Lisatty `read_idx_captured`-
+rekisteri joka tallentaa MIKA read_idx oli silloin kun vastaava
+data lopulta saapuu (1 syklin viive).
+
+**Tulos: duplikaattibugi (RTL[0]=RTL[1]) POISTUI** - jokainen
+luettu arvo on nyt eri (ei enaa off-by-one-tyylista toistoa).
+
+**MUTTA loydettiin UUSI, AIEMPI bugi:** verrattaessa `s_vec[0]`:aa
+(NTT:n oma SYOTE, ennen muunnosta) suoraan Python-golden-viitteeseen
+(`kpke_encrypt_golden.py:n kpke_keygen()`, joka kayttaa TASMALLEEN
+samaa `sample_poly_cbd(prf(ETA1,sigma,0),ETA1)`-kutsua):
+
+```
+golden: [2, 1, 3328, 3328, 1, 3327, 3328, 1, 0, 3328, ...]
+RTL:    [0, 0, 3328, 0, 1, 0, 1, 1, 2, 3328, ...]
+```
+
+**Arvot EIVAT tasmaa, MUTTA eivat ole taysin satunnaisiakaan** -
+esim. kohdassa [2] molemmat naytaavat 3328. Tama viittaa
+mahdolliseen INDEKSOINTI- tai BITTIJARJESTYSVIRHEESEEN
+`pqc_prf_samplepolycbd`-moduulin oman ulostulon (`f_out`) ja
+oman FSM:ni `cbd1_out`-tallennuksen valilla (`s_vec[n_ctr[0]] <=
+cbd1_out`), EI satunnaisesta laskentavirheesta.
+
+**TAMA ON ERI, AIEMPI BUGI kuin lukuvaiheen ongelma - sijaitsee
+CBD-vaiheessa (S_START_CBD/S_WAIT_CBD), EI NTT-forward-lukuvaiheessa.**
+Lukuvaiheen korjaus oli silti oikea ja tarpeellinen (poisti yhden
+todellisen bugin), mutta CBD-vaiheen oma, viela ratkaisematon bugi
+selittaa lopullisen s_hat-eron.
+
+## Paivitetty tila ja seuraava askel
+
+Bugi kavennettu entisesta ("koko NTT-forward ei toimi") tarkkaan:
+CBD-vaiheen (`pqc_prf_samplepolycbd`/`cbd1_out`) oman ulostulon ja
+FSM:n oman `s_vec`-tallennuksen valisen kytkennan tarkistus.
+Seuraava askel: vertailla `cbd1_out`:n RAAKAA ulostuloa (ennen
+FSM:n omaa tallennusta) suoraan `pqc_prf_samplepolycbd`-moduulin
+OMAAN, jo aiemmin todistettuun testipenkkiin nahden - onko vika
+itse CBD-moduulissa (epatodennakoista, koska aiemmin todistettu)
+vai VAIN taman uuden FSM:n omassa kytkennassa/tallennuksessa.
