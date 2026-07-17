@@ -339,7 +339,7 @@ module pqc_mlkem_keygen_core #(
           if (fwd_ctr == 2'd3) begin
             mm_i <= 2'd0; mm_j <= 2'd0;
             mm_acc <= '0;
-            state <= S_DONE;  // TILAPAINEN - matriisikertolasku jne. seuraavaksi
+            state <= S_MATMUL;
           end else begin
             fwd_ctr <= fwd_ctr + 2'd1;
             load_idx <= 8'd0;
@@ -350,6 +350,71 @@ module pqc_mlkem_keygen_core #(
             endcase
             state <= S_NTT_FWD_LOAD;
           end
+        end
+
+        // --- Matriisikertolasku+summaus: t_hat[i] = sum_j(A[i][j]*
+        // s_hat[j]) + e_hat[i]. mntt_dut/padd_dut ovat TAYSIN
+        // kombinatorisia (ei clk/reset/start/done) - vain rekisteroity
+        // akkumulointi tarvitaan. ---
+        S_MATMUL: begin
+          mm_acc <= padd_sum;  // mm_acc + mntt_h (ks. combinational wiring alla)
+          if (mm_j == K-1) begin
+            mm_j <= 2'd0;
+            state <= S_MATMUL_NEXT;
+          end else begin
+            mm_j <= mm_j + 2'd1;
+          end
+        end
+
+        S_MATMUL_NEXT: begin
+          // mm_acc sisaltaa nyt sum_j(A[mm_i][j]*s_hat[j]) - lisaa
+          // e_hat[mm_i], talleta t_hat[mm_i].
+          t_hat[mm_i] <= final_sum;
+          if (mm_i == K-1) begin
+            state <= S_ENCODE_T;
+          end else begin
+            mm_i <= mm_i + 2'd1;
+            mm_acc <= '0;
+            state <= S_MATMUL;
+          end
+        end
+
+        // --- ByteEncode12(t_hat) + rho -> ek, ByteEncode12(s_hat) -> dkPKE ---
+        S_ENCODE_T: begin
+          ek_reg <= {rho, benc12_out[1], benc12_out[0]};
+          state <= S_ENCODE_S;
+        end
+
+        S_ENCODE_S: begin
+          dk_reg[8*768-1:0] <= {benc12_out[1], benc12_out[0]};  // dkPKE (K=2*384 tavua)
+          sha256_msg_in <= '0;
+          sha256_msg_in[8*800-1:0] <= ek_reg;
+          state <= S_START_SHA256;
+        end
+
+        S_START_SHA256: begin
+          sha256_start <= 1'b1;
+          state <= S_WAIT_SHA256;
+        end
+
+        S_WAIT_SHA256: begin
+          if (sha256_done) begin
+            H_ek <= sha256_out;
+            state <= S_ASSEMBLE;
+          end
+        end
+
+        S_ASSEMBLE: begin
+          // dk = dkPKE || ek || H(ek) || z (FIPS 203:n kiintea rakenne)
+          dk_reg[8*(768+800)-1:8*768]      <= ek_reg;
+          dk_reg[8*(768+800+32)-1:8*(768+800)] <= H_ek;
+          dk_reg[8*1632-1:8*(768+800+32)]  <= z_seed;
+          state <= S_DONE;
+        end
+
+        S_DONE: begin
+          done <= 1'b1;
+          state <= S_IDLE;
         end
 
         default: state <= S_IDLE;
@@ -366,6 +431,25 @@ module pqc_mlkem_keygen_core #(
   // silloin kun VASTAAVA data lopulta saapuu.
   assign ntt_read_en   = (state == S_NTT_FWD_READ) || (state == S_NTT_FWD_READ_WAIT);
   assign ntt_read_addr = read_idx;
+
+  logic [256*COEFF_W-1:0] final_sum;
+
+  // Matriisikertolasku: A[mm_i][mm_j] * s_hat[mm_j], akkumuloi mm_acc:iin.
+  // padd_b vaihtuu: S_MATMUL:ssa mntt_h (uusi kertolaskutermi),
+  // S_MATMUL_NEXT:ssa e_hat[mm_i] (lopullinen summaus).
+  assign mntt_f = A[mm_i][mm_j];
+  assign mntt_g = s_hat[mm_j];
+  assign padd_a = mm_acc;
+  assign padd_b = (state == S_MATMUL_NEXT) ? e_hat[mm_i] : mntt_h;
+  assign final_sum = padd_sum;
+
+  // ByteEncode12: S_ENCODE_T kayttaa t_hat:ia, S_ENCODE_S kayttaa s_hat:ia -
+  // yhteiskaytto SAMOJEN kombinatoristen instanssien kanssa eri aikoina.
+  assign benc12_in[0] = (state == S_ENCODE_S) ? s_hat[0] : t_hat[0];
+  assign benc12_in[1] = (state == S_ENCODE_S) ? s_hat[1] : t_hat[1];
+
+  assign ek_out = ek_reg;
+  assign dk_out = dk_reg;
 
   assign debug_rho = rho;
   assign debug_sigma = sigma;

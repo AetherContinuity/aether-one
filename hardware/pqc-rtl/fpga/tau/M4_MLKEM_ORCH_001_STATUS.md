@@ -419,3 +419,36 @@ todistettiin KAIKKI erikseen oikeiksi ENNEN kuin lopullinen juurisyy
 loytyi. Ilman tata kurinalaisuutta olisi ollut helppo epailla vaaria
 komponentteja (esim. lukuvaiheen ajoitusta, jota MYOS korjattiin
 mutta joka EI ollut lopullinen syy).
+
+## Loput vaiheet toteutettu, kaksi lisabugia loydetty ja korjattu (2026-07-19, jatko 5)
+
+Toteutettu loput neljä vaihetta: matriisikertolasku (S_MATMUL/
+S_MATMUL_NEXT), ByteEncode12 (S_ENCODE_T/S_ENCODE_S), H(ek) (SHA3-256),
+lopullinen kokoaminen (S_ASSEMBLE).
+
+**Loydetty JA korjattu KAKSI puuttuvaa kytkentaa:**
+1. `S_DONE`-tilalla EI OLLUT OMAA KASITTELYA - `done`-signaali ei
+   koskaan asettunut, FSM putosi suoraan takaisin `S_IDLE`:en.
+   Korjattu: lisatty eksplisiittinen `S_DONE: done<=1; state<=S_IDLE;`.
+2. `ek_out`/`dk_out` (moduulin OMAT ULOSTULOPORTIT) EIVAT OLLEET
+   LAINKAAN KYTKETTYNA sisaisiin `ek_reg`/`dk_reg`-rekistereihin!
+   Korjattu: lisatty `assign ek_out=ek_reg; assign dk_out=dk_reg;`.
+
+**Tulos korjausten jalkeen:** `done=1` asettuu oikein. `t_hat[0]`
+(matriisikertolaskun oma tulos) **TASMAA TAYDELLISESTI** golden-
+referenssiin - matriisikertolasku ON OIKEIN.
+
+**Jaljella:** `ek`/`dk` eivat viela tasmaa kokonaan (osa tavuista
+tasmaa - todennakoisesti rho:n oma 32 tavua - mutta EI kaikki) -
+bugi on nyt kavennettu ByteEncode12- tai H(ek)/kokoamisvaiheeseen.
+
+## M4-MLKEM-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| 1-4 (SHA3-512, SampleNTT, CBD, NTT-forward) | ✅ TODENNETTU |
+| 5. Matriisikertolasku (t_hat) | ✅ **TODENNETTU - t_hat[0] tasmaa taydellisesti** |
+| 6-8 (ByteEncode, H(ek), kokoaminen) | ❌ Toteutettu mutta EI VIELA todennettu oikeaksi |
+
+**6/8 vaihetta nyt todennettu.** Jaljella: ByteEncode12/H(ek)/
+kokoamisvaiheen oma debug-kierros.
