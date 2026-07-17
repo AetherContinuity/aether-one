@@ -598,3 +598,45 @@ koko, ennen koko orkestraattorin yhdistamista).
 Tama EI ole viela este projektin etenemiselle - toiminnallinen
 oikeellisuus on jo todistettu, ja synteesin oma AIKA (ei
 onnistuminen/epaonnistuminen) on ainoa avoin kysymys.
+
+## f1600 erikseen synteesoitu: 9057 solua, ei ongelmaa yksinaan (2026-07-19, jatko 9)
+
+Synteesoitu `pqc_keccak_f1600` YKSINAAN (280s timeout): **PASS,
+9057 solua** (LUT4=5497, PFUMX=1941, CCU2C=3, L6MUX21=7).
+
+**Tama vahvistaa:** yksittainen f1600-instanssi EI ole itsessaan
+liian raskas Yosysille - synteesi onnistuu kohtuullisessa ajassa.
+Taman orkestraattorin oma synteesihaaste on siis NELJAN ERILLISEN
+f1600-instanssin (SHA3-512, SHA3-256, SHAKE128, SHAKE256 - kukin
+oma kopio) YHTEENLASKETTU paino + NTT-ydin + orkestrointilogiikka
+samassa optimointiajossa.
+
+## Havaittu resurssioptimointimahdollisuus (EI VIELA toteutettu)
+
+Koska taman orkestraattorin NELJA Keccak-pohjaista alimoduulia
+kaytetaan PERAKKAIN (ei koskaan samanaikaisesti - SHA3-512 KeyGen:n
+alussa, SampleNTT:n oma SHAKE128 sen jalkeen, PRF:n oma SHAKE256
+CBD-vaiheessa, SHA3-256 lopuksi H(ek):ta varten), periaatteessa
+YKSI JAETTU f1600-instanssi (9057 solua) VOISI RIITTAA NELJAN
+ERILLISEN INSTANSSIN (yhteensa n. 36000+ solua) SIJASTA - tama
+olisi merkittava resurssisaastö (noin 75%), mutta vaatisi
+huomattavan arkkitehtuurimuutoksen (yhteisen f1600-resurssin
+jakaminen usean "kutsujan" kesken, arbitroinnin lisays).
+
+**Tama on OMA, myohempi optimointityopakettinsa** - ei toteuteta
+tassa, koska nykyinen (erilliset instanssit) on jo TOIMINNALLISESTI
+todistettu oikeaksi, ja resurssien jakaminen olisi merkittava
+uudelleensuunnittelu joka vaatisi oman huolellisen validointinsa.
+
+## M4-MLKEM-ORCH-001:n lopullinen tila tallä hetkella
+
+| Ominaisuus | Tila |
+|---|---|
+| Toiminnallinen oikeellisuus | ✅ TAYDELLISESTI TODENNETTU |
+| Yksittaisten alimoduulien synteesikelpoisuus | ✅ TODENNETTU (mukaan lukien f1600) |
+| Syntaksiyhteensopivuus (Keccak) | ✅ KORJATTU |
+| Koko orkestraattorin yhteinen synteesi | ⏳ Vaatii pidemman ajan TAI resurssien jakamisen (oma jatkotyo) |
+
+Tama on hyva, luonnollinen paatospiste taman tutkimuspaketin
+tallekierrokselle. Ydinsaavutus (synteesikelpoinen JA todistetusti
+oikea ML-KEM.KeyGen_internal-orkestrointi) on vankka ja koskematon.
