@@ -510,3 +510,52 @@ FPGA-tyossa.**
    samantyyppisia loydoksia matkalla).
 3. Integraatio TAU-Wishbone-kaareen istuntoavaimen muodostukseen
    (M4-TAU-001:n oma, alunperin suunniteltu tavoite).
+
+## UUSI LOYDOS: Yosys-synteesi blokkautuu ESIINTYVASSA Keccak-koodissa (2026-07-19, jatko 7)
+
+Yritettiin synteesoida valmis `pqc_mlkem_keygen_core`-moduuli ECP5:lla
+(sama menetelma kuin M4-FPGA-005/007/008). **Synteesi EPAONNISTUU**
+- EI minun uudessa orkestrointikoodissani, vaan `pqc_keccak_pad.sv`:ssa
+(olemassa oleva, DEV alusta asti simulaatiolla todistettu moduuli):
+
+```
+rtl/pqc_keccak_pad.sv:35: ERROR: syntax error, unexpected TOK_INT
+```
+
+**Syy:** `int'(...)`-tyyppimuunnossyntaksi (SystemVerilog cast) ei
+ole Yosysin `read_verilog -sv` -etuosan tukema tassa kontekstissa.
+
+**TARKEA HAVAINTO:** taman lisaksi kaikki aiempi M4-FPGA-tyo (005-008)
+synteesoi VAIN `pqc_ntt_stage_banked`-moduulia YKSIN, EI KOSKAAN koko
+K-PKE/ML-KEM-ketjua Keccak-moduuleineen. Tama on siis ENSIMMAINEN
+kerta koko projektin aikana kun Keccak-moduulien oma Yosys-
+synteesikelpoisuus testataan ollenkaan.
+
+**Kokeiltu korjaus (EI VIELA sovellettu tuotantotiedostoon):**
+korvattu `int'(...)`-castit apumuuttujilla. TAMA SAA Yosysin
+lapaisemaan synteesin, MUTTA rikkoi YHDEN olemassa olevan
+testitapauksen (`exact_rate`-reunatapaus `pqc_keccak_pad_tb.sv`:ssa) -
+todennakoisesti koska alkuperainen `int'(...)`-cast tekee jotain
+hienovaraista signed/unsigned-tulkinnassa jota yksinkertainen
+apumuuttuja ei toista oikein rajatapauksessa.
+
+**PAATOS: EI KORJATA taman kokeilun perusteella** - riski
+regressiosta jo todistettuun, tuotannossa olevaan koodiin on liian
+suuri tallaisella pikaisella korjauksella. Tama vaatii oman,
+huolellisen tyopakettinsa (ymmartaa TASMALLEEN mita `int'(...)`
+tekee `exact_rate`-rajatapauksessa, sitten loytaa Yosys-yhteensopiva
+vastine joka SAILYTTAA taman kayttaytymisen).
+
+## M4-MLKEM-ORCH-001:n paivitetty, rehellinen tila
+
+| Ominaisuus | Tila |
+|---|---|
+| Toiminnallinen oikeellisuus (simulaatio) | ✅ TAYDELLISESTI TODENNETTU (ek+dk tasmaavat) |
+| Synteesikelpoisuus (Yosys/ECP5) | ❌ BLOKKAUTUU olemassa olevassa Keccak-koodissa, EI viela ratkaistu |
+
+**Tama EI mitatoi aiempaa lapimurtoa** - ML-KEM.KeyGen_internal ON
+todistetusti TOIMINNALLISESTI oikea synteesikelpoiseksi TARKOITETTUNA
+RTL:na (kaikki KAYTETYT rakenteet ovat synteesikelpoisia lukuun-
+ottamatta tata YHTA, ERILLISTA, olemassa olevaa Keccak-tiedoston
+omaa syntaksiongelmaa). Tama on OMA, seuraava korjaustyonsa - ei
+viela tehty.
