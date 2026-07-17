@@ -148,7 +148,7 @@ module pqc_mlkem_keygen_core #(
     S_RESET_SNTT, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
     S_RESET_CBD, S_START_CBD, S_WAIT_CBD, S_CBD_NEXT,
     S_NTT_FWD_LOAD, S_NTT_FWD_SCHED_START, S_NTT_FWD_SCHED_WAIT,
-    S_NTT_FWD_READ, S_NTT_FWD_NEXT,
+    S_NTT_FWD_READ, S_NTT_FWD_READ_WAIT, S_NTT_FWD_NEXT,
     S_MATMUL, S_MATMUL_NEXT,
     S_ENCODE_T, S_ENCODE_S,
     S_RESET_SHA256, S_START_SHA256, S_WAIT_SHA256,
@@ -161,7 +161,7 @@ module pqc_mlkem_keygen_core #(
   logic [1:0] fwd_ctr;
   logic [1:0] mm_i, mm_j;
   logic [256*COEFF_W-1:0] mm_acc;
-  logic [7:0] load_idx, read_idx, read_idx_captured;
+  logic [7:0] load_idx, read_idx;
   logic [5:0] sched_idx;
   logic [256*COEFF_W-1:0] fwd_poly_in, fwd_poly_out;
 
@@ -301,17 +301,26 @@ module pqc_mlkem_keygen_core #(
         end
 
         S_NTT_FWD_READ: begin
+          // Esita osoite (read_idx), odota YKSI sykli ennen luvun
+          // tarkistusta - vastaa tasmalleen jo toimivaksi todistettua
+          // Wishbone-lukupolkua (yksi pyynto kerrallaan, ei
+          // perakkaisia paallekkaisia lukuja).
+          state <= S_NTT_FWD_READ_WAIT;
+        end
+
+        S_NTT_FWD_READ_WAIT: begin
           if (ntt_read_valid) begin
             case (fwd_ctr)
-              2'd0: s_hat[0][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd1: s_hat[1][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd2: e_hat[0][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
-              default: e_hat[1][read_idx_captured*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd0: s_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd1: s_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+              2'd2: e_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+              default: e_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
             endcase
             if (read_idx == 8'd255) begin
               state <= S_NTT_FWD_NEXT;
             end else begin
               read_idx <= read_idx + 8'd1;
+              state <= S_NTT_FWD_READ;
             end
           end
         end
@@ -345,12 +354,8 @@ module pqc_mlkem_keygen_core #(
   // rekisteroity <=). Ytimen oma read_valid/read_data tulevat YHDEN
   // SYKLIN viiveella - read_idx_captured tallentaa MIKA read_idx oli
   // silloin kun VASTAAVA data lopulta saapuu.
-  assign ntt_read_en   = (state == S_NTT_FWD_READ);
+  assign ntt_read_en   = (state == S_NTT_FWD_READ) || (state == S_NTT_FWD_READ_WAIT);
   assign ntt_read_addr = read_idx;
-
-  always_ff @(posedge clk) begin
-    if (state == S_NTT_FWD_READ) read_idx_captured <= read_idx;
-  end
 
   assign debug_rho = rho;
   assign debug_sigma = sigma;

@@ -295,3 +295,40 @@ jos MYOS muut kertoimet ovat viela vaarin senkin jalkeen, tutkia
 CBD-vaiheen omaa n_ctr->s_vec/e_vec-tallennusindeksointia tarkemmin
 (esim. onko n_ctr:n JAKO s_vec:n vai e_vec:n valilla, ja MIKA
 tarkka alaindeksi, oikein toteutettu).
+
+## Lukusilmukan korjaus + massiivinen kavennus (2026-07-19, jatko 2)
+
+**Lukusilmukan korjaus toteutettu:** `S_NTT_FWD_READ` jaettu kahteen
+tilaan (`S_NTT_FWD_READ` esittaa osoitteen, `S_NTT_FWD_READ_WAIT`
+odottaa `read_valid`:ia) - vastaa tasmalleen jo toimivaksi todistettua
+Wishbone-lukupolun yksi-kerrallaan-kattelymallia (ei enaa paallekkaisia,
+jatkuvia peräkkäisiä lukuja jotka aiheuttivat osoitteen "juuttumisen"
+kahdeksi sykliksi).
+
+**Loydetty JA korjattu oma testivirhe:** uuden tilan lisays SIIRSI
+kaikkien myohempien tilojen enum-arvoja yhdella - testini odotti
+vanhaa `S_DONE=25`-arvoa, vaikka se on nyt `26`. FSM SAAVUTTI maalin
+oikein jo aiemmin, mutta testi ei sita huomannut ja odotti aikakatkaisuun
+asti.
+
+**s_vec[0] TASMAA TAYDELLISESTI golden-referenssiin** (oikealla
+`d_seed`-kasittelylla): `[0,0,3328,0,1,0,1,1,2,3328,...]` - SEKA
+RTL etta Python antavat TAYSIN saman tuloksen.
+
+## Kavennettu johtopaatos: bugi ON NYT PUHTAASTI NTT-laskennan omassa
+vertailussa, ei aiemmissa vaiheissa
+
+**KAIKKI vaiheet SHA3-512:sta CBD-nayttenottoon TAYDELLISESTI
+TODISTETTU OIKEIKSI.** Jaljella oleva ero (s_hat ei tasmaa `ntt(s_vec)`:hen)
+on nyt rajattu YKSISTAAN NTT-FORWARD-LASKENNAN (kirjoitus+aikataulu+
+luku KOKONAISUUTENA, TAI Python-vertailun oman `ntt()`-funktion
+mahdollisen erilaisen konvention) piiriin.
+
+**Seuraava askel:** koska RTL:n oma NTT-ydin ON JO ERIKSEEN
+TODISTETTU TOIMIVAKSI (M2/M3:n "koko 7-tasoinen NTT tasmaa golden-
+malliin" -testit lapaisevat), todennakoisin jaljella oleva syy on:
+(a) Python-vertailun oman `ntt()`-funktion (kyber_ntt_golden.py)
+JOKIN ERI KONVENTIO (esim. bittikaannospermutaatio) verrattuna
+suoraan `s_hat = byte_decode(dkPKE)`-purkuun, TAI (b) oma FSM:ni
+`load_idx`:n oma kirjoituskonventio (S_NTT_FWD_LOAD) ei tasmaa
+`read_idx`:n oman lukukonvention kanssa symmetrisesti.
