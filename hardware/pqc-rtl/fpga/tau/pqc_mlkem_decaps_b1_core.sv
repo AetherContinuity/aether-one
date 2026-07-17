@@ -38,9 +38,38 @@ module pqc_mlkem_decaps_b1_core #(
     output logic done,
     output logic [4*256*COEFF_W-1:0] A_out_flat,        // A[0][0],A[0][1],A[1][0],A[1][1] jarjestyksessa
     output logic [K*256*COEFF_W-1:0] y_vec_out_flat,
+    output logic [K*256*COEFF_W-1:0] y_hat_out_flat,     // B2a: NTT-forward(y_vec)
     output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
     output logic [256*COEFF_W-1:0] e2_poly_out
 );
+
+  // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
+  logic ntt_start, stage_done, bank_conflict_detected;
+  logic [7:0] ntt_count, ntt_pair_dist;
+  logic ntt_mode;
+  logic [8:0] base_addr_lane0, base_addr_lane1;
+  logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+  logic ntt_load_valid, ntt_read_en, ntt_read_valid;
+  logic [7:0] ntt_load_addr, ntt_read_addr;
+  logic [COEFF_W-1:0] ntt_load_data, ntt_read_data;
+
+  pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(9), .FPGA_BRINGUP(1)) ntt_dut (
+    .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
+    .pair_dist(ntt_pair_dist), .mode(ntt_mode),
+    .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+    .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+    .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+    .load_valid(ntt_load_valid), .load_addr(ntt_load_addr), .load_data(ntt_load_data),
+    .read_en(ntt_read_en), .read_addr(ntt_read_addr), .read_valid(ntt_read_valid), .read_data(ntt_read_data)
+  );
+
+  logic [71:0] fwd_schedule_rom [0:63];
+  initial $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", fwd_schedule_rom);
+
+  logic [256*COEFF_W-1:0] y_hat [0:K-1];
+  logic [1:0] fwd_ctr;
+  logic [5:0] sched_idx;
+  logic [7:0] load_idx, read_idx;
 
   logic samplentt_start, samplentt_done, samplentt_err;
   logic [255:0] samplentt_rho;
@@ -87,9 +116,11 @@ module pqc_mlkem_decaps_b1_core #(
   logic [256*COEFF_W-1:0] y_vec [0:K-1];
   logic [256*COEFF_W-1:0] e1_vec [0:K-1];
 
-  typedef enum logic [3:0] {
+  typedef enum logic [4:0] {
     S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
-    S_START_CBD1, S_WAIT_CBD1, S_START_CBD2, S_WAIT_CBD2, S_CBD_NEXT, S_DONE
+    S_START_CBD1, S_WAIT_CBD1, S_START_CBD2, S_WAIT_CBD2, S_CBD_NEXT,
+    S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT,
+    S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT, S_DONE
   } state_e;
   state_e state;
 
@@ -97,6 +128,8 @@ module pqc_mlkem_decaps_b1_core #(
     samplentt_start <= 1'b0;
     cbd1_start <= 1'b0;
     cbd2_start <= 1'b0;
+    ntt_start <= 1'b0;
+    ntt_load_valid <= 1'b0;
     done <= 1'b0;
 
     if (reset) begin
@@ -181,12 +214,82 @@ module pqc_mlkem_decaps_b1_core #(
           if (cbd2_done) begin
             if (n_ctr == 2*K) begin
               e2_poly_out <= cbd2_out;
-              state <= S_DONE;
+              fwd_ctr <= 2'd0; load_idx <= 8'd0;
+              state <= S_FWD_LOAD;
             end else begin
               e1_vec[n_ctr - K] <= cbd2_out;
               n_ctr <= n_ctr + 3'd1;
               state <= S_START_CBD2;
             end
+          end
+        end
+
+        // --- B2a: NTT-forward y_vec[0], y_vec[1] -> y_hat[0], y_hat[1]
+        // (sama, jo todistettu bring-up-metodologia kuin M4-MLKEM-
+        // ORCH-001:ssa ja Decaps Phase A:ssa) ---
+        S_FWD_LOAD: begin
+          ntt_load_valid <= 1'b1;
+          ntt_load_addr  <= load_idx;
+          ntt_load_data  <= y_vec[fwd_ctr][load_idx*COEFF_W +: COEFF_W];
+          if (load_idx == 8'd255) begin
+            sched_idx <= 6'd0;
+            state <= S_FWD_SCHED_SETUP;
+          end else load_idx <= load_idx + 8'd1;
+        end
+
+        S_FWD_SCHED_SETUP: begin
+          ntt_load_valid <= 1'b0;
+          begin
+            logic [71:0] entry;
+            entry = fwd_schedule_rom[sched_idx];
+            ntt_count       <= entry[65:58];
+            ntt_pair_dist   <= entry[57:50];
+            base_addr_lane0 <= entry[49:41];
+            zeta_lane0      <= entry[40:25];
+            base_addr_lane1 <= entry[24:16];
+            zeta_lane1      <= entry[15:0];
+          end
+          ntt_mode <= 1'b0;
+          state <= S_FWD_SCHED_START;
+        end
+
+        S_FWD_SCHED_START: begin
+          ntt_start <= 1'b1;
+          state <= S_FWD_SCHED_WAIT;
+        end
+
+        S_FWD_SCHED_WAIT: begin
+          if (stage_done) begin
+            if (sched_idx == 6'd63) begin
+              read_idx <= 8'd0;
+              state <= S_FWD_READ;
+            end else begin
+              sched_idx <= sched_idx + 6'd1;
+              state <= S_FWD_SCHED_SETUP;
+            end
+          end
+        end
+
+        S_FWD_READ: state <= S_FWD_READ_WAIT;
+
+        S_FWD_READ_WAIT: begin
+          if (ntt_read_valid) begin
+            y_hat[fwd_ctr][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+            if (read_idx == 8'd255) state <= S_FWD_NEXT;
+            else begin
+              read_idx <= read_idx + 8'd1;
+              state <= S_FWD_READ;
+            end
+          end
+        end
+
+        S_FWD_NEXT: begin
+          if (fwd_ctr == K-1) begin
+            state <= S_DONE;
+          end else begin
+            fwd_ctr <= fwd_ctr + 2'd1;
+            load_idx <= 8'd0;
+            state <= S_FWD_LOAD;
           end
         end
 
@@ -203,6 +306,10 @@ module pqc_mlkem_decaps_b1_core #(
   // --- Litistys: sisaiset unpacked-taulukot -> paketoidut ulostuloportit ---
   assign A_out_flat = {A[1][1], A[1][0], A[0][1], A[0][0]};
   assign y_vec_out_flat = {y_vec[1], y_vec[0]};
+  assign y_hat_out_flat = {y_hat[1], y_hat[0]};
   assign e1_vec_out_flat = {e1_vec[1], e1_vec[0]};
+
+  assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT);
+  assign ntt_read_addr = read_idx;
 
 endmodule

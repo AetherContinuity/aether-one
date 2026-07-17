@@ -164,3 +164,37 @@ jaljella olevaa bugia taman kirjoitushetkella.**
 | Phase B4: FO-valinta | ❌ |
 | Wishbone-integraatio | ❌ |
 | Synteesi + P&R | ❌ |
+
+## Phase B2a VALMIS: NTT-forward y_vec:lle (2026-07-19, jatko 3)
+
+**Kayttajan oma B2a/B2b-jako otettu kayttoon.** Taydentava havainto:
+testipenkista tarkistettuna VAIN `y_vec` muunnetaan NTT-muotoon -
+`e1_vec` ja `e2_poly` pysyvat normaalialueella, lisataan vasta
+inverse-muunnoksen JALKEEN.
+
+**Toteutus:** laajennettu `pqc_mlkem_decaps_b1_core.sv` sisaltamaan
+NTT-forward-silmukka `y_vec[0]`, `y_vec[1]` -> `y_hat[0]`, `y_hat[1]`
+- sama, jo kolmesti todistettu bring-up-metodologia (KeyGen, Decaps
+Phase A).
+
+**Testitulos:**
+```
+OK: y_hat[0] (B2a, NTT-forward) tasmaa taydellisesti
+PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
+```
+
+**PASS TAYDELLISESTI - ei loydettya bugia tassa vaiheessa** (kolmas
+peraikkainen kerta kun taman metodologian uudelleenkaytto onnistuu
+suoraan).
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ |
+| Phase B2a: NTT-forward y_vec:lle | ✅ |
+| Phase B2b: Matriisikertolasku (A·y, t_hat·y) | ❌ Seuraava |
+| Phase B3: Compress + ByteEncode -> c' | ❌ |
+| Phase B4: FO-valinta | ❌ |

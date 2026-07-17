@@ -13,6 +13,7 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [255:0] r_prime_in;
   logic [4*256*COEFF_W-1:0] A_out_flat;
   logic [K*256*COEFF_W-1:0] y_vec_out_flat;
+  logic [K*256*COEFF_W-1:0] y_hat_out_flat;
   logic [K*256*COEFF_W-1:0] e1_vec_out_flat;
   logic [256*COEFF_W-1:0] e2_poly_out;
 
@@ -22,7 +23,8 @@ module pqc_mlkem_decaps_b1_core_tb;
     .clk(clk), .reset(reset), .start(start),
     .ek_in(ek_in), .r_prime_in(r_prime_in),
     .done(done), .A_out_flat(A_out_flat),
-    .y_vec_out_flat(y_vec_out_flat), .e1_vec_out_flat(e1_vec_out_flat),
+    .y_vec_out_flat(y_vec_out_flat), .y_hat_out_flat(y_hat_out_flat),
+    .e1_vec_out_flat(e1_vec_out_flat),
     .e2_poly_out(e2_poly_out)
   );
 
@@ -84,6 +86,15 @@ module pqc_mlkem_decaps_b1_core_tb;
 
     if (e2_poly_out === e2_golden) $display("OK: e2_poly tasmaa taydellisesti");
     else begin $display("FAIL: e2_poly EI tasmaa"); error_count++; end
+
+    begin
+      logic [256*COEFF_W-1:0] y0_hat_golden;
+      fh = $fopen("fpga/tau/decaps_b2a_golden.txt", "r");
+      scan_ok = $fscanf(fh, "%h\n", y0_hat_golden);
+      $fclose(fh);
+      if (y_hat_out_flat[256*COEFF_W-1:0] === y0_hat_golden) $display("OK: y_hat[0] (B2a, NTT-forward) tasmaa taydellisesti");
+      else begin $display("FAIL: y_hat[0] EI tasmaa"); error_count++; end
+    end
 
     $display("--------------------------------------------------");
     if (error_count == 0) $display("PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin");
