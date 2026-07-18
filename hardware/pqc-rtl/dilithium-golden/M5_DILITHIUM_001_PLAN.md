@@ -210,7 +210,65 @@ kelpoisena tilakoneena (todennakoisesti: ulompi FSM-kerros joka
 kutsuu sisemman FSM:n uudelleen kappa+1:lla epaonnistuessa,
 rajallisella max-yrityskertaluvulla turvallisuussyista).
 
-## 8. Ei viela tehty / seuraava konkreettinen askel
+## 8. Suorituskykymittarit (maaritelty ETUKATEEN, kayttajan oma huomio)
+
+**Kayttajan oma perustelu:** ML-KEM-projektissa mittarit (Fmax,
+solumaara, syklit/NTT, us/operaatio) osoittautuivat hyodyllisiksi
+VASTA jalkikateen (M4-FPGA-005..008). Dilithium-tyolle maaritellaan
+samat mittarikategoriat NYT, suunnitteluvaiheessa, jotta jokainen
+tyopaketti (KeyGen/Verify/Sign) voidaan arvioida VERTAILUKELPOISESTI
+alusta asti, samoin kuin koko TAU-kehyksen myohempi dokumentointi
+helpottuu.
+
+### 8.1 Mitattavat suureet
+
+| Mittari | Mittaustapa | ML-KEM:n oma vertailuarvo |
+|---|---|---|
+| Syklit / NTT (32-bit) | Simulaatio, kiintea syote | ML-KEM: 448 sykli/NTT-taso * 7 tasoa (READ_LATENCY=1) |
+| Syklit / KeyGen | Simulaatio, kiintea siemen | ML-KEM.KeyGen: 11336 sykli |
+| Syklit / Verify | Simulaatio, kiintea (pk,m,sig) | ML-KEM.Decaps (verrannollinen, ei silmukkaa): ~7288 sykli |
+| Syklit / Sign | Simulaatio, **KESKIARVO JA VAIHTELUVALI** usealla eri siemenella (hylkayssilmukan vuoksi) | Ei ML-KEM-vastinetta - UUSI mittari |
+| Hylkaysten maara / Sign | Tilastoitava usean ajon yli (rvv-dilithium:n oma kokemus: ~9 yritysta yhdessa tapauksessa) | Ei ML-KEM-vastinetta - UUSI mittari |
+| LUT/FF/BRAM/DSP (ECP5) | `nextpnr-ecp5`-resurssiraportti | ML-KEM (KeyGen, taysi orkestraattori): ~9057 solua VAIN f1600:lle |
+| Fmax | `nextpnr-ecp5 --timing-report` | ML-KEM (pqc_ntt_stage_banked, optimoitu): 30.40 MHz |
+| Lapimenoaika (us/operaatio) | sykli-maara / Fmax | ML-KEM: 80.13 us/NTT (1-vaiheisella pipelinella) |
+
+**HUOM Signin oma erityispiirre:** koska hylkayssilmukka voi toistua
+vaihtelevan maaran kertoja, "syklit/Sign" EI ole yksi luku vaan
+JAKAUMA - raportoitava AINA keskiarvo + min/max (tai mieluummin
+mediaani + 95. persentiili) VAHINTAAN 20-30 eri siemenella/viestilla,
+EI VAIN yhdella tapauksella (toisin kuin KeyGen/Verify, joilla yksi
+mittaus riittaa koska ei ole satunnaisuutta sykliluvun laskennassa).
+
+### 8.2 Hyvaksymiskriteerit (samat neljä kategoriaa kuin ML-KEM:ssa)
+
+Jokaiselle tyopaketille (DILITHIUM-KEYGEN, -VERIFY, -SIGN) sovelletaan
+TASMALLEEN samat neljä hyvaksymiskriteeria kuin ML-KEM:ssa:
+
+1. **Algoritminen oikeellisuus** - golden-vertailu `dilithium-py`:ta
+   vasten (EI omaa manuaalista referenssia, ks. osio 5), useilla
+   testitapauksilla (mukaan lukien negatiivikontrollit: vaara viesti,
+   turmeltu allekirjoitus - kuten rvv-dilithium:ssa jo tehtiin).
+2. **Regressiotestit** - CI-integroitu, samalla run_*.sh + workflow-
+   mallilla kuin ML-KEM:lla. Regressiotestin OMA toimivuus todistettava
+   (esim. palauttamalla loydetty bugi tarkoituksella, kuten AUDIT_
+   WORD_SEL-tapauksessa) ennen tyopaketin sulkemista.
+3. **Synteesikelpoisuus** - Yosys/nextpnr-ecp5-synteesi lapaisty,
+   DP16KD (jos BRAM-pohjaista muistia kaytetaan) tai vastaava
+   resurssi vahvistettu oikeaksi maaraksi.
+4. **Mitattu suorituskyky** - kaikki osion 8.1 mittarit raportoitu
+   JOKAISELLE tyopaketille ENNEN sen sulkemista, EI vasta jalkikateen.
+
+### 8.3 Miksi tama helpottaa koko TAU-kehyksen dokumentointia
+
+Kun Dilithium-tyo raportoi TASMALLEEN samat mittarikategoriat kuin
+ML-KEM (ks. taulukko 8.1), koko TAU-kehyksen (KeyGen+Encaps+Decaps+
+DilithiumKeyGen+Verify+Sign) YHTEENVETOTAULUKKO voidaan koota
+YHTENAISESTI ilman jalkikateista mittariyhdenmukaistamista - sama
+rakenne joka jo osoittautui arvokkaaksi ML-KEM:n omassa M4-FPGA-
+sarjassa (M4_TAU_FULL_PROTOCOL_MILESTONE.md:n oma vertailutaulukko).
+
+## 9. Ei viela tehty / seuraava konkreettinen askel
 
 Tama dokumentti on SUUNNITELMA, ei toteutusta. Seuraava konkreettinen
 askel (kun tyo aloitetaan): **DK1 - 32-bittinen NTT-ydin** -
