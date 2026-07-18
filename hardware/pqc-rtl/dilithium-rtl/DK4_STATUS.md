@@ -96,3 +96,33 @@ testiajoa, tarkistamalla arvoalueet huolellisesti).
 | Power2Round (yksittainen kerroin) | ✅ |
 | Power2Round koko t-vektorille (6*256 kerrointa) | ❌ Seuraava (suoraviivainen, taysin rinnakkainen laajennus) |
 | Pakkaus ek/dk-muotoon | ❌ |
+
+## Power2Round koko t-vektorille VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 2)
+
+**Toteutus:** `pqc_dilithium_power2round_vector.sv` - silmukoi
+todistetun yksittaisen `pqc_dilithium_power2round.sv`:n K*256=1536
+kertaa generate-lohkolla, taysin rinnakkainen/kombinatorinen.
+
+**Testitulos:**
+```
+OK: t1 (6*256 kerrointa) tasmaa taydellisesti
+OK: t0 (6*256 kerrointa) tasmaa taydellisesti
+PASS: Power2Round koko t-vektorille tasmaa taydellisesti
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, verrattu suoraan
+`dilithium-py`:n omaan `t.power_2_round(D)`-metodiin (kayttaen
+todellista, DK4:n omaa `t`-arvoa - EI erillista testivektoria).
+
+## DK4:n LOPULLINEN tila
+
+| Osa | Tila |
+|---|---|
+| t-laskenta (matriisikertolasku+NTT) | ✅ |
+| Power2Round (yksittainen + koko vektori) | ✅ |
+| Pakkaus ek/dk-muotoon | ❌ Viimeinen askel |
+
+**DK4 on lahes kokonaan valmis** - jaljella VAIN lopullinen tavu-
+pakkaus (`bit_pack_t1`, `bit_pack_s`, `bit_pack_t0`) ek/dk-formaattiin,
+minka jalkeen koko KeyGen-orkestrointi voidaan koota yhteen kaikista
+DK1-DK4:n jo todistetuista palasista.
