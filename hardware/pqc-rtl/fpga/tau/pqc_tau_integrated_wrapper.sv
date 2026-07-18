@@ -146,6 +146,15 @@ module pqc_tau_integrated_wrapper #(
   localparam logic [255:0] KEYGEN_WATCHDOG_INTERRUPTED_HASH =
     256'h7d07634cc39e92beabe29262bd672fd15156917f4cfb96b60531dfe36d9e476;
 
+  // M4-DECAPS-ORCH-001 Wishbone-integraatio: samat kolme tapahtuma-
+  // tyyppia myos Decapsille, samalla periaatteella.
+  localparam logic [255:0] DECAPS_STARTED_HASH =
+    256'h17a30f6b265de08941701b60853803f3765366e6813c8ff7049c65d0f7443a5;
+  localparam logic [255:0] DECAPS_COMPLETED_HASH =
+    256'hc8e62f26f38dfe54ea7377f2d1f9e095416dab0e7283e492f31549c78b3563c8;
+  localparam logic [255:0] DECAPS_WATCHDOG_INTERRUPTED_HASH =
+    256'h0f3634643e79382fd48f5100fcaaa5c9dda010e2756a9a4729240cd3a7cd5152;
+
   logic keygen_busy;
   logic decaps_busy;
   logic pending_audit_valid;
@@ -160,27 +169,41 @@ module pqc_tau_integrated_wrapper #(
       if (keygen_done) keygen_busy <= 1'b0;
       if (decaps_start) decaps_busy <= 1'b1;
       if (decaps_done) decaps_busy <= 1'b0;
-      // Watchdog-keskeytys KESKEN KeyGenin oman ajon - pysayta myos
-      // ajon oma tila (ECU ei voi enaa luottaa keskeneraiseen tulokseen)
+      // Watchdog-keskeytys KESKEN KeyGenin TAI Decapsin oman ajon -
+      // pysayta myos ajon oma tila (ECU ei voi enaa luottaa
+      // keskeneraiseen tulokseen)
       if (wd_timeout_event && keygen_busy) keygen_busy <= 1'b0;
+      if (wd_timeout_event && decaps_busy) decaps_busy <= 1'b0;
     end
   end
 
-  // --- Audit-kirjoitusarbitrointi: watchdog-keskeytys > KeyGen-
-  // omat tapahtumat (kaynnistys/valmistuminen) - sama periaate
-  // kuin pqc_tau_core.sv:ssa (M4-TAU-001 Osa 4). ---
+  // --- Audit-kirjoitusarbitrointi: watchdog-keskeytys (KeyGen tai
+  // Decaps) > KeyGen-omat tapahtumat > Decaps-omat tapahtumat -
+  // sama periaate kuin pqc_tau_core.sv:ssa (M4-TAU-001 Osa 4). ---
   logic keygen_event_pending;
   logic [255:0] keygen_event_hash;
   logic pending_watchdog_interrupt;
+  logic pending_watchdog_interrupt_decaps;
+  logic decaps_event_pending;
+  logic [255:0] decaps_event_hash;
   always_ff @(posedge clk) begin
     if (rst) begin
       keygen_event_pending <= 1'b0;
       pending_watchdog_interrupt <= 1'b0;
+      pending_watchdog_interrupt_decaps <= 1'b0;
+      decaps_event_pending <= 1'b0;
     end else begin
       if (wd_timeout_event && keygen_busy) begin
         pending_watchdog_interrupt <= 1'b1;
       end else if (audit_write_valid && !audit_write_busy && pending_watchdog_interrupt) begin
         pending_watchdog_interrupt <= 1'b0;
+      end
+
+      if (wd_timeout_event && decaps_busy) begin
+        pending_watchdog_interrupt_decaps <= 1'b1;
+      end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+                    pending_watchdog_interrupt_decaps) begin
+        pending_watchdog_interrupt_decaps <= 1'b0;
       end
 
       if (keygen_start) begin
@@ -189,14 +212,30 @@ module pqc_tau_integrated_wrapper #(
       end else if (keygen_done) begin
         keygen_event_pending <= 1'b1;
         keygen_event_hash <= KEYGEN_COMPLETED_HASH;
-      end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt) begin
+      end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+                    !pending_watchdog_interrupt_decaps) begin
         keygen_event_pending <= 1'b0;
+      end
+
+      if (decaps_start) begin
+        decaps_event_pending <= 1'b1;
+        decaps_event_hash <= DECAPS_STARTED_HASH;
+      end else if (decaps_done) begin
+        decaps_event_pending <= 1'b1;
+        decaps_event_hash <= DECAPS_COMPLETED_HASH;
+      end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+                    !pending_watchdog_interrupt_decaps && !keygen_event_pending) begin
+        decaps_event_pending <= 1'b0;
       end
     end
   end
 
-  assign audit_write_valid = pending_watchdog_interrupt || keygen_event_pending;
-  assign audit_decision_hash_buf = pending_watchdog_interrupt ? KEYGEN_WATCHDOG_INTERRUPTED_HASH : keygen_event_hash;
+  assign audit_write_valid = pending_watchdog_interrupt || pending_watchdog_interrupt_decaps ||
+                              keygen_event_pending || decaps_event_pending;
+  assign audit_decision_hash_buf =
+    pending_watchdog_interrupt ? KEYGEN_WATCHDOG_INTERRUPTED_HASH :
+    pending_watchdog_interrupt_decaps ? DECAPS_WATCHDOG_INTERRUPTED_HASH :
+    keygen_event_pending ? keygen_event_hash : decaps_event_hash;
 
   // --- Osoitedekoodaus ---
   wire is_data_range   = (wb_adr_i < 11'h100);

@@ -508,3 +508,50 @@ rinnakkain samalla Wishbone-vaylalla).
 | Synteesi + P&R -vahvistus | ❌ Seuraava |
 | Encaps-orkestrointi (ECU:n oma puoli) | ❌ |
 | Audit-loki/watchdog-integraatio Decapsille (KeyGenin tapaan) | ❌ Pieni lisatyo |
+
+## Audit-loki + watchdog-integraatio Decapsille VALMIS (2026-07-19, jatko 10)
+
+**Toteutus:** Decaps kirjaa nyt audit-lokiin OMAT tapahtumansa
+(DECAPS_STARTED, DECAPS_COMPLETED), erillisilla tunnistehasheilla
+KeyGenista. Watchdog-keskeytys kattaa nyt myos Decapsin oman ajon
+(sama periaate kuin KeyGenille: jos watchdog laukeaa KESKEN Decapsin
+ajon, lokitetaan DECAPS_WATCHDOG_INTERRUPTED-tapahtuma, EI
+DECAPS_COMPLETED-tapahtumaa).
+
+**Arbitrointijarjestys audit-lokin jaetulle kirjoitusresurssille:**
+watchdog-keskeytys (KeyGen) > watchdog-keskeytys (Decaps) > KeyGen-
+omat tapahtumat > Decaps-omat tapahtumat.
+
+**Loydetty oma testivirhe (EI RTL-bugi):** liian aikainen AUDIT_SEQ-
+tarkistus heti Decapsin oman "done"-signaalin jalkeen - audit-lokin
+oma SHA3-256-pohjainen kirjoitus (DECAPS_COMPLETED-tapahtuma) ei ollut
+viela ehtinyt valmistua. Korjattu lisaamalla pieni odotus (100 sykli)
+- sama "kadonnut pulssi" -harkinta kuin aiemmin loydetty M4-SoC-001:ssa.
+
+**Testitulos (pqc_tau_decaps_audit_tb.sv):**
+```
+OK: Decaps valmis 7288 syklin jalkeen
+OK: audit-loki sisaltaa tasan kaksi merkintaa
+OK: seq=0 on DECAPS_STARTED-tapahtuma
+OK: seq=1 on DECAPS_COMPLETED-tapahtuma
+PASS: Decaps kirjaa audit-lokiin oikeat, omat tapahtumat
+```
+
+**Ei regressiota:** kaikki neljä olemassa olevaa integraatiotestia
+(KeyGen-paasta-paahan, watchdog-keskeytys, audit-multiword, Decaps-
+Wishbone) PASSAAVAT edelleen samassa, yhdistetyssa kaareessa.
+
+## M4-DECAPS-ORCH-001:n LOPULLINEN tila
+
+| Osa | Tila |
+|---|---|
+| Kaikki 8 algoritmivaihetta | ✅ |
+| Yhdistetty huippumoduuli | ✅ |
+| Wishbone-integraatio TAU-kehykseen | ✅ |
+| Audit-loki + watchdog-integraatio | ✅ |
+| Synteesi + P&R -vahvistus | ❌ Seuraava |
+| Encaps-orkestrointi (ECU:n oma puoli) | ❌ |
+
+**TAU:n palvelukehys tukee nyt SEKA KeyGenia etta Decapsia,
+molemmat samalla, todistetulla mallilla (START/STATUS-rekisterit,
+audit-tapahtumat, watchdog-suoja).**
