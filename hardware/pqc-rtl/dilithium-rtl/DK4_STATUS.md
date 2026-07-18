@@ -159,3 +159,35 @@ oma etumerkkimuunnos (`eta-c`) ennen 4-bittista pakkausta, (b) t0:n
 oma etumerkkimuunnos (`4096-c`) ennen 13-bittista pakkausta, (c)
 `tr=H(ek)` (SHA3-512, 64 tavua, uudelleenkaytettava suoraan jo
 todistettu SHA3-512-ydin), (d) kaikkien osien yhdistaminen.
+
+## bit_pack_s (s1/s2, yksi polynomi) VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 4)
+
+**Toteutus:** `pqc_dilithium_pack_s.sv` - `altered = (ETA-c) mod Q`.
+Koska c=ETA-nelijas (kayttopaikan oma generointikaava), altered
+PALAUTTAA SUORAAN alkuperaisen nelijaksen [0,8].
+
+**Tekninen huomio:** kaksinkertaisen komplementin BITTIVALINTA
+(`c_lo[3:0]`) etumerkillisesta arvosta ja SUORA 4-bittinen
+vahennyslasku (`ETA[3:0]-c_lo[3:0]`) toimii OIKEIN modulaarisen
+aritmetiikan ansiosta ilman erillista etumerkinkasittelya - todistettu
+empiirisesti, ei vain paateltyna.
+
+**Testitulos:**
+```
+PASS: bit_pack_s (ETA=4) tasmaa taydellisesti dilithium-py:n tulokseen
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, verrattu suoraan
+`dilithium-py`:n omaan `bit_pack_s(4)`-metodiin.
+
+## DK4:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| t-laskenta | ✅ |
+| Power2Round | ✅ |
+| ek-pakkaus | ✅ |
+| s1/s2-pakkaus (yksi polynomi) | ✅ |
+| s1/s2-pakkaus (koko L+K=11 polynomia) | ❌ Seuraava |
+| t0-pakkaus | ❌ |
+| tr=H(ek) + dk:n lopullinen kokoonpano | ❌ |
