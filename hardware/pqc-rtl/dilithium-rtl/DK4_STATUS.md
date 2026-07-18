@@ -126,3 +126,36 @@ todellista, DK4:n omaa `t`-arvoa - EI erillista testivektoria).
 pakkaus (`bit_pack_t1`, `bit_pack_s`, `bit_pack_t0`) ek/dk-formaattiin,
 minka jalkeen koko KeyGen-orkestrointi voidaan koota yhteen kaikista
 DK1-DK4:n jo todistetuista palasista.
+
+## ek-pakkaus VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 3)
+
+**Toteutus:** `pqc_dilithium_pack_ek.sv` - PELKKA `rho`:n ja `t1`:n
+yhdistaminen. Huomio: `dilithium-py`:n oma `__bit_pack`-apufunktio
+pakkaa kertoimet TIUKASTI (kerroin i bittiasemassa [i*n_bits:
+(i+1)*n_bits)) - taman ANSIOSTA `t1_out_flat` (Power2Round-vektorin
+oma ulostulo, jo 256*10-bittisena tiukasti pakattuna per polynomi)
+VASTAA SUORAAN `bit_pack_t1`:n omaa formaattia ilman mitaan
+uudelleenjarjestelya - ek-pakkaus on siis TAYSIN SUORAVIIVAINEN.
+
+**Testitulos:**
+```
+PASS: ek-pakkaus (1952 tavua) tasmaa taydellisesti dilithium-py:n _pack_pk()-tulokseen
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, koko 1952-tavuinen
+`ek` tasmaa taydellisesti `dilithium-py`:n omaan `_pack_pk()`-tulokseen.
+
+## DK4:n LOPULLINEN tila
+
+| Osa | Tila |
+|---|---|
+| t-laskenta | ✅ |
+| Power2Round (yksittainen + koko vektori) | ✅ |
+| ek-pakkaus | ✅ |
+| dk-pakkaus (s1/s2/t0 etumerkkimuunnoksineen + tr=H(ek)) | ❌ Seuraava, viimeinen DK4-askel |
+
+**ek-puoli on nyt TAYSIN VALMIS.** dk-puoli vaatii viela: (a) s1/s2:n
+oma etumerkkimuunnos (`eta-c`) ennen 4-bittista pakkausta, (b) t0:n
+oma etumerkkimuunnos (`4096-c`) ennen 13-bittista pakkausta, (c)
+`tr=H(ek)` (SHA3-512, 64 tavua, uudelleenkaytettava suoraan jo
+todistettu SHA3-512-ydin), (d) kaikkien osien yhdistaminen.
