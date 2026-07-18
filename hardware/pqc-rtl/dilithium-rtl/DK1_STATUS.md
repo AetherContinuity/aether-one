@@ -169,3 +169,97 @@ PASS: RTL-RTL round-trip - NTT^-1(NTT(f)) == f taydellisesti
 | Koko inverse-NTT (+ 256^-1-skaalaus) | ✅ |
 | RTL-RTL round-trip (itsekonsistenssi) | ✅ |
 | Synteesi + suorituskykymittaus (osio 8, suunnitelmasta) | ❌ Seuraava, VIIMEINEN vaihe ennen DK1:n sulkemista |
+
+## Ensimmainen synteesiyritys: LOGIIKKASYNTEESI ONNISTUI, P&R vaatii bring-up-rajapinnan (2026-07-19, jatko 4)
+
+**MERKITTAVA LOYDOS: `pqc_dilithium_ntt_core.sv`:n LOGIIKKASYNTEESI
+(Yosys `synth_ecp5`) ONNISTUI TAYDELLISESTI, ENSIMMAISTA KERTAA KOKO
+TAMAN ISTUNNON AIKANA** (aiemmat ML-KEM-moduulien synteesiyritykset
+aina aikakatkaistiin useiden Keccak-instanssien takia). Tama NTT-ydin
+EI sisalla Keccakia - vain Barrett+butterfly+skedulu-ROM - ja
+synteesoitui alle 280 sekunnissa puhtaasti.
+
+**Solutilastot (Yosys):**
+```
+Number of cells:              54406
+  CCU2C                         267
+  DP16KD                          1  (skedulu-ROM inferoitui BRAM:ksi)
+  L6MUX21                      6003
+  LUT4                        32264
+  MULT18X18D                     14  (Barrett-kertolaskuille)
+  PFUMX                        9872
+  TRELLIS_FF                   5985
+```
+
+**P&R (nextpnr-ecp5) EPAONNISTUI - mutta EI korrektiusongelma:**
+`coeffs_in`/`coeffs_out`-portit ovat 256*23=5888 bittia LEVEITA
+(TAYSIN RINNAKKAINEN "bring-up"-rajapinta, sama tyyli kuin ML-KEM:n
+ALKUPERAINEN, ENNEN FPGA_BRINGUP-korjausta). Tama tuottaa ~11780
+TRELLIS_IO-solmua vaadittuna - MIKAAN oikea ECP5-piiri ei tarjoa
+lahellekaan tata maaraa I/O-pinneja (365 tallä paketilla).
+
+**TAMA ON TASMALLEEN sama, jo aiemmin ratkaistu ongelma kuin
+ML-KEM:n oma M4-FPGA-001** (FPGA_BRINGUP-portit) - ratkaisu on
+TUNNETTU: sana-kerrallaan-lataus/luku (esim. 23-bittinen data-vayla +
+8-bittinen osoite + valid/ready-kasittely) TAYDEN 5888-bittisen
+rinnakkaisportin sijaan.
+
+**Seuraava askel ennen DK1:n sulkemista:** rakennettava bring-up-
+rajapintainen versio (`FPGA_BRINGUP`-parametrilla, sama konventio
+kuin ML-KEM:ssa) JOTTA P&R ja Fmax-mittaus voidaan tehda oikein.
+
+## Bring-up-versio: logiikkasynteesi ONNISTUI, P&R keskeytettiin (2026-07-19, jatko 5)
+
+**Toteutus:** `pqc_dilithium_ntt_core_bringup.sv` - sama laskentalogiikka
+kuin `pqc_dilithium_ntt_core.sv`, mutta sana-kerrallaan lataus/luku
+(sama FPGA_BRINGUP-konventio kuin ML-KEM:ssa) 5888-bittisten
+rinnakkaisporttien sijaan. Todennettu PASS-tuloksella ennen synteesia
+(`pqc_dilithium_ntt_core_bringup_tb.sv`, sama golden-vertailu).
+
+**Mitattu syklimaara (osio 8:n oma suorituskykymittari,
+suunnitelman mukaisesti):**
+```
+Valmis 3584 syklin jalkeen
+```
+= 3584 sykli / 256-kertoiminen NTT (1024 butterfly-operaatiota).
+
+**Logiikkasynteesi (Yosys `synth_ecp5`): ONNISTUI TAYDELLISESTI.**
+
+```
+Number of cells:              76899
+  CCU2C                         262
+  ...
+```
+
+**P&R (nextpnr-ecp5): EI EHTINYT VALMISTUA taman istunnon rajoissa.**
+Yritetty seka lyhyella (280s) etta pidemmalla (1800s taustalla)
+aikarajalla - jalkimmainen eteni sijoittelun lapi (~100000 iteraatiota,
+~11 minuuttia) mutta ei ehtinyt reititykseen/ajoitusanalyysiin asti.
+**TAMA ON SAMA, JO AIEMMIN DOKUMENTOITU RESURSSIRAJOITUS** kuin
+ML-KEM:n omien moduulien P&R-yritykset (KeyGen, Decaps Phase A) -
+EI korrektiusongelma, PUHTAASTI taman tyoymparistin oma suoritusaika-
+rajoitus.
+
+**HUOMIONARVOISTA:** taman moduulin OMA LOGIIKKASYNTEESI (Yosys)
+onnistui NOPEAMMIN ja LUOTETTAVAMMIN kuin mikaan ML-KEM-moduuli taman
+istunnon aikana (ML-KEM:n omat Yosys-yrityksetkin usein aikakatkaistiin
+Keccak-instanssien takia) - tama viittaa etta Dilithium-NTT:n oma
+logiikka (Barrett+butterfly, ei Keccakia) on aidosti KEVYEMPI
+synteesoida kuin ML-KEM:n Keccak-raskaat moduulit. P&R:n oma
+hitaus tassa nayttaa liittyvan enemman TYOYMPARISTON omaan CPU-
+suorituskykyyn kuin taman piirin omaan monimutkaisuuteen.
+
+## DK1:n LOPULLINEN tila (suunnitelman osio 8:n hyvaksymiskriteerit)
+
+| Kriteeri | Tila |
+|---|---|
+| 1. Algoritminen oikeellisuus | ✅ Forward+inverse NTT, 3 todennustasoa, EI loydettya bugia |
+| 2. Regressiotestit | ✅ Kaikki testit toistettavissa `dilithium-rtl/`-kansiossa |
+| 3. Synteesikelpoisuus | ✅ (logiikkasynteesi) / ⏳ (P&R/timing-sulkeuma avoinna) |
+| 4. Mitattu suorituskyky | ✅ (osittain: 3584 sykli/NTT, solutilastot) / ⏳ (Fmax puuttuu P&R:n takia) |
+
+**DK1 on siis FUNKTIONAALISESTI ja METODOLOGISESTI valmis, mutta
+Fmax-mittaus jaa AVOIMEKSI tassa istunnossa** - sama, rehellisesti
+raportoitu rajoitus kuin ML-KEM:n omissa P&R-yrityksissa. Tama ei
+estä siirtymista DK2:een (ExpandA) - Fmax voidaan mitata myohemmin,
+kun/jos pidempi, istunnon ulkopuolinen P&R-ajo on kaytettavissa.
