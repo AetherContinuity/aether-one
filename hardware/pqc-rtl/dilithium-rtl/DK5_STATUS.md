@@ -52,3 +52,41 @@ testissa.**
 | UseHint | ❌ |
 | bit_pack_w | ❌ |
 | Koko Verify-orkestrointi | ❌ |
+
+## Decompose VALMIS - loydetty ja korjattu klassinen SystemVerilog-sudenkuoppa (2026-07-19, jatko)
+
+**Toteutus:** `pqc_dilithium_decompose.sv` - FIPS 204 Algoritmi 36,
+ALPHA=2*GAMMA2=523776 (m=(Q-1)/ALPHA=16).
+
+**LOYDETTY JA KORJATTU: klassinen SystemVerilog mixed signed/
+unsigned -sudenkuoppa.** Ensimmainen versio kirjoitti "rp - r0_signed"
+missa `rp` oli UNSIGNED ja `r0_signed` ETUMERKILLINEN - SystemVerilogin
+oma saanto sanoo etta jos YKSIKIN operandi on unsigned, KOKO
+LAUSEKE kasitellaan unsigned:na, jolloin `r0_signed`:n oma
+etumerkki KATOAA (sen bittikuvio tulkitaan suoraan valtavana
+positiivisena lukuna). Tama aiheutti 263/508 testitapauksen
+epaonnistumisen - AINA `r1`-arvon virhe, `r0` oli AINA oikein
+(koska se ei riippunut tasta sekoituksesta).
+
+**Korjaus:** eksplisiittinen `$signed()`-muunnos MOLEMMILLE
+operandeille ennen vahennyslaskua (`rp_signed = $signed({1'b0,rp})`),
+valttaen sekoitetun signed/unsigned-kontekstin kokonaan.
+
+**Testitulos korjauksen jalkeen:**
+```
+PASS: Decompose tasmaa taydellisesti kaikille 508 testitapaukselle
+```
+
+**PASS TAYDELLISESTI** (8 reunatapausta, mukaan lukien erikoistapaus
+rp-r0==Q-1, + 500 satunnaista).
+
+## DK5:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose (HighBits/LowBits/UseHint:n perusta) | ✅ |
+| UseHint | ❌ Seuraava |
+| unpack_pk/unpack_sig | ❌ |
+| bit_pack_w | ❌ |
+| Koko Verify-orkestrointi | ❌ |
