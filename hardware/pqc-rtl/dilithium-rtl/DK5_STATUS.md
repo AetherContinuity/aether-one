@@ -250,3 +250,47 @@ todistettu.** Jaljella VAIN kokoonpanotyo: unpack_pk/unpack_sig
 (suoraviivaista), tr/mu-hashit (SHAKE256, uudelleenkaytettava), ja
 lopullinen liitanta olemassa oleviin, jo todistettuihin palasiin
 (SampleInBall, UseHint, bit_pack_w).
+
+## Koko Verify-orkestrointi: EI VIELA TOIMINNASSA (2026-07-19, jatko 7)
+
+**HUOM: `pqc_dilithium_verify_top.sv` ja sen testipenkki loytyivat
+jo olemassa olevina tiedostoina taman istunnon aikana (ei suoraa
+muistikuvaa niiden luonnista taman keskustelun sisalla) - ne
+kaantyivat puhtaasti, mutta EIVAT VIELA LAPAISSEET testia.**
+
+**Testitulos:**
+```
+FAIL: aikakatkaisu (600000 syklia)
+verify_ok: x (odotettu: 1, koska allekirjoitus on aito)
+```
+
+`done`-signaali EI koskaan lauennut 600000 syklin sisalla. Taman
+oma, itsenainen `verify_core`-moduuli (Az_minus_ct1-laskenta) tarvitsi
+VAIN 101428 sykli - koko orkestroinnin (ExpandA+SampleInBall+
+Verify-ydin+UseHint+hash-laskennat) OLISI PITANYT tarvita karkeasti
+115000-120000 sykli, EI yli 600000:ta. Tama viittaa GENUINE
+RAKENTEELLISEEN ONGELMAAN taman orkestrointikerroksen omassa FSM:ssa
+(esim. jokin tila joka ei koskaan siirry eteenpain), EI PELKASTAAN
+riittamattomaan aikarajaan (toisin kuin DK4:n keygen_core.sv:n oma,
+aiemmin loydetty vaaraharma "bugi").
+
+**TARKEA EROTTELU:** kaikki YKSITTAISET rakennuspalikat (SampleInBall,
+Decompose, UseHint, bit_unpack_z, unpack_h, bit_pack_w, verify_core/
+Az_minus_ct1-laskenta) OVAT EDELLEEN todistetusti oikein, testattu
+ERIKSEEN ja PASSANNEET. Ongelma on SPESIFISESTI taman `verify_top.sv`
+-orkestrointikerroksen OMASSA kokoonpanologiikassa (esim. FSM-tilojen
+valinen kytkenta, kasittelyjarjestys, tai jokin signaali joka ei
+etene oikein).
+
+## DK5:n rehellinen tila
+
+| Osa | Tila |
+|---|---|
+| KAIKKI yksittaiset rakennuspalikat (SampleInBall...bit_pack_w) | ✅ |
+| Verify-ytimen laskenta (Az_minus_ct1) itsenaisena moduulina | ✅ |
+| Koko Verify-orkestrointi (verify_top.sv) | ❌ EI VIELA TOIMI - vaatii debug-tyota |
+
+**Seuraava askel:** debugata `pqc_dilithium_verify_top.sv`:n oma FSM
+samalla systemaattisella menetelmalla kuin aiemmin (tilasiirtymien
+jaljitys hierarkkisilla signaalinimilla), loytaen tarkka kohta jossa
+tilakone jaa jumiin tai etenee vaarin.
