@@ -294,3 +294,44 @@ etene oikein).
 samalla systemaattisella menetelmalla kuin aiemmin (tilasiirtymien
 jaljitys hierarkkisilla signaalinimilla), loytaen tarkka kohta jossa
 tilakone jaa jumiin tai etenee vaarin.
+
+## Rikkinainen jaannetiedosto POISTETTU - juurisyy: kombinatorinen jumi (2026-07-19, jatko 8)
+
+**Kayttaja vahvisti:** `pqc_dilithium_verify_top.sv` ja sen testipenkki
+olivat jaanteita KESKEYTYNEESTA ensimmaisesta yrityksesta - EI
+tarkoituksellisesti valmiiksi saatettua tyota.
+
+**Diagnoosi ennen poistoa:** systemaattinen jaljitys osoitti etta
+jopa TRIVIAALEIN mahdollinen testi (5 sykli, reset paalla koko ajan,
+start EI koskaan laukaistu) EI TUOTTANUT MITAAN TULOSTETTA edes
+30 sekunnin aikarajalla - EI edes ENSIMMAISTA `$display`-riviä
+testipenkin omasta initial-lohkosta. Tama on VAHVA merkki
+KOMBINATORISESTA SILMUKASTA (tai vastaavasta nollaviive-jumista)
+JOKA TAPAHTUU JO ALUSTUSVAIHEESSA, riippumatta kellosta/resetista -
+EI PELKASTAAN hidas simulaatio (toisin kuin DK4:n keygen_core.sv:n
+oma, aiemmin loydetty vaaraharma "bugi").
+
+**Generate-lohkot tarkistettu** - eivat paljastaneet ilmeista
+syyta (rajalliset, standardit L/K/256-silmukat, samaa mallia kuin
+kaikkialla muualla taman projektin ajan).
+
+**PAATOS:** koska tama tiedosto on TODISTETUSTI keskeneraisen/
+keskeytyneen yrityksen jaanne, EI kannata jatkaa sen debugaamista
+loputtomiin - POISTETTU kokonaan. Sen sijaan koko Verify-orkestrointi
+RAKENNETAAN UUDELLEEN, kayttaen OMAA, jo erikseen todistettua
+`pqc_dilithium_verify_core.sv`-moduulia (Az_minus_ct1-laskenta,
+PASS ensimmaisella yrityksella, 101428 sykli) perustana.
+
+## DK5:n rehellinen, paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| KAIKKI yksittaiset rakennuspalikat (SampleInBall...bit_pack_w) | ✅ |
+| Verify-ytimen laskenta (Az_minus_ct1) itsenaisena moduulina | ✅ |
+| Koko Verify-orkestrointi | ❌ Rakennettava UUDELLEEN (edellinen yritys oli rikkinainen jaanne, poistettu) |
+
+**Seuraava askel:** rakentaa UUSI, HUOLELLISESTI TESTATTU
+verify_top.sv suoraan `pqc_dilithium_verify_core.sv`:n paalle,
+samalla vaiheittaisella kurinalaisuudella (kaannetaan+testataan
+JOKAINEN lisays ERIKSEEN ennen seuraavaan siirtymista) joka on
+kantanut koko taman projektin ajan.
