@@ -180,3 +180,34 @@ molemmat aariarvot (0 ja OMEGA).**
 | unpack_h | ✅ |
 | bit_pack_w | ❌ Seuraava, VIIMEINEN uusi rakennuspalikka |
 | Koko Verify-orkestrointi | ❌ |
+
+## bit_pack_w VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 5)
+
+**Toteutus:** `pqc_dilithium_pack_w.sv` - TAYSIN SUORA yhdistaminen,
+EI etumerkkimuunnosta (w'=UseHint():n tulos ON JO [0,16)-alueella,
+sama tiukka 4-bittinen formaatti kuin bit_pack_w:n oma tuotos).
+
+**Testitulos:**
+```
+PASS: bit_pack_w (768 tavua) tasmaa taydellisesti dilithium-py:n tulokseen
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA.**
+
+## DK5:n LOPULLINEN tila - KAIKKI UUDET RAKENNUSPALIKAT VALMIINA
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose | ✅ |
+| UseHint | ✅ |
+| bit_unpack_z (koko vektori) | ✅ |
+| unpack_h | ✅ |
+| bit_pack_w | ✅ |
+| **Koko Verify-orkestrointi** | ❌ Seuraava, VIIMEINEN vaihe |
+
+Kaikki uudet, Verify_internal:lle ominaiset rakennuspalikat ovat nyt
+valmiit ja todennettu erikseen. Seuraava askel on koota nama YHTEEN
+uudelleenkaytettavien osien (ExpandA, NTT-forward/inverse,
+matriisikertolasku, SHAKE256) kanssa yhdeksi taydeksi
+ML-DSA-65.Verify_internal-orkestroinniksi.
