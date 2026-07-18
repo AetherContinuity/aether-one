@@ -191,3 +191,51 @@ PASS: bit_pack_s (ETA=4) tasmaa taydellisesti dilithium-py:n tulokseen
 | s1/s2-pakkaus (koko L+K=11 polynomia) | ❌ Seuraava |
 | t0-pakkaus | ❌ |
 | tr=H(ek) + dk:n lopullinen kokoonpano | ❌ |
+
+## dk-pakkaus KOKONAAN VALMIS - juurisyy loydetty ja korjattu (2026-07-19, jatko 5)
+
+**Debug-paivakirja:** [KECCAK_MULTIBLOCK_001.md](KECCAK_MULTIBLOCK_001.md)
+
+Laaja tutkimus paljasti etta aiempi "loydetty bugi" (SHA3-512
+epaonnistuu >=3 lohkolla) OLI VAARA - johtui omasta debug-
+metodologiavirheesta (manuaalinen $display-kopiointi Pythoniin ilman
+tavujarjestyksen tarkistusta). Keccak-infrastruktuuri ITSESSAAN on
+TAYSIN VIRHEETON, todennettu poikkeuksellisen kattavasti (1-28
+lohkoa).
+
+**AITO bugi:** `pqc_dilithium_pack_dk.sv` kaytti VAARAA hajautus-
+funktiota (`pqc_sha3_512`) `tr=H(ek)`:n laskentaan. FIPS 204:n oma
+H()-funktio ON SHAKE256, EI SHA3-512 - vahvistettu suoraan
+`dilithium-py`:n lahdekoodista.
+
+**Korjaus:** vaihdettu `pqc_sha3_512`->`pqc_shake256`
+(rate 72->136 tavua, lohkomaara 28->15).
+
+**Testitulos korjauksen jalkeen:**
+```
+Valmis 433 syklin jalkeen
+PASS: koko dk (4032 tavua) tasmaa taydellisesti dilithium-py:n _pack_sk()-tulokseen
+```
+
+**PASS TAYDELLISESTI** - ja NOPEAMPI kuin alkuperainen (vaara)
+28-lohkon SHA3-512 olisi ollut.
+
+## DK4:n LOPULLINEN, TAYDELLINEN tila
+
+| Osa | Tila |
+|---|---|
+| t-laskenta | ✅ |
+| Power2Round | ✅ |
+| ek-pakkaus | ✅ |
+| s1/s2-pakkaus (koko vektori) | ✅ |
+| t0-pakkaus (koko vektori) | ✅ |
+| dk-pakkaus (tr=H(ek) SHAKE256:lla + kokoonpano) | ✅ |
+
+**DK4 ON NYT KOKONAAN VALMIS.** Kaikki nelja DK-rakennuspalikkaa
+(DK1 NTT, DK2 ExpandA, DK3 ExpandS, DK4 t-laskenta+pakkaus) ovat
+valmiina ja todennettuina - koko ML-DSA-65-KeyGenin algoritminen
+ydin voidaan nyt koota yhteen.
+
+**TARKEA MUISTUTUS jatkoon:** kaikki tulevat H()-kutsut Dilithium-
+tyossa (Sign: mu, rhoPrimePrime, c_tilde) kayttavat SHAKE256:ta -
+TARKISTA AINA `dilithium-py`:n lahdekoodista, ala oleta.

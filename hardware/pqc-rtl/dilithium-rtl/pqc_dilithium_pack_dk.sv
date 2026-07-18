@@ -27,14 +27,21 @@ module pqc_dilithium_pack_dk #(
     output logic [8*(32+32+64+L*128+K*128+K*416)-1:0] dk_out  // 4032 tavua K=6,L=5:lle
 );
 
+  // KORJAUS (2026-07-19): FIPS 204:n oma H()-funktio ON SHAKE256,
+  // EI SHA3-512! Loydettiin laajan debug-tutkimuksen jalkeen -
+  // Keccak-infrastruktuuri ITSESSAAN on TAYSIN VIRHEETON (todistettu
+  // 1-28 lohkolla, ks. KECCAK_MULTIBLOCK_001.md) - vika oli TASSA
+  // moduulissa, VAARAN hajautusfunktion valinnassa.
   logic sha_start, sha_done;
-  logic [8*72*28-1:0] sha_msg_in;  // 1952 tavua, SHA3-512:n oma rate=72 tavua/lohko -> 28 lohkoa
+  logic [8*136*15-1:0] sha_msg_in;  // 1952 tavua, SHAKE256:n oma rate=136 tavua/lohko -> 15 lohkoa
+  logic [8*64-1:0] sha_out_wide;
   logic [511:0] sha_out;
-  pqc_sha3_512 #(.MAX_BLOCKS(28)) sha_dut (
+  pqc_shake256 #(.MAX_BLOCKS(15), .MAX_OUT_BYTES(64)) sha_dut (
     .clk(clk), .reset(reset), .start(sha_start),
-    .msg_in(sha_msg_in), .msg_len_bytes(16'd1952),
-    .digest_out(sha_out), .done(sha_done)
+    .msg_in(sha_msg_in), .msg_len_bytes(16'd1952), .out_len_bytes(16'd64),
+    .out_data(sha_out_wide), .done(sha_done)
   );
+  assign sha_out = sha_out_wide;
 
   typedef enum logic [1:0] { S_IDLE, S_START_SHA, S_WAIT_SHA, S_DONE } state_e;
   state_e state;
