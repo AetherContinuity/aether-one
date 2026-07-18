@@ -120,3 +120,29 @@ loydetty uutta bugia tassa vaiheessa.
 | unpack_pk/unpack_sig | ❌ Seuraava |
 | bit_pack_w | ❌ |
 | Koko Verify-orkestrointi | ❌ |
+
+## bit_unpack_z VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 3)
+
+**Toteutus:** `pqc_dilithium_unpack_z.sv` - GAMMA1=2^19-purkukaava
+(`z=GAMMA1-altered`), SAMA "vakio miinus arvo" -kaava kuin bit_pack_
+t0/bit_pack_s:ssa (pakkaus JA purku ovat symmetrisia taman kaavan
+ansiosta). Kaksinkertaisen komplementin trikki (todistettu aiemmin)
+toimi jalleen ensimmaisella yrityksella.
+
+**Testitulos:**
+```
+PASS: bit_unpack_z tasmaa taydellisesti kaikille 256 kertoimelle
+```
+
+## DK5:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose | ✅ |
+| UseHint | ✅ |
+| bit_unpack_z (yksi polynomi) | ✅ |
+| bit_unpack_z (koko L=5-vektori) | ❌ Seuraava, suoraviivainen laajennus |
+| unpack_h (harva->tiheys-hintipurku) | ❌ |
+| bit_pack_w | ❌ |
+| Koko Verify-orkestrointi | ❌ |
