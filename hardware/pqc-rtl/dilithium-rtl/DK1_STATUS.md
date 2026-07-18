@@ -44,3 +44,42 @@ out_b=(a-t)%Q, HUOM out_b:n oma modulo-alivuoto vaatii oman
 kasittelynsa koska a-t voi olla negatiivinen) - testattava YHTA
 butterfly-operaatiota vasten `dilithium-py`:n omasta `to_ntt()`-
 metodista ENNEN koko 256-kertoimisen NTT-skeduloinnin rakentamista.
+
+## Butterfly VALMIS ja todennettu (2026-07-19, jatko)
+
+**Toteutus:** `pqc_dilithium_ntt_butterfly.sv` - uudelleenkayttaa
+suoraan todistetun Barrett mulmod -moduulin, lisaa CT-butterflyn oman
+yhteen-/vahennyslaskun huolellisella etumerkinkasittelylla.
+
+**Loydetty ja korjattu ITSE, ENNEN testausta:** `a_out`/`b_out`-
+nimeaminen oli aluksi VAIHTUNUT paikoiltaan verrattuna dilithium-py:n
+omaan kaavaan (`coeffs[j]=a+t`, `coeffs[j+l]=a-t`) - korjattu heti
+huomattuani, ennen ensimmaista testiajoa.
+
+**Testivektorit generoitu KIRJASTON OMILLA zeta-arvoilla**
+(`ring.ntt_zetas`), EI omalla bittikaannosfunktion uudelleen-
+toteutuksella - suoraan ML-KEM-tyon oman opetuksen mukaisesti.
+
+**Testitulos:**
+```
+PASS: NTT-butterfly tasmaa taydellisesti kaikille 504 testitapaukselle
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA TESTIAJOLLA** - huolellinen
+etumerkinkasittely (dokumentoitu tunnettu sudenkuoppa, ks. osio
+"Arkkitehtuurivalinta") kannatti: ei loydetty bugia joka olisi
+liittynyt juuri tahan, aiemmin ohjelmistopuolella kahdesti loydettyyn
+virhetyyppiin.
+
+**Zeta-ROM generoitu** (`dilithium_ntt_zetas.memh`, 256*23-bittinen),
+suoraan kirjaston `ring.ntt_zetas`-listasta.
+
+## Seuraava askel
+
+Koko 256-kertoimisen NTT:n skedulointi (7 tasoa, l=128..1,
+"schedule ROM" -periaatteella kuten ML-KEM:ssa) - HUOM Dilithiumin
+oma k-indeksointi ("k=k+1" sekventiaalisesti KAIKKIEN butterflyjen
+yli, ei per-taso nollattuna) ON YKSINKERTAISEMPI kuin ML-KEM:n
+kaksikaistainen pankki-arkkitehtuuri - saattaa mahdollistaa
+suoraviivaisemman, YHDEN-butterflyn-per-sykli-mallin ensimmaisessa
+versiossa.
