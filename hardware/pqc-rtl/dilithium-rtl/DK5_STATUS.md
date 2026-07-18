@@ -146,3 +146,37 @@ PASS: bit_unpack_z tasmaa taydellisesti kaikille 256 kertoimelle
 | unpack_h (harva->tiheys-hintipurku) | ❌ |
 | bit_pack_w | ❌ |
 | Koko Verify-orkestrointi | ❌ |
+
+## Koko z-vektorin laajennus + unpack_h VALMIINA (2026-07-19, jatko 4)
+
+**Koko z-vektori (5 polynomia):** `pqc_dilithium_unpack_z_vector.sv`,
+silmukoi todistetun yksittaisen moduulin - PASS ensimmaisella
+yrityksella.
+
+**unpack_h:** `pqc_dilithium_unpack_h.sv` - hintien purku harvasta
+esityksesta (positiolista+offsetit) tiheaksi 0/1-taulukoksi. GENUINE
+SEKVENTIAALINEN, VAIHTELEVAN PITUUDEN purku (OMEGA=55, K=6,
+h_bytes=61 tavua).
+
+**Testitulos (KOLME eri hint-jakaumaa, mukaan lukien molemmat
+AARIRAJAT):**
+```
+30 hintia (epatasainen jakauma): PASS
+0 hintia (tyhja): PASS
+55 hintia (OMEGA-maksimi, epatasainen jakauma): PASS
+```
+
+**PASS TAYDELLISESTI KAIKISSA KOLMESSA TAPAUKSESSA, mukaan lukien
+molemmat aariarvot (0 ja OMEGA).**
+
+## DK5:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose | ✅ |
+| UseHint | ✅ |
+| bit_unpack_z (yksi + koko vektori) | ✅ |
+| unpack_h | ✅ |
+| bit_pack_w | ❌ Seuraava, VIIMEINEN uusi rakennuspalikka |
+| Koko Verify-orkestrointi | ❌ |
