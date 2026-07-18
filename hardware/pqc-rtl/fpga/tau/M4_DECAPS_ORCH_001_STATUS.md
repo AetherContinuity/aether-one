@@ -431,3 +431,40 @@ virheelliseen itsereferenssiin.
    M4-TAU-001)
 2. Synteesi + P&R -vahvistus ECP5:lla
 3. Encaps-orkestrointi (ML-KEM.Encaps_internal - ECU:n oma puoli)
+
+## Yhdistetty huippumoduuli VALMIS: paasta-paahan-testi TUOREELLA vektorilla (2026-07-19, jatko 8)
+
+**Toteutus:** `pqc_mlkem_decaps_top.sv` yhdistaa Phase A+G
+(`pqc_mlkem_decaps_a_core`) ja Phase B1-B4 (`pqc_mlkem_decaps_b1_core`)
+YHDEKSI ML-KEM.Decaps_internal-orkestroinniksi: kaynnista A+G, odota,
+kaynnista B (kayttaen A+G:n m'/K'/r'-tulosta), odota, tuota K_final.
+
+**Kriittinen validointiaskel:** testattu TUOREELLA, RIIPPUMATTOMALLA
+testivektorilla - EI aiemmin kaytetyilla A/B-vaiheiden omilla
+vektoreilla (jotka olivat KESKENAAN yhteensopimattomia, eri
+avainpareista). Generoitu KOKONAAN UUSI ketju: `mlkem_keygen_internal`
+-> `mlkem_encaps_internal` -> `mlkem_decaps_internal` (kaikki
+VIRALLISIA, jo erikseen todistettuja funktioita) - satunnainen
+d_seed/z_seed/viesti, EI mikaan aiemmin nahty testitapaus.
+
+**Testitulos:**
+```
+Valmis 21860 syklin jalkeen
+match_out: 1 (odotettu: 1, koska c on aito, oikein muodostettu siffertext)
+PASS: koko Decaps-huippumoduuli - K_final tasmaa taydellisesti riippumattomaan testivektoriin
+```
+
+**PASS TAYDELLISESTI - tama on VAHVIN mahdollinen validointi taholle
+tyolle: taysin tuore, aiemmin nakematon testivektori, kaytten
+VIRALLISIA FIPS 203 -referenssifunktioita paasta paahan.**
+
+## M4-DECAPS-ORCH-001:n lopullinen tila
+
+Kaikki 8 osavaihetta (A, G, B1, B2a, B2b-1, B2b-2, B3, B4) VALMIINA.
+Yhdistetty huippumoduuli (`pqc_mlkem_decaps_top.sv`) VALMIS ja
+todennettu tuoreella vektorilla.
+
+**Seuraavat askeleet (ei viela aloitettu):**
+1. Wishbone-integraatio TAU-kehykseen (sama malli kuin KeyGenissa)
+2. Synteesi + P&R -vahvistus ECP5:lla
+3. Encaps-orkestrointi (ML-KEM.Encaps_internal - ECU:n oma puoli)
