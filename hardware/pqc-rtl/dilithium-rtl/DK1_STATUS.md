@@ -127,3 +127,45 @@ projektin ajan.
 **DK1 (32-bittinen NTT-ydin) on nyt lahes valmis** - jaljella inverse-
 NTT (tarvitaan KeyGenissa: `t = NTT^-1(A*NTT(s1)) + s2`) ja
 synteesi+mittaus ennen DK1:n sulkemista.
+
+## INVERSE-NTT VALMIS - PASS ENSIMMAISELLA YRITYKSELLA (2026-07-19, jatko 3)
+
+**Toteutus:** `pqc_dilithium_ntt_gs_butterfly.sv` (Gentleman-Sande-
+butterfly, ERI rakenne kuin forward-NTT:n Cooley-Tukey: kertolasku
+zeta:lla tapahtuu VASTA vahennyksen jalkeen, ei ennen) +
+`pqc_dilithium_ntt_inverse_core.sv` (skedulu + lopullinen
+256^-1-skaalaus).
+
+**Skedulu generoitu SUORAAN `dilithium-py`:n omasta `from_ntt()`-
+silmukasta** (l nousee 1:sta 128:aan, k VAHENEE 256:sta, zeta on
+NEGATOITU) - EI kasin johdettuna.
+
+**Testitulokset (KOLME erillista todennustasoa):**
+
+1. Yksittainen GS-butterfly, 504 testitapausta: PASS
+2. Koko inverse-NTT `dilithium-py`:n `from_ntt()`-tulosta vasten
+   (4 eri siementa: 55, 200, 201, 202): PASS TAYDELLISESTI kaikilla
+3. **RTL-RTL round-trip**: oma forward-NTT-ydin -> oma inverse-NTT-
+   ydin, tulos == alkuperainen syote, TAYSIN ITSEKONSISTENTTI (ei edes
+   tarvinnut ulkoista dilithium-py-vertailua tahan yhteen testiin,
+   koska alkuperainen syote ITSESSAAN on odotettu tulos): PASS
+
+```
+Forward-NTT valmis 4095 syklin jalkeen
+Inverse-NTT valmis 4097 syklin jalkeen
+PASS: RTL-RTL round-trip - NTT^-1(NTT(f)) == f taydellisesti
+```
+
+**EI YHTAAN LOYDETTYA BUGIA missaan kolmesta tasosta.**
+
+## DK1:n paivitetty tila - LAHES VALMIS
+
+| Osa | Tila |
+|---|---|
+| Barrett-kertolaskureduktio | ✅ |
+| NTT-butterfly (forward, Cooley-Tukey) | ✅ |
+| Koko forward-NTT | ✅ |
+| GS-butterfly (inverse, Gentleman-Sande) | ✅ |
+| Koko inverse-NTT (+ 256^-1-skaalaus) | ✅ |
+| RTL-RTL round-trip (itsekonsistenssi) | ✅ |
+| Synteesi + suorituskykymittaus (osio 8, suunnitelmasta) | ❌ Seuraava, VIIMEINEN vaihe ennen DK1:n sulkemista |
