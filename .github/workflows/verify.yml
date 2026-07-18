@@ -209,6 +209,16 @@ jobs:
         run: bash hardware/pqc-rtl/run_m4_tau_watchdog_interrupt_test.sh
       - name: Run M4-TAU-001 audit log AUDIT_WORD_SEL multi-word regression
         run: bash hardware/pqc-rtl/run_m4_tau_audit_multiword_test.sh
+      - name: Run M4-DECAPS Wishbone integration (fresh independent test vector)
+        run: bash hardware/pqc-rtl/run_m4_tau_decaps_wishbone_test.sh
+      - name: Run M4-DECAPS own audit events (STARTED+COMPLETED)
+        run: bash hardware/pqc-rtl/run_m4_tau_decaps_audit_test.sh
+      - name: Run M4-ENCAPS Wishbone integration (fresh independent test vector)
+        run: bash hardware/pqc-rtl/run_m4_tau_encaps_wishbone_test.sh
+      - name: Run M4-ENCAPS own audit events (STARTED+COMPLETED)
+        run: bash hardware/pqc-rtl/run_m4_tau_encaps_audit_test.sh
+      - name: Run full ML-KEM protocol chain (KeyGen->Encaps->Decaps, shared secret match, random input)
+        run: bash hardware/pqc-rtl/run_m4_tau_full_protocol_test.sh
 
   test-pqc-rtl-verilator-lint:
     runs-on: ubuntu-latest
