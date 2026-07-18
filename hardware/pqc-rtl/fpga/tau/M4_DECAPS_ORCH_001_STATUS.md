@@ -301,3 +301,68 @@ PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
 kertolasku, kohinan lisays) on nyt valmis ja todennettu.** Jaljella
 on VAIN muotoiluvaihe (Compress+ByteEncode c':n muodostamiseksi) ja
 lopullinen FO-vertailu/valinta.
+
+## Phase B3 VALMIS + TARKEA KORJAUS aiempaan A-transpoosi-oletukseen (2026-07-19, jatko 6)
+
+**Toteutettu:** `Compress(DU/DV)` + `ByteEncode(DU/DV)` (batch-versiot,
+taysin kombinatorisia) `u_vec`:lle ja `v_poly`:lle -> `c'`.
+
+**KRIITTINEN OPPI: aiempi B2b-1:n "A-transpoosi-korjaus" OLI VAARIN.**
+
+Aiemmin (edellisessa jatko-osassa) loysin etta RTL:n `A[1][0]` ei
+tasmannyt Python `sample_ntt(rho,1,0)`:hon, vaan `sample_ntt(rho,0,1)`:hon
+- ja "korjasin" taman vaihtamalla generointi-syotteen. TAMA KORJAUS
+NAYTTI TOIMIVAN, koska vertasin tulosta OMAAN, manuaalisesti
+uudelleentoteutettuun Python-referenssiin (`ntt_inv`, `multiply_ntts`
+suoraan) - joka JAKOI SAMAN, todellisuudessa VAARAN transpoosi-
+oletuksen kanssa RTL:n (korjatun) version kanssa!
+
+**Vasta Phase B3:n `c'`-vertailu VIRALLISTA `kpke_encrypt()`-funktiota
+vasten paljasti todellisen tilanteen:**
+
+`kpke_encrypt_golden.py`:n oma kommentti: *"A_hat[i,j] =
+SampleNTT(rho||j||i) - TASMALLEEN SAMA kuin K-PKE.KeyGen, EI
+transponoitu generoinnissa. Transponointi tapahtuu VASTA KAAVASSA:
+u[i] = sum_j A_hat[j][i] * y_hat[j]"*.
+
+**Oikea korjaus:** PALAUTETTU A-matriisin generointi KeyGenin OMAAN,
+EI-transponoituun konventioon (`samplentt_i<=i_ctr;
+samplentt_j<=j_ctr;`, ENNALLAAN) - transpoosi toteutuu VAIN
+matriisikertolaskun omassa indeksoinnissa (`A[mm_j][mm_col]`, joka
+oli JO alunperin oikein - vain generointi oli tarpeettomasti
+"korjattu" vaarin).
+
+**Metodologinen opetus talletettu:** kun oma manuaalinen Python-
+uudelleentoteutus KAYTTAA SAMOJA oletuksia kuin testattava RTL,
+vertailu voi antaa VAARAN "PASS"-tuloksen molempien jakaessa saman
+virheen. VAIN vertailu TAYSIN riippumattomaan, jo aiemmin erikseen
+todistettuun VIRALLISEEN funktioon (tassa: `kpke_encrypt()` itse,
+joka on jo kaytossa M3:n omissa, laajasti todennetuissa testeissa)
+paljastaa tallaisen "yhteisen sokean pisteen" -tyyppisen virheen.
+
+**Testitulos (kaikki yhdeksan tarkistettua arvoa, PAIVITETTYJEN
+golden-referenssien kanssa):**
+```
+OK: A[0][0], y_vec[0], e1_vec[0], e2_poly, y_hat[0]
+OK: u_vec[0], v_poly (B2b-2, normaalialue)
+OK: c' (B3, Compress+ByteEncode) tasmaa taydellisesti golden-malliin
+OK: u_acc[0], v_acc (B2b-1, NTT-alueen akkumulointi)
+PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
+```
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ (korjattu) |
+| Phase B2a: NTT-forward y_vec:lle | ✅ |
+| Phase B2b-1: NTT-alueen lineaarialgebra | ✅ (korjattu) |
+| Phase B2b-2: inverse-NTT + skaalaus + normaalialue | ✅ |
+| Phase B3: Compress + ByteEncode -> c' | ✅ **UUSI - koko c' tasmaa** |
+| Phase B4: FO-valinta | ❌ Seuraava, VIIMEINEN vaihe |
+
+**Kaikki kryptografinen laskenta on nyt valmis ja todistettu KOKO
+tuotoksen (c') osalta.** Jaljella on VAIN Phase B4: c==c'-vertailu ja
+FO-valinta (K' tai J(z||c)).

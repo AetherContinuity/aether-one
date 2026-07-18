@@ -45,7 +45,8 @@ module pqc_mlkem_decaps_b1_core #(
     output logic [K*256*COEFF_W-1:0] u_acc_out_flat,  // B2b-1: A^T*y_hat (NTT-alueella, ennen INTT:ta)
     output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
     output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
-    output logic [256*COEFF_W-1:0] v_poly_out           // B2b-2: normaalialueen v
+    output logic [256*COEFF_W-1:0] v_poly_out,           // B2b-2: normaalialueen v
+    output logic [8*768-1:0] c_prime_out                  // B3: siffertext c'
 );
 
   // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
@@ -78,6 +79,28 @@ module pqc_mlkem_decaps_b1_core #(
   pqc_ntt_final_scale #(.COEFF_W(COEFF_W)) scale_dut (.f_in(scale_in), .f_out(scale_out));
 
   logic [255:0] bdec1_in, bdec1_out;
+
+  // --- Phase B3: Compress(DU/DV) + ByteEncode(DU/DV) -> c' ---
+  localparam int DU = 10;
+  localparam int DV = 4;
+  logic [256*COEFF_W-1:0] bcompu_in [0:1];
+  logic [256*DU-1:0] bcompu_out [0:1];
+  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu0 (.x_packed(bcompu_in[0]), .y_packed(bcompu_out[0]));
+  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu1 (.x_packed(bcompu_in[1]), .y_packed(bcompu_out[1]));
+
+  logic [256*COEFF_W-1:0] bcompv_in;
+  logic [256*DV-1:0] bcompv_out;
+  pqc_batch_compress #(.D(DV), .COEFF_W(COEFF_W)) bcompv (.x_packed(bcompv_in), .y_packed(bcompv_out));
+
+  logic [256*DU-1:0] bencu_in [0:1];
+  logic [256*DU-1:0] bencu_out [0:1];
+  pqc_byteencode_dparam #(.D(DU)) bencu0 (.f_in(bencu_in[0]), .b_out(bencu_out[0]));
+  pqc_byteencode_dparam #(.D(DU)) bencu1 (.f_in(bencu_in[1]), .b_out(bencu_out[1]));
+
+  logic [256*DV-1:0] bencv_in, bencv_out;
+  pqc_byteencode_dparam #(.D(DV)) bencv (.f_in(bencv_in), .b_out(bencv_out));
+
+  logic [8*768-1:0] c_prime;
   pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
 
   logic [COEFF_W-1:0] c1_x_in, c1_y_in, c1_compress_out, c1_decompress_out;
@@ -159,6 +182,8 @@ module pqc_mlkem_decaps_b1_core #(
     S_INV_V_LOAD, S_INV_V_SCHED_SETUP, S_INV_V_SCHED_START, S_INV_V_SCHED_WAIT,
     S_INV_V_READ, S_INV_V_READ_WAIT, S_INV_V_SCALE,
     S_DECODE_MU_SETUP, S_DECODE_MU, S_DECODE_MU_CAPTURE, S_ADD_E2, S_ADD_MU,
+    S_COMPRESS_U_SETUP, S_COMPRESS_U, S_ENCODE_U,
+    S_COMPRESS_V_SETUP, S_COMPRESS_V, S_ENCODE_V,
     S_DONE
   } state_e;
   state_e state;
@@ -202,14 +227,15 @@ module pqc_mlkem_decaps_b1_core #(
         end
 
         S_START_SNTT: begin
-          // KORJAUS (2026-07-19): pqc_samplentt:n omat byte_i/byte_j-
-          // portit vastaavat Python-referenssin sample_ntt(rho,i,j):n
-          // PARAMETREJA VAIHDETTUINA - todistettu vertailemalla A[1][0]
-          // (RTL) suoraan sample_ntt(rho,0,1):een (Python). Vaihdettu
-          // tassa niin etta STORED A[i_ctr][j_ctr] vastaa suoraan
-          // Python-sample_ntt(rho,i_ctr,j_ctr):ta, poistaen implisiittisen
-          // transpoosion myohemmista kaavoista.
-          samplentt_rho <= rho; samplentt_i <= {6'b0,j_ctr}; samplentt_j <= {6'b0,i_ctr};
+          // KORJAUS 2 (2026-07-19, jatko): AIEMPI vaihto oli VAARIN.
+          // Virallisen kpke_encrypt_golden.py:n oma kommentti: "A_hat[i,j]
+          // = SampleNTT(rho||j||i) - TASMALLEEN SAMA kuin K-PKE.KeyGen,
+          // EI transponoitu generoinnissa. Transponointi tapahtuu VASTA
+          // KAAVASSA: u[i] = sum_j A_hat[j][i] * y_hat[j]". Palautettu
+          // generointi KeyGenin omaan, EI-transponoituun konventioon -
+          // transpoosi toteutetaan sen sijaan matriisikertolaskun omassa
+          // indeksoinnissa (S_MATMUL_U).
+          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
           samplentt_start <= 1'b1;
           state <= S_WAIT_SNTT;
         end
@@ -578,14 +604,47 @@ module pqc_mlkem_decaps_b1_core #(
         S_ADD_MU: begin
           padd_a <= padd_sum;
           padd_b <= mu_poly;
+          state <= S_COMPRESS_U_SETUP;
+        end
+
+        // --- Phase B3: Compress(DU)+ByteEncode(DU) u_vec:lle,
+        // Compress(DV)+ByteEncode(DV) v_poly:lle -> c'. Kaksivaiheinen
+        // setup/capture-malli (sama periaate kuin kaikkialla muualla). ---
+        S_COMPRESS_U_SETUP: begin
+          v_poly <= padd_sum;  // viimeistellaan v_poly:n oma laskenta tassa
+          bcompu_in[0] <= u_vec[0];
+          bcompu_in[1] <= u_vec[1];
+          state <= S_COMPRESS_U;
+        end
+
+        S_COMPRESS_U: begin
+          bencu_in[0] <= bcompu_out[0];
+          bencu_in[1] <= bcompu_out[1];
+          state <= S_ENCODE_U;
+        end
+
+        S_ENCODE_U: begin
+          c_prime[(0*DU*32)*8 +: DU*32*8] <= bencu_out[0];
+          c_prime[(1*DU*32)*8 +: DU*32*8] <= bencu_out[1];
+          bcompv_in <= v_poly;
+          state <= S_COMPRESS_V_SETUP;
+        end
+
+        S_COMPRESS_V_SETUP: begin
+          state <= S_COMPRESS_V;
+        end
+
+        S_COMPRESS_V: begin
+          bencv_in <= bcompv_out;
+          state <= S_ENCODE_V;
+        end
+
+        S_ENCODE_V: begin
+          c_prime[(2*DU*32)*8 +: DV*32*8] <= bencv_out;
           state <= S_DONE;
         end
 
         S_DONE: begin
-          v_poly <= padd_sum;
-          done <= 1'b1;
-          state <= S_IDLE;
-        end        S_DONE: begin
           done <= 1'b1;
           state <= S_IDLE;
         end
@@ -618,5 +677,6 @@ module pqc_mlkem_decaps_b1_core #(
   assign v_acc_out = v_acc;
   assign u_vec_out_flat = {u_vec[1], u_vec[0]};
   assign v_poly_out = v_poly;
+  assign c_prime_out = c_prime;
 
 endmodule

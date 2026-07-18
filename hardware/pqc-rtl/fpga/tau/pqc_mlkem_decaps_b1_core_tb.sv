@@ -20,6 +20,7 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [256*COEFF_W-1:0] v_acc_out;
   logic [K*256*COEFF_W-1:0] u_vec_out_flat;
   logic [256*COEFF_W-1:0] v_poly_out;
+  logic [8*768-1:0] c_prime_out;
 
   always #5 clk = ~clk;
 
@@ -31,7 +32,8 @@ module pqc_mlkem_decaps_b1_core_tb;
     .e1_vec_out_flat(e1_vec_out_flat),
     .e2_poly_out(e2_poly_out),
     .u_acc_out_flat(u_acc_out_flat), .v_acc_out(v_acc_out),
-    .u_vec_out_flat(u_vec_out_flat), .v_poly_out(v_poly_out)
+    .u_vec_out_flat(u_vec_out_flat), .v_poly_out(v_poly_out),
+    .c_prime_out(c_prime_out)
   );
 
   int fh, scan_ok, error_count;
@@ -39,6 +41,8 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [255:0] z_seed;
   string tag;
   logic [255:0] m_prime_val;
+  logic [255:0] K_prime_expect;
+  logic [8*768-1:0] c_variant, c_prime_expect;
   logic [256*COEFF_W-1:0] A00_golden, y0_golden, e10_golden, e2_golden;
 
   initial begin
@@ -51,6 +55,9 @@ module pqc_mlkem_decaps_b1_core_tb;
     scan_ok = $fscanf(fh, "%s\n", tag);
     scan_ok = $fscanf(fh, "%h\n", m_prime_val);
     scan_ok = $fscanf(fh, "%h\n", r_prime_in);
+    scan_ok = $fscanf(fh, "%h\n", K_prime_expect);
+    scan_ok = $fscanf(fh, "%h\n", c_variant);
+    scan_ok = $fscanf(fh, "%h\n", c_prime_expect);
     m_prime_in = m_prime_val;
     $fclose(fh);
     ek_in = ek;
@@ -113,6 +120,17 @@ module pqc_mlkem_decaps_b1_core_tb;
       else begin $display("FAIL: u_vec[0] EI tasmaa"); error_count++; end
       if (v_poly_out === v_golden) $display("OK: v_poly (B2b-2, normaalialue) tasmaa taydellisesti");
       else begin $display("FAIL: v_poly EI tasmaa"); error_count++; end
+    end
+
+    begin
+      int diffs;
+      diffs = 0;
+      if (c_prime_out === c_prime_expect) $display("OK: c' (B3, Compress+ByteEncode) tasmaa taydellisesti golden-malliin");
+      else begin
+        for (int b = 0; b < 768; b++) if (c_prime_out[b*8+:8] !== c_prime_expect[b*8+:8]) diffs++;
+        $display("FAIL: c' EI tasmaa - %0d/768 tavua eroaa", diffs);
+        error_count++;
+      end
     end
 
     begin
