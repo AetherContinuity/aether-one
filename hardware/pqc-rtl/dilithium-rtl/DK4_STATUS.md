@@ -64,3 +64,35 @@ ExpandS + tama ydinlaskenta + Power2Round + pakkaus): karkeasti
 Power2Round(t) -> (t1, t0) - suhteellisen pieni, suoraviivainen
 lisays (per-kerroin modulo-2^13-jako + etumerkkikasittely) - ja
 lopuksi pakkaus ek/dk-muotoon.
+
+## Power2Round VALMIS (2026-07-19, jatko)
+
+**Toteutus:** `pqc_dilithium_power2round.sv` - FIPS 204 Algoritmi 35
+(D=13), taysin kombinatorinen, yksi kerroin kerrallaan.
+
+**Loydetty ja korjattu ITSE, ennen testausta:** `r1_out`:n oma
+bittipoiminta `diff`-signaalista oli aluksi vaarin mitoitettu
+(diff[CW:D] antoi 11 bittia, mutta r1_out on 10-bittinen) - korjattu
+diff[CW-1:D]:ksi ennen ensimmaista testiajoa.
+
+**Testitulos:**
+```
+PASS: Power2Round tasmaa taydellisesti kaikille 508 testitapaukselle
+```
+
+508 testitapausta = 8 reunatapausta (0, Q-1, 2^13-rajat) + 500
+satunnaista arvoa, verrattu suoraan `dilithium-py`:n omaan
+`reduce_mod_pm`-apufunktioon perustuvaan `power_2_round`-laskentaan.
+
+**PASS TAYDELLISESTI - EI YHTAAN JAANYTTA LOYDETTYA BUGIA testauksen
+aikana** (bittileveysvirhe loydettiin ja korjattiin ITSE ennen
+testiajoa, tarkistamalla arvoalueet huolellisesti).
+
+## DK4:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| t-laskenta (matriisikertolasku+NTT) | ✅ |
+| Power2Round (yksittainen kerroin) | ✅ |
+| Power2Round koko t-vektorille (6*256 kerrointa) | ❌ Seuraava (suoraviivainen, taysin rinnakkainen laajennus) |
+| Pakkaus ek/dk-muotoon | ❌ |
