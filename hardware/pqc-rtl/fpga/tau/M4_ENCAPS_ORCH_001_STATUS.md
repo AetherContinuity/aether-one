@@ -57,3 +57,38 @@ pidempiin debug-matkoihin, havainnollistaa suoraan projektin
 kypsymista - aiemmin rakennettu, huolellisesti todistettu
 infrastruktuuri ja logiikka tuottavat konkreettista hyotya
 uusissa tyopaketeissa.
+
+## Wishbone-integraatio VALMIS (2026-07-19, jatko)
+
+**Uudet rekisterit (0x140-0x149):**
+- 0x140: ENCAPS_WORD_SEL
+- 0x141: ENCAPS_EK_IN (400 sanaa)
+- 0x142: ENCAPS_M_IN (16 sanaa)
+- 0x143: ENCAPS_START
+- 0x144: ENCAPS_STATUS
+- 0x145: ENCAPS_K_OUT
+- 0x146: ENCAPS_C_OUT (384 sanaa)
+
+**Testitulos:**
+```
+OK: Encaps valmis 4802 Wishbone-syklin jalkeen
+PASS: K tasmaa taydellisesti Wishbone-vaylan kautta luettuna
+PASS: c tasmaa taydellisesti Wishbone-vaylan kautta luettuna
+```
+
+**Ei regressiota:** KeyGen- ja Decaps-integraatiotestit PASSAAVAT
+edelleen SAMASSA, kaikki kolme algoritmia sisaltavassa kaareessa.
+
+## TAU:n palvelukehys tukee nyt KAIKKIA KOLMEA ML-KEM-algoritmia
+
+| Algoritmi | Toiminnallinen | Wishbone | Audit+watchdog | Synteesi |
+|---|---|---|---|---|
+| KeyGen | ✅ | ✅ | ✅ | ⏳ |
+| Decaps | ✅ | ✅ | ✅ | ⏳ |
+| Encaps | ✅ | ✅ | ❌ pieni lisatyo | ⏳ |
+
+**Tama on merkittava virstanpylvas: yksi Wishbone-vayla, yksi TAU-
+kehys, kaikki kolme FIPS 203 -algoritmia samassa, jaetussa
+laitteistokokonaisuudessa - ECU voi kaynnistaa minka tahansa
+kolmesta operaatiosta samalla, yhtenaisella rajapintamallilla
+(WORD_SEL+START+STATUS+luku).**

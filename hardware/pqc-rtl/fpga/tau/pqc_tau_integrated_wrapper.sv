@@ -113,6 +113,19 @@ module pqc_tau_integrated_wrapper #(
     .done(decaps_done), .K_final_out(decaps_K_final), .match_out(decaps_match)
   );
 
+  // --- Encaps (M4-ENCAPS-ORCH-001) ---
+  logic encaps_start, encaps_done;
+  logic [8*800-1:0] encaps_ek_buf;
+  logic [255:0] encaps_m_buf;
+  logic [255:0] encaps_K;
+  logic [8*768-1:0] encaps_c;
+
+  pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(2)) encaps (
+    .clk(clk), .reset(rst), .start(encaps_start),
+    .ek_in(encaps_ek_buf), .m_in(encaps_m_buf),
+    .done(encaps_done), .K_out(encaps_K), .c_out(encaps_c)
+  );
+
   // --- KeyGen-orkestraattori ---
   logic keygen_start, keygen_done;
   logic [255:0] d_seed_buf, z_seed_buf;
@@ -157,6 +170,7 @@ module pqc_tau_integrated_wrapper #(
 
   logic keygen_busy;
   logic decaps_busy;
+  logic encaps_busy;
   logic pending_audit_valid;
   logic [255:0] pending_audit_hash;
 
@@ -164,11 +178,14 @@ module pqc_tau_integrated_wrapper #(
     if (rst) begin
       keygen_busy <= 1'b0;
       decaps_busy <= 1'b0;
+      encaps_busy <= 1'b0;
     end else begin
       if (keygen_start) keygen_busy <= 1'b1;
       if (keygen_done) keygen_busy <= 1'b0;
       if (decaps_start) decaps_busy <= 1'b1;
       if (decaps_done) decaps_busy <= 1'b0;
+      if (encaps_start) encaps_busy <= 1'b1;
+      if (encaps_done) encaps_busy <= 1'b0;
       // Watchdog-keskeytys KESKEN KeyGenin TAI Decapsin oman ajon -
       // pysayta myos ajon oma tila (ECU ei voi enaa luottaa
       // keskeneraiseen tulokseen)
@@ -243,16 +260,19 @@ module pqc_tau_integrated_wrapper #(
   wire is_audit_range  = (wb_adr_i >= 11'h110) && (wb_adr_i <= 11'h119);
   wire is_keygen_range = (wb_adr_i >= 11'h120) && (wb_adr_i <= 11'h129);
   wire is_decaps_range = (wb_adr_i >= 11'h130) && (wb_adr_i <= 11'h139);
+  wire is_encaps_range = (wb_adr_i >= 11'h140) && (wb_adr_i <= 11'h149);
 
   logic [10:0] word_sel;
   logic keygen_done_sticky;
   logic decaps_done_sticky;
+  logic encaps_done_sticky;
 
   always_ff @(posedge clk) begin
     ctrl_start_pulse <= 1'b0;
     load_valid <= 1'b0;
     keygen_start <= 1'b0;
     decaps_start <= 1'b0;
+    encaps_start <= 1'b0;
     heartbeat_valid <= 1'b0;
     wd_config_valid <= 1'b0;
 
@@ -264,10 +284,12 @@ module pqc_tau_integrated_wrapper #(
       d_seed_buf <= '0; z_seed_buf <= '0;
       keygen_done_sticky <= 1'b0;
       decaps_done_sticky <= 1'b0;
+      encaps_done_sticky <= 1'b0;
       wd_timeout_cycles <= 32'd100000;
     end else begin
       if (keygen_done) keygen_done_sticky <= 1'b1;
       if (decaps_done) decaps_done_sticky <= 1'b1;
+      if (encaps_done) encaps_done_sticky <= 1'b1;
 
       if (wb_cyc_i && wb_stb_i && wb_we_i) begin
         if (is_data_range) begin
@@ -309,6 +331,14 @@ module pqc_tau_integrated_wrapper #(
             8'h33: begin decaps_start <= 1'b1; decaps_done_sticky <= 1'b0; end        // DECAPS_START
             default: ;
           endcase
+        end else if (is_encaps_range) begin
+          case (wb_adr_i[7:0])
+            8'h40: word_sel <= wb_dat_i[10:0];  // ENCAPS_WORD_SEL
+            8'h41: if (word_sel < 400) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
+            8'h42: if (word_sel < 16) encaps_m_buf[word_sel*16 +: 16] <= wb_dat_i;    // ENCAPS_M_IN
+            8'h43: begin encaps_start <= 1'b1; encaps_done_sticky <= 1'b0; end        // ENCAPS_START
+            default: ;
+          endcase
         end
       end
     end
@@ -318,8 +348,8 @@ module pqc_tau_integrated_wrapper #(
   assign read_en   = wb_cyc_i && wb_stb_i && !wb_we_i && is_data_range;
   assign read_addr = wb_adr_i[7:0];
 
-  logic [COEFF_W-1:0] ctrl_read_data, audit_read_data, keygen_read_data, decaps_read_data;
-  logic ctrl_read_valid, audit_read_valid_reg, keygen_read_valid_reg, decaps_read_valid_reg;
+  logic [COEFF_W-1:0] ctrl_read_data, audit_read_data, keygen_read_data, decaps_read_data, encaps_read_data;
+  logic ctrl_read_valid, audit_read_valid_reg, keygen_read_valid_reg, decaps_read_valid_reg, encaps_read_valid_reg;
 
   always_ff @(posedge clk) begin
     if (rst) ctrl_read_valid <= 1'b0;
@@ -364,6 +394,17 @@ module pqc_tau_integrated_wrapper #(
     endcase
   end
 
+  always_ff @(posedge clk) begin
+    if (rst) encaps_read_valid_reg <= 1'b0;
+    else encaps_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_encaps_range;
+    case (wb_adr_i[7:0])
+      8'h44: encaps_read_data <= {14'b0, encaps_done_sticky, encaps_busy};       // ENCAPS_STATUS
+      8'h45: encaps_read_data <= (word_sel < 16) ? encaps_K[word_sel*16 +: 16] : 16'd0;    // ENCAPS_K_OUT
+      8'h46: encaps_read_data <= (word_sel < 384) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
+      default: encaps_read_data <= '0;
+    endcase
+  end
+
   always_comb begin
     if (is_data_range) begin
       wb_dat_o = read_data;
@@ -381,6 +422,10 @@ module pqc_tau_integrated_wrapper #(
     if (is_decaps_range) begin
       wb_dat_o = decaps_read_data;
       wb_ack_o = decaps_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_decaps_range);
+    end
+    if (is_encaps_range) begin
+      wb_dat_o = encaps_read_data;
+      wb_ack_o = encaps_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_encaps_range);
     end
   end
 
