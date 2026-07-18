@@ -49,3 +49,46 @@ kutsu `rejection_sample_ntt_poly`-vastaavaa 30 kertaa eri (i,j)-
 pareilla, tallenna tulokset. Suoraviivainen laajennus, sama periaate
 kuin ML-KEM:n omassa A-matriisin silmukoinnissa (KeyGenissa/
 Decapsissa).
+
+## KOKO A-MATRIISI VALMIS - PASS ENSIMMAISELLA YRITYKSELLA (2026-07-19, jatko)
+
+**Toteutus:** `pqc_dilithium_expand_a.sv` - silmukoi jo todistetun
+`pqc_dilithium_rej_ntt_poly.sv`:n 30 kertaa (K=6 x L=5), tallentaen
+tulokset sisaiseen (ei-porttina-olevaan, siis Icarus-turvalliseen)
+unpacked-taulukkoon, litistettyna lopuksi paketoiduksi ulostuloksi.
+
+**Testitulos:**
+```
+Valmis 12399 syklin jalkeen
+PASS: koko A-matriisi (30 polynomia) tasmaa taydellisesti
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA kaikille 30
+polynomille** - verrattu suoraan `dilithium-py`:n omaan
+`_generate_matrix_from_seed()`-metodiin. EI YHTAAN LOYDETTYA BUGIA -
+neljas perakkainen "PASS ensimmaisella yrityksella" -kokemus
+Dilithium-tyossa.
+
+**Mitattu suorituskyky:** 12399 sykli / 30-polynomin A-matriisi ≈
+413 sykli/polynomi keskimaarin, matchaa aiemmin mitatun yksittaisen
+polynomin (409 sykli) kanssa.
+
+## DK2:n LOPULLINEN tila
+
+| Osa | Tila |
+|---|---|
+| RejNTTPoly (yksi polynomi) | ✅ |
+| Koko A-matriisi (30 polynomia) | ✅ |
+| Synteesi + tarkka Fmax-mittaus | ❌ Avoin (sama rajaus kuin DK1:ssa) |
+
+**DK2 on nyt funktionaalisesti ja metodologisesti valmis** - sama
+nelja hyvaksymiskriteeria kuin DK1:lla (algoritminen oikeellisuus ✅,
+regressiotestit ✅, synteesikelpoisuus/suorituskyky osittain samasta
+P&R-aikarajoituksesta johtuen kuin DK1:ssa).
+
+## Seuraava askel
+
+ExpandS: `s1` (L=5 polynomia) ja `s2` (K=6 polynomia) nayttestys
+SamplePolyCBD:n SIJAAN kaytetaan RejBoundedPoly-menetelmaa (ETA=4) -
+ERI nayttestysmenetelma kuin ML-KEM:n oma CBD, tarvitsee oman RTL-
+toteutuksensa.
