@@ -35,6 +35,9 @@ module pqc_mlkem_decaps_b1_core #(
     input  logic [8*800-1:0] ek_in,   // ek (800 tavua: K*384 t_hat + 32 rho)
     input  logic [255:0] r_prime_in,
     input  logic [255:0] m_prime_in,   // Phase A:n oma m'
+    input  logic [8*768-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
+    input  logic [255:0] z_in,           // z-siemen (dk:n oma osa)
+    input  logic [255:0] K_prime_in,     // Phase G:n oma K'
 
     output logic done,
     output logic [4*256*COEFF_W-1:0] A_out_flat,        // A[0][0],A[0][1],A[1][0],A[1][1] jarjestyksessa
@@ -46,7 +49,9 @@ module pqc_mlkem_decaps_b1_core #(
     output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
     output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
     output logic [256*COEFF_W-1:0] v_poly_out,           // B2b-2: normaalialueen v
-    output logic [8*768-1:0] c_prime_out                  // B3: siffertext c'
+    output logic [8*768-1:0] c_prime_out,                  // B3: siffertext c'
+    output logic match_out,                                 // B4: c == c'
+    output logic [255:0] K_final_out                       // B4: lopullinen istuntoavain
 );
 
   // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
@@ -101,6 +106,15 @@ module pqc_mlkem_decaps_b1_core #(
   pqc_byteencode_dparam #(.D(DV)) bencv (.f_in(bencv_in), .b_out(bencv_out));
 
   logic [8*768-1:0] c_prime;
+
+  logic shake256_start, shake256_done;
+  logic [8*136*6-1:0] shake256_msg_in;
+  logic [8*32-1:0] shake256_out;
+  pqc_shake256 #(.MAX_BLOCKS(6), .MAX_OUT_BYTES(32)) shake256_dut (
+    .clk(clk), .reset(reset), .start(shake256_start),
+    .msg_in(shake256_msg_in), .msg_len_bytes(16'd800), .out_len_bytes(16'd32),
+    .out_data(shake256_out), .done(shake256_done)
+  );
   pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
 
   logic [COEFF_W-1:0] c1_x_in, c1_y_in, c1_compress_out, c1_decompress_out;
@@ -184,6 +198,7 @@ module pqc_mlkem_decaps_b1_core #(
     S_DECODE_MU_SETUP, S_DECODE_MU, S_DECODE_MU_CAPTURE, S_ADD_E2, S_ADD_MU,
     S_COMPRESS_U_SETUP, S_COMPRESS_U, S_ENCODE_U,
     S_COMPRESS_V_SETUP, S_COMPRESS_V, S_ENCODE_V,
+    S_START_SHAKE256, S_WAIT_SHAKE256, S_SELECT_K,
     S_DONE
   } state_e;
   state_e state;
@@ -202,6 +217,7 @@ module pqc_mlkem_decaps_b1_core #(
     cbd2_start <= 1'b0;
     ntt_start <= 1'b0;
     ntt_load_valid <= 1'b0;
+    shake256_start <= 1'b0;
     done <= 1'b0;
 
     if (reset) begin
@@ -641,7 +657,25 @@ module pqc_mlkem_decaps_b1_core #(
 
         S_ENCODE_V: begin
           c_prime[(2*DU*32)*8 +: DV*32*8] <= bencv_out;
-          state <= S_DONE;
+          shake256_msg_in <= '0;
+          state <= S_START_SHAKE256;
+        end
+
+        // --- Phase B4: FO-valinta. match=(c==c'), K_bar=J(z||c)=
+        // SHAKE256(z||c,32), K_final = match ? K' : K_bar ---
+        S_START_SHAKE256: begin
+          shake256_msg_in[255:0] <= z_in;
+          shake256_msg_in[8*768+255:256] <= c_in;
+          shake256_start <= 1'b1;
+          state <= S_WAIT_SHAKE256;
+        end
+
+        S_WAIT_SHAKE256: begin
+          if (shake256_done) begin
+            match_out <= (c_in === c_prime);
+            K_final_out <= (c_in === c_prime) ? K_prime_in : shake256_out;
+            state <= S_DONE;
+          end
         end
 
         S_DONE: begin

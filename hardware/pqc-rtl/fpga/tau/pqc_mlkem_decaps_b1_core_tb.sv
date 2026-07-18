@@ -21,19 +21,24 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [K*256*COEFF_W-1:0] u_vec_out_flat;
   logic [256*COEFF_W-1:0] v_poly_out;
   logic [8*768-1:0] c_prime_out;
+  logic [255:0] K_prime_in;
+  logic match_out;
+  logic [255:0] K_final_out;
 
   always #5 clk = ~clk;
 
   pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) dut (
     .clk(clk), .reset(reset), .start(start),
     .ek_in(ek_in), .r_prime_in(r_prime_in), .m_prime_in(m_prime_in),
+    .c_in(c_variant), .z_in(z_seed), .K_prime_in(K_prime_in),
     .done(done), .A_out_flat(A_out_flat),
     .y_vec_out_flat(y_vec_out_flat), .y_hat_out_flat(y_hat_out_flat),
     .e1_vec_out_flat(e1_vec_out_flat),
     .e2_poly_out(e2_poly_out),
     .u_acc_out_flat(u_acc_out_flat), .v_acc_out(v_acc_out),
     .u_vec_out_flat(u_vec_out_flat), .v_poly_out(v_poly_out),
-    .c_prime_out(c_prime_out)
+    .c_prime_out(c_prime_out),
+    .match_out(match_out), .K_final_out(K_final_out)
   );
 
   int fh, scan_ok, error_count;
@@ -43,6 +48,8 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [255:0] m_prime_val;
   logic [255:0] K_prime_expect;
   logic [8*768-1:0] c_variant, c_prime_expect;
+  int match_expect;
+  logic [255:0] K_final_expect;
   logic [256*COEFF_W-1:0] A00_golden, y0_golden, e10_golden, e2_golden;
 
   initial begin
@@ -58,6 +65,9 @@ module pqc_mlkem_decaps_b1_core_tb;
     scan_ok = $fscanf(fh, "%h\n", K_prime_expect);
     scan_ok = $fscanf(fh, "%h\n", c_variant);
     scan_ok = $fscanf(fh, "%h\n", c_prime_expect);
+    scan_ok = $fscanf(fh, "%d\n", match_expect);
+    scan_ok = $fscanf(fh, "%h\n", K_final_expect);
+    K_prime_in = K_prime_expect;
     m_prime_in = m_prime_val;
     $fclose(fh);
     ek_in = ek;
@@ -143,6 +153,19 @@ module pqc_mlkem_decaps_b1_core_tb;
       else begin $display("FAIL: u_acc[0] EI tasmaa"); error_count++; end
       if (v_acc_out === v_acc_golden) $display("OK: v_acc (B2b-1) tasmaa taydellisesti");
       else begin $display("FAIL: v_acc EI tasmaa"); error_count++; end
+    end
+
+    begin
+      if ((match_out ? 1 : 0) !== match_expect) begin
+        $display("FAIL: match EI tasmaa (RTL=%0b, golden=%0d)", match_out, match_expect);
+        error_count++;
+      end else $display("OK: match (c==c') tasmaa golden-malliin (%0d)", match_expect);
+
+      if (K_final_out !== K_final_expect) begin
+        $display("FAIL: K_final EI tasmaa");
+        error_count++;
+      end else $display("OK: K_final (%s) tasmaa taydellisesti golden-malliin",
+                          match_out ? "normaali K'" : "implisiittinen hylkays J(z||c)");
     end
 
     $display("--------------------------------------------------");

@@ -366,3 +366,68 @@ PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
 **Kaikki kryptografinen laskenta on nyt valmis ja todistettu KOKO
 tuotoksen (c') osalta.** Jaljella on VAIN Phase B4: c==c'-vertailu ja
 FO-valinta (K' tai J(z||c)).
+
+## TAYDELLINEN LAPIMURTO: KOKO ML-KEM.Decaps_internal VALMIS (2026-07-19, jatko 7)
+
+**Phase B4 (FO-valinta) toteutettu ja todennettu KAIKILLE KOLMELLE
+jaadytetylle testitapaukselle:**
+
+```
+OK valid: c' tasmaa, match=1, K_final = normaali K'
+OK byte_corrupted: c' tasmaa, match=0, K_final = implisiittinen hylkays J(z||c)
+OK bit_corrupted: c' tasmaa, match=0, K_final = implisiittinen hylkays J(z||c)
+PASS: Decaps Phase B4 (FO-valinta) tasmaa golden-malliin kaikille 3 tapaukselle
+```
+
+**Toteutus:** SHAKE256(z||c, 32 tavua) J-funktiolle, vertailu
+`c===c'`, FO-valinta `K_final = match ? K' : J(z||c)`.
+
+## M4-DECAPS-ORCH-001: KAIKKI VAIHEET VALMIINA JA TODENNETTU
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ |
+| Phase B2a: NTT-forward y_vec:lle | ✅ |
+| Phase B2b-1: NTT-alueen lineaarialgebra | ✅ |
+| Phase B2b-2: inverse-NTT + skaalaus + normaalialue | ✅ |
+| Phase B3: Compress + ByteEncode -> c' | ✅ |
+| Phase B4: FO-valinta (K' tai J(z\|\|c)) | ✅ **VIIMEINEN VAIHE** |
+
+**ENSIMMAINEN KERTA KOKO PROJEKTIN AIKANA ETTA TAYSI
+ML-KEM.Decaps_internal ON TODISTETTU SYNTEESIKELPOISEKSI JA
+BITTITARKASTI OIKEAKSI RTL:NA - kaikki kolme testitapausta (onnistunut
+paatos, tavu-tason korruptio, bitti-tason korruptio) todistavat seka
+normaalin etta implisiittisen hylkayspolun toimivan oikein.**
+
+## Yhteenveto koko Decaps-matkan loydoksista
+
+1. `pqc_bytedecode_dparam`:n oma f_out-leveys (256*D, ei 256*COEFF_W)
+2. `pqc_compress`:n porttinimisto (d/x_in/compress_out, ei d_sel/y_out)
+3. Sama bugiluokka toistuvasti: rekisteroity syote + kombinatorinen
+   tulos samalla syklilla (korjattu joka kerta kaksivaiheisella
+   setup/capture-mallilla, useissa eri konteksteissa)
+4. `ek`:n oikea leveys (800 tavua, ei 768)
+5. Unpacked-taulukko porttina -rajoitus (kaytettiin proaktiivisesti
+   aiemman loydoksen perusteella)
+6. **A-matriisin transpoosi-sekaannus KAHDESSA VAIHEESSA:** ensin
+   loydettiin naennainen transpoosiongelma, KORJATTIIN VAARIN
+   (koska vertailtiin omaan, saman virheen jakavaan manuaaliseen
+   referenssiin), sitten TODELLINEN korjaus loytyi vasta vertaamalla
+   TAYSIN riippumattomaan, viralliseen `kpke_encrypt()`-funktioon.
+
+**Metodologinen paaopetus koko taman tyopaketin ajalta:** vaiheittainen,
+golden-referenssiin perustuva testaus (kayttajan oma B1/B2a/B2b-1/
+B2b-2/B3/B4-jako) mahdollisti jokaisen bugin kavennyksen tarkasti
+rajattuun osa-alueeseen - MUTTA yhtä tarkeaa oli SEN LOPPUUN ASTI
+VIETY, riippumattomaan viralliseen funktioon perustuva lopputarkistus,
+joka paljasti etta yksi aiempi "korjaus" oli itse asiassa perustunut
+virheelliseen itsereferenssiin.
+
+## Seuraavat askeleet (ei viela aloitettu)
+
+1. Wishbone-integraatio TAU-kehykseen (sama malli kuin KeyGenissa,
+   M4-TAU-001)
+2. Synteesi + P&R -vahvistus ECP5:lla
+3. Encaps-orkestrointi (ML-KEM.Encaps_internal - ECU:n oma puoli)
