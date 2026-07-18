@@ -468,3 +468,43 @@ todennettu tuoreella vektorilla.
 1. Wishbone-integraatio TAU-kehykseen (sama malli kuin KeyGenissa)
 2. Synteesi + P&R -vahvistus ECP5:lla
 3. Encaps-orkestrointi (ML-KEM.Encaps_internal - ECU:n oma puoli)
+
+## Wishbone-integraatio TAU-kehykseen VALMIS (2026-07-19, jatko 9)
+
+**Toteutus:** laajennettu `pqc_tau_integrated_wrapper.sv` sisaltamaan
+Decaps KeyGenin rinnalle, samalla mallilla (WORD_SEL+START+STATUS-
+rekisterit).
+
+**Uudet Wishbone-rekisterit (0x130-0x139):**
+- 0x130: DECAPS_WORD_SEL
+- 0x131: DECAPS_C_IN (siffertext, 384 sanaa)
+- 0x132: DECAPS_DK_IN (dk, 816 sanaa)
+- 0x133: DECAPS_START
+- 0x134: DECAPS_STATUS (busy/done)
+- 0x135: DECAPS_K_FINAL_OUT
+- 0x136: DECAPS_MATCH
+
+**Testitulos (pqc_tau_decaps_wishbone_tb.sv, kaytten SAMAA tuoretta,
+riippumatonta testivektoria kuin huippumoduulin oma testi):**
+```
+ECU: c + dk kirjoitettu Wishbone-vaylan kautta
+Decaps valmis 7288 Wishbone-syklin jalkeen
+match: 1
+PASS: K_final tasmaa taydellisesti Wishbone-vaylan kautta luettuna
+PASS: Decaps-Wishbone-integraatio - koko ketju toimii
+```
+
+**Ei regressiota:** olemassa oleva KeyGen-integraatiotesti PASSAA
+edelleen samassa, yhdistetyssa kaareessa (KeyGen ja Decaps toimivat
+rinnakkain samalla Wishbone-vaylalla).
+
+## M4-DECAPS-ORCH-001:n lopullinen tila
+
+| Osa | Tila |
+|---|---|
+| Kaikki 8 algoritmivaihetta (A, G, B1, B2a, B2b-1, B2b-2, B3, B4) | ✅ |
+| Yhdistetty huippumoduuli | ✅ |
+| Wishbone-integraatio TAU-kehykseen | ✅ |
+| Synteesi + P&R -vahvistus | ❌ Seuraava |
+| Encaps-orkestrointi (ECU:n oma puoli) | ❌ |
+| Audit-loki/watchdog-integraatio Decapsille (KeyGenin tapaan) | ❌ Pieni lisatyo |
