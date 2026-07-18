@@ -83,3 +83,47 @@ yli, ei per-taso nollattuna) ON YKSINKERTAISEMPI kuin ML-KEM:n
 kaksikaistainen pankki-arkkitehtuuri - saattaa mahdollistaa
 suoraviivaisemman, YHDEN-butterflyn-per-sykli-mallin ensimmaisessa
 versiossa.
+
+## KOKO 256-KERTOIMINEN NTT VALMIS - PASS ENSIMMAISELLA YRITYKSELLA (2026-07-19, jatko 2)
+
+**Toteutus:** `pqc_dilithium_ntt_core.sv` - orkestroi todistetun
+butterfly-moduulin 255-rivisen skedulun (`dilithium_ntt_forward_
+schedule.memh`) yli. Skedulu generoitu SUORAAN `dilithium-py`:n omasta
+`to_ntt()`-silmukasta (l, zeta, start) -kolmikkoina - EI kasin
+johdettuja indekseja.
+
+**Ensimmainen versio: korrektius edella, optimointi myohemmin** -
+yksinkertainen rekisteripohjainen 256*23-bittinen muisti (ei viela
+BRAM-pankitusta), yksi butterfly kerrallaan, useita syklia per
+butterfly. Sama periaate kuin ML-KEM:n oma NTT-tyo (M1/M2-vaiheet
+ennen M4-FPGA-sarjan optimointia).
+
+**Testitulos (NELJA eri satunnaista polynomia, kaikki PASS):**
+```
+Valmis 4095 syklin jalkeen
+PASS: koko NTT tasmaa taydellisesti kaikille 256 kertoimelle
+```
+Nelja eri siementa (99, 1, 2, 3) - KAIKKI tasmaavat taydellisesti
+`dilithium-py`:n omaan `to_ntt()`-tulokseen, EI YHTAAN LOYDETTYA
+BUGIA.
+
+**Miksi tama meni niin suoraviivaisesti:** huolellinen etukateis-
+tyo (Barrett-arkkitehtuurivalinta dokumentoituine perusteluineen,
+skedulun generointi SUORAAN kirjaston omasta silmukasta eika kasin
+johdettuna, butterfly testattu ERIKSEEN ennen koko NTT:n kokoamista)
+kannatti - sama vaiheittainen kurinalaisuus joka toimi koko ML-KEM-
+projektin ajan.
+
+## DK1:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| Barrett-kertolaskureduktio | ✅ |
+| NTT-butterfly | ✅ |
+| Koko 256-kertoimisen NTT:n orkestrointi | ✅ |
+| Inverse NTT | ❌ Seuraava |
+| Synteesi + suorituskykymittaus (osio 8, suunnitelmasta) | ❌ |
+
+**DK1 (32-bittinen NTT-ydin) on nyt lahes valmis** - jaljella inverse-
+NTT (tarvitaan KeyGenissa: `t = NTT^-1(A*NTT(s1)) + s2`) ja
+synteesi+mittaus ennen DK1:n sulkemista.
