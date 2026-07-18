@@ -3,6 +3,11 @@
 SystemVerilog RTL-prototyyppi NTT256-kiihdyttimelle.
 Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 
+**HUOM (2026-07-19):** taman kansion paaosa (`rtl/`, `fpga/`) on
+ML-KEM/Kyber-tyota. `dilithium-rtl/` sisaltaa UUDEN, ERILLISEN
+ML-DSA-65 (Dilithium) -RTL-tyon (M5-DILITHIUM-001) - ks. oma osio
+alempana ("Yhteys TrustCore NX:ään ja Dilithium-tyohon").
+
 ## Tila
 
 | Milestone | Kuvaus | Tila |
@@ -35,6 +40,12 @@ Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
 | **M4-FPGA-005/006/007** | ECP5 place-and-route, ajoitusoptimointi (1-vaiheinen aritmetiikan pipeline) | ✅ TODENNETTU 2026-07-19 - Fmax 21.2→30.4 MHz, +14.5% lapimenoajassa |
 | **M4-FPGA-008** | Pipeline-optimointi integroitu tuotantoytimeen | ✅ TODENNETTU 2026-07-19 |
 | **M4-SoC-001** | Wishbone-vaylakaare (tutkimusprototyyppi) | ✅ TODENNETTU 2026-07-19, ks. `fpga/soc_wrapper/` |
+| **M4-TAU-001** | Attestaatioprotokolla (audit-loki, watchdog, Wishbone-integraatio) ML-KEM-ytimelle | ✅ TODENNETTU 2026-07-19, ks. [M4_TAU_001_MILESTONE.md](fpga/tau/M4_TAU_001_MILESTONE.md) |
+| **M4-DECAPS-ORCH-001** | ML-KEM.Decaps_internal, kaikki 8 vaihetta (A/G/B1/B2a/B2b-1/B2b-2/B3/B4) | ✅ TODENNETTU 2026-07-19, ks. [M4_DECAPS_ORCH_001_STATUS.md](fpga/tau/M4_DECAPS_ORCH_001_STATUS.md) |
+| **M4-ENCAPS-ORCH-001** | ML-KEM.Encaps_internal, uudelleenkayttaa Decapsin K-PKE.Encrypt-logiikkaa | ✅ TODENNETTU 2026-07-19, ks. [M4_ENCAPS_ORCH_001_STATUS.md](fpga/tau/M4_ENCAPS_ORCH_001_STATUS.md) |
+| **M4-TAU (koko protokolla)** | KeyGen->Encaps->Decaps paasta paahan, kaikki kolme algoritmia symmetrisesti audit/watchdog-suojattuina samassa Wishbone-kehyksessa | ✅ TODENNETTU 2026-07-19, ks. [M4_TAU_FULL_PROTOCOL_MILESTONE.md](fpga/tau/M4_TAU_FULL_PROTOCOL_MILESTONE.md) - julkaisu [M4-TAU-MLKEM-COMPLETE_RC1](https://github.com/AetherContinuity/aether-one/releases/tag/M4-TAU-MLKEM-COMPLETE_RC1) |
+| **M5-DILITHIUM-001 DK1 (osa)** | 32-bittinen NTT-ydin (Barrett-reduktio, butterfly, koko 256-kertoiminen forward-NTT) | ✅ TODENNETTU 2026-07-19, ks. [dilithium-rtl/DK1_STATUS.md](dilithium-rtl/DK1_STATUS.md) - **UUSI, ERILLINEN ML-DSA-65-tyo, ei ML-KEM** |
+| M5-DILITHIUM-001 (jatkuu) | Inverse-NTT, KeyGen/Verify/Sign-orkestrointi, synteesi+mittaus | Avoin, ks. [dilithium-golden/M5_DILITHIUM_001_PLAN.md](dilithium-golden/M5_DILITHIUM_001_PLAN.md) |
 | M4 (jatkuu) | TrustCore NX -integraatio, laajempi SoC-tyo | Avoin |
 
 **M1:n todennettu skoopin rajaus (2026-07-02):**
@@ -579,49 +590,50 @@ puhtaasti testipenkin puoleista instrumentointia (ei muuta RTL:ää).
 - Icarus Verilog 12.0 (testattu tässä ympäristössä, ei vielä Pi5:llä)
 - Python `gen_vectors.py` → `.memh` → SV-testipenkki
 
-## Yhteys TrustCore NX:ään ja Dilithium-tyohon (paivitetty 2026-07-19)
+## Yhteys TrustCore NX:ään ja Dilithium-tyohon (paivitetty 2026-07-19, DILITHIUM-RTL-TYO ALKANUT)
 
 NTT256 tässä käyttää Kyberin (ML-KEM) 16-bittistä Montgomery-reduktiota
-(Q=3329). **Ei ML-DSA/Dilithium** — Dilithiumin Montgomery on 32-bittinen
-(Q=8380417, R=2^32). Dual-Pi-protolle (ML-DSA-65-allekirjoitus) tämä M1/
-M2 Vaihe 1 ei kelpaa sellaisenaan (sama Kyber-parametrisointi molemmissa);
-tarvitaan erillinen 32-bittinen Dilithium-Montgomery
-(ks. hardware/pqc-rtl/rvv/README.md ja rvv-dilithium/README.md).
+(Q=3329). **Ei ML-DSA/Dilithium** — Dilithiumin oma aritmetiikka kayttaa
+Q=8380417:aa (23-bittinen kerroinavaruus). Dual-Pi-protolle (ML-DSA-65-
+allekirjoitus) tama M1/M2 Vaihe 1 ei kelpaa sellaisenaan (sama Kyber-
+parametrisointi molemmissa); tarvittiin erillinen Dilithium-oma
+moduluslaskenta (ks. alla - PAATETTY olla Barrett, EI Montgomery).
 
-**TARKENNUS (loydetty repon paatason README:sta 2026-07-19):**
-Trust Server (pi2_trust_server/) kayttaa TUOTANNOSSA ML-DSA-65:ta
-(Dilithium) liboqs-kirjaston kautta - EI ML-KEM:ia. Tama `rtl/`-
-kansion tyo (Kyber/ML-KEM) on siis algoritmisesti ERI PQC-primitiivi
-kuin se, jota Trust Server oikeasti kayttaa allekirjoituksiin.
-
-Tama EI tee tasta tyosta turhaa - ML-KEM on erillinen, yhta lailla
-NIST-standardoitu PQC-algoritmi (avainten kapselointiin, ei
-allekirjoituksiin), ja jarjestelmat tarvitsevat usein MOLEMPIA
-(esim. TLS-tyyppinen kasittely: KEM istunnon avainten sopimiseen,
-allekirjoitus autentikointiin). MUTTA on tarkeaa olla selkea etta:
+**PAIVITYS 2026-07-19: Dilithium-RTL-tyo ON NYT ALKANUT** (kansio
+`dilithium-rtl/`, suunnitteludokumentti `dilithium-golden/`). Alla
+oleva kolmiosainen erottelu ("rtl/ on Kyber, rvv-dilithium/ on
+kypsempi ohjelmistotyo, Dilithium-RTL aloitetaan jos/kun") ON
+OSITTAIN VANHENTUNUT - kohta 3 ei ole enaa "jos/kun", vaan aktiivinen
+tyo:
 
 1. **Tama rtl/-tyo (M1-M4) on ML-KEM/Kyber-kiihdytin** - synteesikelpoinen,
-   DP16KD-BRAM-inferointi todistettu, Fmax mitattu ECP5:lla (ks.
-   M4-vaiheen rivit tilataulukossa ylla).
-2. **`rvv-dilithium/`-kansio on ERI, kypsempi tyo** - taydellinen
-   ML-DSA-65-ohjelmistoreferenssi (C+RVV, QEMU), bittitarkasti
-   pq-crystals/dilithium-referenssia vasten, mutta EI VIELA
-   synteesikelpoista RTL:aa.
-3. **Jos TrustCore NX -konsepti (tai mika tahansa oikea rautaintegraatio
-   Trust Serverin kanssa) halutaan toteuttaa tarkasti Trust Serverin
-   nykyista kryptografiaa vastaavana, oikea kohde olisi Dilithium-
-   RTL, EI Kyber-RTL** - tama rtl/-kansio ei suoraan palvele Trust
-   Serverin nykyista tarvetta, vaikka sen oma metodologia (BRAM-
-   inferointi, ajoitusoptimointi, vaylaintegraatio) olisi todennakoisesti
-   suoraan uudelleenkaytettavissa jos/kun Dilithium-RTL aloitetaan
-   (32-bittinen Montgomery vaatisi omat butterfly-/muistimitat, mutta
-   sama arkkitehtoninen lahestymistapa - konfliktiton pankitus,
-   arbitroitu BRAM-rajapinta, pipelinoitu aritmetiikka - patisi
-   todennakoisesti samalla tavalla).
+   DP16KD-BRAM-inferointi todistettu, Fmax mitattu ECP5:lla, JA NYT
+   TAYSIN INTEGROITU TAU-attestaatiokehykseen (audit-loki, watchdog,
+   Wishbone) kaikille kolmelle ML-KEM-operaatiolle (KeyGen/Encaps/
+   Decaps) - ks. M4-TAU-rivit tilataulukossa ylla.
+2. **`rvv-dilithium/`-kansio on OHJELMISTOREFERENSSI** - taydellinen
+   ML-DSA-65-toteutus (C+RVV, QEMU), bittitarkasti pq-crystals/
+   dilithium-referenssia vasten. Tama EI OLE synteesikelpoista RTL:aa,
+   mutta sen oma, dokumentoitu BUGIHISTORIA (Montgomery-etumerkki-
+   virhe loydetty kahdesti, vaara nonce-kaava, jne) on ollut
+   SUORAAN hyodyllinen uuden RTL-tyon riskienhallinnassa (ks. alla).
+3. **`dilithium-rtl/`-kansio on UUSI, AKTIIVINEN synteesikelpoinen
+   ML-DSA-65-RTL-tyo** (M5-DILITHIUM-001, GitHub Issue #17). Golden-
+   malli: `dilithium-py` (PyPI, riippumaton, ei oma uudelleen-
+   toteutus). Tietoinen arkkitehtuurivalinta: Barrett-reduktio
+   Montgomery-domainin SIJAAN, koska rvv-dilithium:n oma bugihistoria
+   loysi Montgomery-etumerkkivirheen kahdesti - Barrett valttaa taman
+   kokonaan pitamalla arvot koko ajan normaalialueella. VALMIINA:
+   Barrett-kertolaskureduktio, NTT-butterfly, koko 256-kertoiminen
+   forward-NTT (kaikki PASS ensimmaisella yrityksella, todennettu
+   `dilithium-py`:ta vasten). Jaljella: inverse-NTT, KeyGen/Verify/
+   Sign-orkestrointi, synteesi+mittaus - ks. [dilithium-golden/
+   M5_DILITHIUM_001_PLAN.md](dilithium-golden/M5_DILITHIUM_001_PLAN.md)
+   suunnitelmasta ja hyvaksymiskriteereista.
 
-Tama RTL siirtyy suoraan TrustCore NX ASIC:iin **VAIN JOS** ML-KEM
-paatyy osaksi lopullista TrustCore NX -kryptografista suunnitelmaa -
-tama paatos EI OLE viela tehty, ja tama README ei ota siihen kantaa
-kayttajan puolesta.
+Tama RTL (seka ML-KEM etta Dilithium) siirtyy TrustCore NX ASIC:iin
+**VAIN JOS** naista paatyy osaksi lopullista TrustCore NX -
+kryptografista suunnitelmaa - tama paatos EI OLE viela tehty, ja
+tama README ei ota siihen kantaa kayttajan puolesta.
 
 
