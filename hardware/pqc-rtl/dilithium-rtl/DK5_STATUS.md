@@ -211,3 +211,42 @@ valmiit ja todennettu erikseen. Seuraava askel on koota nama YHTEEN
 uudelleenkaytettavien osien (ExpandA, NTT-forward/inverse,
 matriisikertolasku, SHAKE256) kanssa yhdeksi taydeksi
 ML-DSA-65.Verify_internal-orkestroinniksi.
+
+## Verify-ytimen laskenta (Az_minus_ct1) VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 6)
+
+**Toteutus:** `pqc_dilithium_verify_core.sv` - laskee
+`Az_minus_ct1 = NTT^-1(A_hat@NTT(z) - NTT(t1*2^D)*NTT(c))` (K=6
+polynomia). Sama rakenne kuin `pqc_dilithium_keygen_core.sv`, mutta
+LISATTYNA "vahenna c*t1_scaled" -termi. Uudelleenkayttaa suoraan
+DK1:n NTT-ytimet ja Barrett-kertolaskun.
+
+**Testitulos:**
+```
+Valmis 101428 syklin jalkeen
+PASS: Az_minus_ct1 tasmaa taydellisesti kaikille 6 polynomille
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA** - verrattu suoraan
+`dilithium-py`:n omaan `(A_hat@z_hat - t1_hat.scale(c_hat)).from_ntt()`
+-laskentaan. 101428 sykli (EVEN ENEMMAN kuin KeyGenin oma 87118
+sykli, koska tarvitaan 12 NTT-muunnosta: 5 z:lle, 6 t1:lle, 1 c:lle,
+vs KeyGenin oma 5+6).
+
+## DK5:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose | ✅ |
+| UseHint | ✅ |
+| bit_unpack_z | ✅ |
+| unpack_h | ✅ |
+| bit_pack_w | ✅ |
+| **Verify-ytimen laskenta (Az_minus_ct1)** | ✅ |
+| Koko Verify-orkestrointi (unpack+hash+ydin+UseHint+pack_w+vertailu) | ❌ Viimeinen vaihe |
+
+**Kaikki raskas laskennallinen tyo Verifylle on nyt valmis ja
+todistettu.** Jaljella VAIN kokoonpanotyo: unpack_pk/unpack_sig
+(suoraviivaista), tr/mu-hashit (SHAKE256, uudelleenkaytettava), ja
+lopullinen liitanta olemassa oleviin, jo todistettuihin palasiin
+(SampleInBall, UseHint, bit_pack_w).
