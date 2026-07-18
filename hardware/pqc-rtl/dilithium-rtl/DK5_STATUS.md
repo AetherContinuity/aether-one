@@ -90,3 +90,33 @@ rp-r0==Q-1, + 500 satunnaista).
 | unpack_pk/unpack_sig | ❌ |
 | bit_pack_w | ❌ |
 | Koko Verify-orkestrointi | ❌ |
+
+## UseHint VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 2)
+
+**Toteutus:** `pqc_dilithium_use_hint.sv` - FIPS 204 Algoritmi 40,
+uudelleenkayttaa suoraan juuri todistetun (ja korjatun) `pqc_dilithium_
+decompose.sv`:n.
+
+**Testitulos:**
+```
+PASS: UseHint tasmaa taydellisesti kaikille 506 testitapaukselle
+```
+
+506 = 6 reunatapausta (mukaan lukien h=0/1-yhdistelmat ALPHA-rajoilla)
++ 500 satunnaista (h,r)-paria.
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA** - edellisen
+Decompose-korjauksen (mixed signed/unsigned) hyoty nakyi suoraan:
+koska UseHint uudelleenkayttaa JO KORJATTUA decompose-moduulia, ei
+loydetty uutta bugia tassa vaiheessa.
+
+## DK5:n paivitetty tila
+
+| Osa | Tila |
+|---|---|
+| SampleInBall | ✅ |
+| Decompose | ✅ |
+| UseHint | ✅ |
+| unpack_pk/unpack_sig | ❌ Seuraava |
+| bit_pack_w | ❌ |
+| Koko Verify-orkestrointi | ❌ |
