@@ -34,6 +34,7 @@ module pqc_mlkem_decaps_b1_core #(
     input  logic start,
     input  logic [8*800-1:0] ek_in,   // ek (800 tavua: K*384 t_hat + 32 rho)
     input  logic [255:0] r_prime_in,
+    input  logic [255:0] m_prime_in,   // Phase A:n oma m'
 
     output logic done,
     output logic [4*256*COEFF_W-1:0] A_out_flat,        // A[0][0],A[0][1],A[1][0],A[1][1] jarjestyksessa
@@ -42,7 +43,9 @@ module pqc_mlkem_decaps_b1_core #(
     output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
     output logic [256*COEFF_W-1:0] e2_poly_out,
     output logic [K*256*COEFF_W-1:0] u_acc_out_flat,  // B2b-1: A^T*y_hat (NTT-alueella, ennen INTT:ta)
-    output logic [256*COEFF_W-1:0] v_acc_out           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
+    output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
+    output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
+    output logic [256*COEFF_W-1:0] v_poly_out           // B2b-2: normaalialueen v
 );
 
   // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
@@ -67,6 +70,22 @@ module pqc_mlkem_decaps_b1_core #(
 
   logic [71:0] fwd_schedule_rom [0:63];
   initial $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", fwd_schedule_rom);
+
+  logic [71:0] inv_schedule_rom [0:63];
+  initial $readmemh("fpga/tau/mlkem_ntt_inverse_schedule_rom.memh", inv_schedule_rom);
+
+  logic [256*COEFF_W-1:0] scale_in, scale_out;
+  pqc_ntt_final_scale #(.COEFF_W(COEFF_W)) scale_dut (.f_in(scale_in), .f_out(scale_out));
+
+  logic [255:0] bdec1_in, bdec1_out;
+  pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
+
+  logic [COEFF_W-1:0] c1_x_in, c1_y_in, c1_compress_out, c1_decompress_out;
+  logic [3:0] c1_d_sel;
+  pqc_compress #(.COEFF_W(COEFF_W)) compress1_dut (
+    .d(c1_d_sel), .x_in(c1_x_in), .compress_out(c1_compress_out),
+    .y_in(c1_y_in), .decompress_out(c1_decompress_out)
+  );
 
   logic [256*COEFF_W-1:0] y_hat [0:K-1];
   logic [1:0] fwd_ctr;
@@ -128,15 +147,29 @@ module pqc_mlkem_decaps_b1_core #(
   logic [256*COEFF_W-1:0] v_acc;          // t_hat*y_hat akkumulaattori
   logic [1:0] mm_col, mm_j;
 
-  typedef enum logic [4:0] {
+  typedef enum logic [5:0] {
     S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
     S_START_CBD1, S_WAIT_CBD1, S_START_CBD2, S_WAIT_CBD2, S_CBD_NEXT,
     S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT,
     S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT,
     S_MATMUL_U, S_MATMUL_U_CAPTURE, S_MATMUL_U_NEXT,
-    S_MATMUL_V, S_MATMUL_V_CAPTURE, S_DONE
+    S_MATMUL_V, S_MATMUL_V_CAPTURE,
+    S_INV_U_LOAD, S_INV_U_SCHED_SETUP, S_INV_U_SCHED_START, S_INV_U_SCHED_WAIT,
+    S_INV_U_READ, S_INV_U_READ_WAIT, S_INV_U_SCALE, S_INV_U_ADD_E1, S_INV_U_NEXT,
+    S_INV_V_LOAD, S_INV_V_SCHED_SETUP, S_INV_V_SCHED_START, S_INV_V_SCHED_WAIT,
+    S_INV_V_READ, S_INV_V_READ_WAIT, S_INV_V_SCALE,
+    S_DECODE_MU_SETUP, S_DECODE_MU, S_DECODE_MU_CAPTURE, S_ADD_E2, S_ADD_MU,
+    S_DONE
   } state_e;
   state_e state;
+
+  logic [7:0] inv_load_idx, inv_read_idx;
+  logic [5:0] inv_sched_idx;
+  logic [1:0] inv_col;
+  logic [256*COEFF_W-1:0] raw_u, raw_v, scaled_v, mu_poly;
+  logic [256*COEFF_W-1:0] u_vec [0:K-1];
+  logic [256*COEFF_W-1:0] v_poly;
+  logic [7:0] mu_bit_idx;
 
   always_ff @(posedge clk) begin
     samplentt_start <= 1'b0;
@@ -362,14 +395,197 @@ module pqc_mlkem_decaps_b1_core #(
 
         S_MATMUL_V_CAPTURE: begin
           v_acc <= padd_sum;
-          if (mm_j == K-1) state <= S_DONE;
-          else begin
+          if (mm_j == K-1) begin
+            inv_col <= 2'd0; inv_load_idx <= 8'd0;
+            state <= S_INV_U_LOAD;
+          end else begin
             mm_j <= mm_j + 2'd1;
             state <= S_MATMUL_V;
           end
         end
 
+        // --- B2b-2: inverse-NTT + skaalaus u_acc[col]:lle, +e1_vec[col] -> u_vec[col] ---
+        S_INV_U_LOAD: begin
+          ntt_load_valid <= 1'b1;
+          ntt_load_addr  <= inv_load_idx;
+          ntt_load_data  <= u_acc[inv_col][inv_load_idx*COEFF_W +: COEFF_W];
+          if (inv_load_idx == 8'd255) begin
+            inv_sched_idx <= 6'd0;
+            state <= S_INV_U_SCHED_SETUP;
+          end else inv_load_idx <= inv_load_idx + 8'd1;
+        end
+
+        S_INV_U_SCHED_SETUP: begin
+          ntt_load_valid <= 1'b0;
+          begin
+            logic [71:0] entry;
+            entry = inv_schedule_rom[inv_sched_idx];
+            ntt_count       <= entry[65:58];
+            ntt_pair_dist   <= entry[57:50];
+            base_addr_lane0 <= entry[49:41];
+            zeta_lane0      <= entry[40:25];
+            base_addr_lane1 <= entry[24:16];
+            zeta_lane1      <= entry[15:0];
+          end
+          ntt_mode <= 1'b1;
+          state <= S_INV_U_SCHED_START;
+        end
+
+        S_INV_U_SCHED_START: begin
+          ntt_start <= 1'b1;
+          state <= S_INV_U_SCHED_WAIT;
+        end
+
+        S_INV_U_SCHED_WAIT: begin
+          if (stage_done) begin
+            if (inv_sched_idx == 6'd63) begin
+              inv_read_idx <= 8'd0;
+              state <= S_INV_U_READ;
+            end else begin
+              inv_sched_idx <= inv_sched_idx + 6'd1;
+              state <= S_INV_U_SCHED_SETUP;
+            end
+          end
+        end
+
+        S_INV_U_READ: state <= S_INV_U_READ_WAIT;
+
+        S_INV_U_READ_WAIT: begin
+          if (ntt_read_valid) begin
+            raw_u[inv_read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+            if (inv_read_idx == 8'd255) state <= S_INV_U_SCALE;
+            else begin
+              inv_read_idx <= inv_read_idx + 8'd1;
+              state <= S_INV_U_READ;
+            end
+          end
+        end
+
+        S_INV_U_SCALE: begin
+          scale_in <= raw_u;
+          state <= S_INV_U_ADD_E1;
+        end
+
+        S_INV_U_ADD_E1: begin
+          padd_a <= scale_out;
+          padd_b <= e1_vec[inv_col];
+          state <= S_INV_U_NEXT;
+        end
+
+        S_INV_U_NEXT: begin
+          u_vec[inv_col] <= padd_sum;
+          if (inv_col == K-1) begin
+            inv_load_idx <= 8'd0;
+            state <= S_INV_V_LOAD;
+          end else begin
+            inv_col <= inv_col + 2'd1;
+            inv_load_idx <= 8'd0;
+            state <= S_INV_U_LOAD;
+          end
+        end
+
+        // --- inverse-NTT + skaalaus v_acc:lle (ei viela e2/mu-lisaysta) ---
+        S_INV_V_LOAD: begin
+          ntt_load_valid <= 1'b1;
+          ntt_load_addr  <= inv_load_idx;
+          ntt_load_data  <= v_acc[inv_load_idx*COEFF_W +: COEFF_W];
+          if (inv_load_idx == 8'd255) begin
+            inv_sched_idx <= 6'd0;
+            state <= S_INV_V_SCHED_SETUP;
+          end else inv_load_idx <= inv_load_idx + 8'd1;
+        end
+
+        S_INV_V_SCHED_SETUP: begin
+          ntt_load_valid <= 1'b0;
+          begin
+            logic [71:0] entry;
+            entry = inv_schedule_rom[inv_sched_idx];
+            ntt_count       <= entry[65:58];
+            ntt_pair_dist   <= entry[57:50];
+            base_addr_lane0 <= entry[49:41];
+            zeta_lane0      <= entry[40:25];
+            base_addr_lane1 <= entry[24:16];
+            zeta_lane1      <= entry[15:0];
+          end
+          ntt_mode <= 1'b1;
+          state <= S_INV_V_SCHED_START;
+        end
+
+        S_INV_V_SCHED_START: begin
+          ntt_start <= 1'b1;
+          state <= S_INV_V_SCHED_WAIT;
+        end
+
+        S_INV_V_SCHED_WAIT: begin
+          if (stage_done) begin
+            if (inv_sched_idx == 6'd63) begin
+              inv_read_idx <= 8'd0;
+              state <= S_INV_V_READ;
+            end else begin
+              inv_sched_idx <= inv_sched_idx + 6'd1;
+              state <= S_INV_V_SCHED_SETUP;
+            end
+          end
+        end
+
+        S_INV_V_READ: state <= S_INV_V_READ_WAIT;
+
+        S_INV_V_READ_WAIT: begin
+          if (ntt_read_valid) begin
+            raw_v[inv_read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+            if (inv_read_idx == 8'd255) state <= S_INV_V_SCALE;
+            else begin
+              inv_read_idx <= inv_read_idx + 8'd1;
+              state <= S_INV_V_READ;
+            end
+          end
+        end
+
+        S_INV_V_SCALE: begin
+          scale_in <= raw_v;
+          state <= S_DECODE_MU_SETUP;
+        end
+
+        // --- mu_poly = Decompress(D=1)(ByteDecode(D=1)(m')) ---
+        S_DECODE_MU_SETUP: begin
+          scaled_v <= scale_out;
+          bdec1_in <= m_prime_in;
+          mu_bit_idx <= 8'd0;
+          state <= S_DECODE_MU;
+        end
+
+        S_DECODE_MU: begin
+          c1_d_sel <= 4'd1;
+          c1_y_in  <= {15'b0, bdec1_out[mu_bit_idx]};
+          state <= S_DECODE_MU_CAPTURE;
+        end
+
+        S_DECODE_MU_CAPTURE: begin
+          mu_poly[mu_bit_idx*COEFF_W +: COEFF_W] <= c1_decompress_out;
+          if (mu_bit_idx == 8'd255) state <= S_ADD_E2;
+          else begin
+            mu_bit_idx <= mu_bit_idx + 8'd1;
+            state <= S_DECODE_MU;
+          end
+        end
+
+        S_ADD_E2: begin
+          padd_a <= scaled_v;
+          padd_b <= e2_poly_out;
+          state <= S_ADD_MU;
+        end
+
+        S_ADD_MU: begin
+          padd_a <= padd_sum;
+          padd_b <= mu_poly;
+          state <= S_DONE;
+        end
+
         S_DONE: begin
+          v_poly <= padd_sum;
+          done <= 1'b1;
+          state <= S_IDLE;
+        end        S_DONE: begin
           done <= 1'b1;
           state <= S_IDLE;
         end
@@ -385,8 +601,11 @@ module pqc_mlkem_decaps_b1_core #(
   assign y_hat_out_flat = {y_hat[1], y_hat[0]};
   assign e1_vec_out_flat = {e1_vec[1], e1_vec[0]};
 
-  assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT);
-  assign ntt_read_addr = read_idx;
+  assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT) ||
+                          (state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
+                          (state == S_INV_V_READ) || (state == S_INV_V_READ_WAIT);
+  assign ntt_read_addr = ((state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
+                          (state == S_INV_V_READ) || (state == S_INV_V_READ_WAIT)) ? inv_read_idx : read_idx;
 
   // B2b-1: mntt_f/mntt_g KOMBINATORISIA, indeksoituna rekisteroidyilla
   // mm_j/mm_col:lla - sama, jo todistettu periaate kuin KeyGenin
@@ -397,5 +616,7 @@ module pqc_mlkem_decaps_b1_core #(
 
   assign u_acc_out_flat = {u_acc[1], u_acc[0]};
   assign v_acc_out = v_acc;
+  assign u_vec_out_flat = {u_vec[1], u_vec[0]};
+  assign v_poly_out = v_poly;
 
 endmodule

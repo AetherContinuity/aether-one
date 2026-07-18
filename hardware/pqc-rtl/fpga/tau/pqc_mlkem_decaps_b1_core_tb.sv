@@ -10,7 +10,7 @@ module pqc_mlkem_decaps_b1_core_tb;
 
   logic clk, reset, start, done;
   logic [8*800-1:0] ek_in;
-  logic [255:0] r_prime_in;
+  logic [255:0] r_prime_in, m_prime_in;
   logic [4*256*COEFF_W-1:0] A_out_flat;
   logic [K*256*COEFF_W-1:0] y_vec_out_flat;
   logic [K*256*COEFF_W-1:0] y_hat_out_flat;
@@ -18,24 +18,27 @@ module pqc_mlkem_decaps_b1_core_tb;
   logic [256*COEFF_W-1:0] e2_poly_out;
   logic [K*256*COEFF_W-1:0] u_acc_out_flat;
   logic [256*COEFF_W-1:0] v_acc_out;
+  logic [K*256*COEFF_W-1:0] u_vec_out_flat;
+  logic [256*COEFF_W-1:0] v_poly_out;
 
   always #5 clk = ~clk;
 
   pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) dut (
     .clk(clk), .reset(reset), .start(start),
-    .ek_in(ek_in), .r_prime_in(r_prime_in),
+    .ek_in(ek_in), .r_prime_in(r_prime_in), .m_prime_in(m_prime_in),
     .done(done), .A_out_flat(A_out_flat),
     .y_vec_out_flat(y_vec_out_flat), .y_hat_out_flat(y_hat_out_flat),
     .e1_vec_out_flat(e1_vec_out_flat),
     .e2_poly_out(e2_poly_out),
-    .u_acc_out_flat(u_acc_out_flat), .v_acc_out(v_acc_out)
+    .u_acc_out_flat(u_acc_out_flat), .v_acc_out(v_acc_out),
+    .u_vec_out_flat(u_vec_out_flat), .v_poly_out(v_poly_out)
   );
 
   int fh, scan_ok, error_count;
   logic [8*800-1:0] ek;
   logic [255:0] z_seed;
   string tag;
-  logic [8*768-1:0] m_prime_dummy;
+  logic [255:0] m_prime_val;
   logic [256*COEFF_W-1:0] A00_golden, y0_golden, e10_golden, e2_golden;
 
   initial begin
@@ -46,8 +49,9 @@ module pqc_mlkem_decaps_b1_core_tb;
     scan_ok = $fscanf(fh, "%h\n", ek);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     scan_ok = $fscanf(fh, "%s\n", tag);
-    scan_ok = $fscanf(fh, "%h\n", m_prime_dummy);
+    scan_ok = $fscanf(fh, "%h\n", m_prime_val);
     scan_ok = $fscanf(fh, "%h\n", r_prime_in);
+    m_prime_in = m_prime_val;
     $fclose(fh);
     ek_in = ek;
 
@@ -68,7 +72,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     begin
       int wait_cycles;
       wait_cycles = 0;
-      while (!done && wait_cycles < 10000) begin
+      while (!done && wait_cycles < 30000) begin
         @(posedge clk);
         wait_cycles++;
       end
@@ -97,6 +101,18 @@ module pqc_mlkem_decaps_b1_core_tb;
       $fclose(fh);
       if (y_hat_out_flat[256*COEFF_W-1:0] === y0_hat_golden) $display("OK: y_hat[0] (B2a, NTT-forward) tasmaa taydellisesti");
       else begin $display("FAIL: y_hat[0] EI tasmaa"); error_count++; end
+    end
+
+    begin
+      logic [256*COEFF_W-1:0] u0_golden, v_golden;
+      fh = $fopen("fpga/tau/decaps_b2b2_golden.txt", "r");
+      scan_ok = $fscanf(fh, "%h\n", u0_golden);
+      scan_ok = $fscanf(fh, "%h\n", v_golden);
+      $fclose(fh);
+      if (u_vec_out_flat[256*COEFF_W-1:0] === u0_golden) $display("OK: u_vec[0] (B2b-2, normaalialue) tasmaa taydellisesti");
+      else begin $display("FAIL: u_vec[0] EI tasmaa"); error_count++; end
+      if (v_poly_out === v_golden) $display("OK: v_poly (B2b-2, normaalialue) tasmaa taydellisesti");
+      else begin $display("FAIL: v_poly EI tasmaa"); error_count++; end
     end
 
     begin

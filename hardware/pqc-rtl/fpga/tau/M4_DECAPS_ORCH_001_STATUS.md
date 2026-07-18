@@ -253,3 +253,51 @@ akkumuloinnissa - kaksivaiheinen setup/capture-tilapari
 | Phase B2b-2: inverse-NTT + skaalaus + normaalialue | ❌ Seuraava |
 | Phase B3: Compress + ByteEncode -> c' | ❌ |
 | Phase B4: FO-valinta | ❌ |
+
+## Phase B2b-2 VALMIS: inverse-NTT + skaalaus + normaalialue (2026-07-19, jatko 5)
+
+**Toteutus:** laajennettu `pqc_mlkem_decaps_b1_core.sv`:
+1. Inverse-NTT `u_acc[col]`:lle (col=0,1) + skaalaus + `e1_vec[col]`-
+   lisays -> `u_vec[col]`
+2. Inverse-NTT `v_acc`:lle + skaalaus
+3. `mu_poly` = Decompress(D=1)(ByteDecode(D=1)(m')) - m':n oma
+   dekoodaus takaisin polynomiksi
+4. `v_poly` = skaalattu_v + `e2_poly` + `mu_poly`
+
+**Loydetty ja korjattu sama, jo tuttu bugiluokka etukateen** (rekiste-
+roity syote + kombinatorinen tulos samalla syklilla) mu_poly:n omassa
+dekoodaussilmukassa - kaksivaiheinen setup/capture-tilapari
+(`S_DECODE_MU`/`S_DECODE_MU_CAPTURE`), lisatty JO ENNEN testausta
+(aiemman debug-kokemuksen ansiosta).
+
+**Loydetty (oma testivirhe, EI RTL-bugi):** testin oma aikakatkaisu-
+raja (10000 sykliä) oli liian lyhyt taman pidemman laskennan (2x
+forward-NTT + 2x inverse-NTT + matriisikertolasku + mu-dekoodaus)
+kokonaisajalle - kasvatettu 30000:een.
+
+**Testitulos:**
+```
+OK: u_vec[0] (B2b-2, normaalialue) tasmaa taydellisesti
+OK: v_poly (B2b-2, normaalialue) tasmaa taydellisesti
+PASS: Decaps Phase B1 (A-matriisi + PRF/CBD-kohina) tasmaa golden-malliin
+```
+
+**PASS TAYDELLISESTI kaikille yhdeksalle tarkistetulle arvolle.**
+
+## M4-DECAPS-ORCH-001:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| Phase A: K-PKE.Decrypt -> m' | ✅ |
+| Phase G: G(m'\|\|h) -> K',r' | ✅ |
+| Phase B1: A-matriisi + PRF/CBD-kohina | ✅ |
+| Phase B2a: NTT-forward y_vec:lle | ✅ |
+| Phase B2b-1: NTT-alueen lineaarialgebra | ✅ |
+| Phase B2b-2: inverse-NTT + skaalaus + normaalialue | ✅ |
+| Phase B3: Compress + ByteEncode -> c' | ❌ Seuraava |
+| Phase B4: FO-valinta | ❌ |
+
+**Kaikki raskas laskennallinen tyo (NTT-forward/inverse, matriisi-
+kertolasku, kohinan lisays) on nyt valmis ja todennettu.** Jaljella
+on VAIN muotoiluvaihe (Compress+ByteEncode c':n muodostamiseksi) ja
+lopullinen FO-vertailu/valinta.
