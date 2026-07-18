@@ -14,7 +14,7 @@
 #
 # Kaytto run_*.sh-skriptissa:
 #   source "$(dirname "$0")/tau_common_files.sh"
-#   iverilog -g2012 -o sim/xxx_sim $TAU_RTL_FILES fpga/tau/xxx_tb.sv
+#   compile_tau sim/xxx_sim fpga/tau/xxx_tb.sv [lisaa_tarvittaessa_muita.sv]
 
 TAU_RTL_FILES="rtl/pqc_rvv_cluster_2lane.sv rtl/pqc_ntt_stage_banked.sv \
   rtl/pqc_samplentt_reject.sv rtl/pqc_samplentt.sv \
@@ -29,3 +29,16 @@ TAU_RTL_FILES="rtl/pqc_rvv_cluster_2lane.sv rtl/pqc_ntt_stage_banked.sv \
   fpga/tau/pqc_mlkem_encaps_top.sv \
   fpga/tau/pqc_tau_audit_log.sv fpga/tau/pqc_tau_watchdog.sv \
   fpga/tau/pqc_tau_integrated_wrapper.sv"
+
+# KESKITETTY kaannoskomento (kayttajan oma jatkoehdotus 2026-07-19):
+# nyt myos iverilog-liput/optiot ja tiedostolista pysyvat YHDESSA
+# paikassa - run_*.sh-skriptit sisaltavat VAIN sen mika on kullekin
+# testille ominaista (mita testataan), ei sita MITEN kaannetaan.
+#
+# $1 = ulostulon polku (esim. sim/xxx_sim)
+# $2..$N = testipenkin oma(t) tiedosto(t) (yleensa yksi fpga/tau/xxx_tb.sv)
+compile_tau() {
+  local out="$1"
+  shift
+  iverilog -g2012 -o "$out" $TAU_RTL_FILES "$@"
+}

@@ -8,8 +8,7 @@ python3 m2-golden/gen_full_ntt_vectors.py > /dev/null
 python3 m2-golden/gen_mlkem_keygen_vectors.py > /dev/null
 
 echo "[2/3] Kaannetaan RTL + testipenkki..."
-iverilog -g2012 -o sim/m4_tau_integrated_sim \
-  $TAU_RTL_FILES fpga/tau/pqc_tau_integrated_tb.sv
+compile_tau sim/m4_tau_integrated_sim fpga/tau/pqc_tau_integrated_tb.sv
 
 echo "[3/3] Ajetaan simulaatio (M4-TAU-001: ECU->Wishbone->KeyGen->audit-loki->ECU, onnistumispolku)..."
 vvp sim/m4_tau_integrated_sim
