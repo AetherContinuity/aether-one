@@ -555,3 +555,29 @@ Wishbone) PASSAAVAT edelleen samassa, yhdistetyssa kaareessa.
 **TAU:n palvelukehys tukee nyt SEKA KeyGenia etta Decapsia,
 molemmat samalla, todistetulla mallilla (START/STATUS-rekisterit,
 audit-tapahtumat, watchdog-suoja).**
+
+## Synteesiyritys: Phase A yksinaan viela liian raskas taman ymparistion rajoissa (2026-07-19, jatko 11)
+
+Yritettiin synteesoida `pqc_mlkem_decaps_a_core` YKSINAAN (VAIN yksi
+Keccak/f1600-instanssi, EI koko orkestraattoria) - taustalla ajettuna,
+1500 sekunnin aikarajalla. Prosessi jatkoi yli 3 minuutin ajan
+(muistinkaytto kasvoi tasaisesti ~2.2GB:iin) ilman etta se ehti
+valmistua taman istunnon oman komentorajan puitteissa.
+
+**Tama VAHVISTAA aiemmin dokumentoidun havainnon (KeyGenin oma
+synteesiyritys):** Yosys/ABC-optimointi taman NTT-ytimen +
+useiden kombinatoristen alimoduulien (ByteDecode, Decompress,
+Compress, NTT-inverse-skaalaus) YHDISTELMALLE on laskennallisesti
+raskasta - EI korrektiusongelma, PUHTAASTI suorituskykyongelma
+taman TYOYMPARISTON rajoissa.
+
+**EI VIELA RATKAISTU** - vaatii joko: (a) pidemman, taustalla
+ajettavan prosessin JOKA istunnon oman komentorajan ULKOPUOLELLA,
+tai (b) resurssien kohdennetun optimoinnin (esim. yksinkertaisempi
+synteesikonfiguraatio, tai Keccak-instanssien jakaminen usean
+kayttajan kesken - aiemmin KeyGenin yhteydessa tunnistettu, EI VIELA
+toteutettu mahdollisuus).
+
+**Toiminnallinen oikeellisuus PYSYY TAYSIN koskemattomana ja
+todistettuna** - tama on puhtaasti synteesin OMAN AJAN kysymys, ei
+vaikuta jo saavutettuun, vankkaan tulokseen.
