@@ -73,3 +73,39 @@ PASS: koko y-vektori (5 polynomia) tasmaa taydellisesti
 | S6: Hintien muodostus | ❌ |
 | S7: Hylkayssilmukan ohjaus | ❌ |
 | S8: Pakkaus | ❌ |
+
+## S3: w = NTT^-1(A_hat@NTT(y)) VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 2)
+
+**Toteutus:** `pqc_dilithium_sign_w_core.sv` - sama rakenne kuin
+`pqc_dilithium_keygen_core.sv`:n oma t-laskenta, mutta YKSINKERTAI-
+SEMPI (EI vahennystermia - vain forward-NTT(y) + matriisikertolasku
++ inverse-NTT).
+
+**Testitulos:**
+```
+Valmis 68133 syklin jalkeen
+PASS: w = NTT^-1(A_hat@NTT(y)) tasmaa taydellisesti kaikille 6 polynomille
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, verrattu suoraan
+`dilithium-py`:n omaan `(A_hat@y_hat).from_ntt()`-laskentaan. 68133
+sykli (tasmaa odotukseen - vahemman kuin KeyGenin oma 87118 sykli,
+koska EI tarvita vahennystermia).
+
+## DK6:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ❌ Seuraava |
+| S5: z:n muodostus + normitarkistus | ❌ |
+| S6: Hintien muodostus | ❌ |
+| S7: Hylkayssilmukan ohjaus | ❌ |
+| S8: Pakkaus | ❌ |
+
+**Kolme kahdeksasta vaiheesta valmiina.** S4 (Challenge) tarvitsee:
+w:n HighBits-erottelu (uudelleenkaytettava Decompose:n omaa r1-osaa),
+bit_pack_w (jo valmis), ja SampleInBall (jo valmis) - todennakoisesti
+suoraviivainen kokoonpano jo olemassa olevista palasista.
