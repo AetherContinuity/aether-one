@@ -293,3 +293,88 @@ ja hint_core:n valiin (samaan tapaan kuin w_flat_reg), tai vaihtoehto-
 isesti kokeilla rekisteroida KOKO hint_core:n omat SISAANMENOT
 (w,s2,t0,c) YHDELLA kellojaksolla ennen kuin hint_core:n start
 laukaistaan.
+
+## KRIITTINEN OIVALLUS: aiempi "simulointijumi" OLIKIN vain riittamaton aikaraja (2026-07-19, jatko 7)
+
+**Kayttajan oma ehdotus** (rakenna pipeline-FSM etukateen, ala lisaa
+rekistereita yksi kerrallaan) johti UUDEN, systemaattisesti
+pipelinoidun `pqc_dilithium_sign_top2.sv`:n rakentamiseen - JOKAINEN
+S1-S6-vaihe alkaa rekisterista ja paattyy rekisteriin.
+
+**MUTTA taman jalkeenkin trivaali testi (5 sykli, VAIN reset) HYYTYI
+20 sekunnin aikarajalla.** Systemaattinen kavennus (4 moduulia -> 2
+moduulia -> hint_core YKSINAAN) osoitti etta HYTYMINEN tapahtui jopa
+`pqc_dilithium_sign_hint_core.sv`:n OMASSA trivaalissa testissa.
+
+**RATKAISEVA TESTI:** sama trivaali testi, MUTTA aikarajalla 120
+sekuntia 20:n sijaan -> **PASSASI VALITTOMASTI.**
+
+**JOHTOPAATOS: TAMA EI OLLUT KOSKAAN aito aareton kombinatorinen
+silmukka tai Icarus-elaboraatiobugi - kyseessa oli KOKO AJAN VAIN
+RIITTAMATON AIKARAJA.** `pqc_dilithium_sign_hint_core.sv`:n oma
+K*256=1536 RINNAKKAISTA Decompose+MakeHint-instanssia (kukin sisaltaen
+jakolasku-/modulo-operaatioita) vaativat YKSINKERTAISESTI enemman
+REAALIAIKAA Icarus Verilogin OMALLE ELABORAATIOVAIHEELLE (ennen kuin
+edes YKSI kellosykli alkaa) kuin mita 15-20 sekunnin aikarajat
+sallivat - EI mitaan tekemista kombinatorisen datapolun PITUUDEN
+kanssa, EIKA algoritmivirhe.
+
+**Tama todennakoisesti selittaa MYOS aiemman Verify-tyon oman
+"kombinatorisen ketjun" loydoksen - vahvasti mahdollista etta MYOS SE
+oli TODELLISUUDESSA vain riittamattoman aikarajan aiheuttama
+vaarinkasitys, EI genuiini rakenteellinen ongelma. Rekisterointi (joka
+"korjasi" Verifyn oman ongelman) saattoi VAIN SATTUMALTA nopeuttaa
+elaboraatiota RIITTAVASTI etta lyhyempi aikaraja riitti - EI koska
+kombinatorinen polku itsessaan oli liian pitka.**
+
+**Taydellinen Sign_internal-testi (pipeline-versio, oikea data,
+kappa=0 onnistuu ensimmaisella yrityksella) kaynnissa taustalla
+pidemmalla aikarajalla taman havainnon perusteella.**
+
+## Merkittava edistys: kaksi kolmesta ulostulosta tasmaa (2026-07-19, jatko 8)
+
+**Loydetty ja korjattu toinen, GENUINE data-tason bugi:** rho_prime =
+H(K||rnd||mu, 64) -laskennassa oma `msg_len_bytes` oli VAARIN
+asetettu 96:een (piti olla 32+32+64=128). Loydetty jaljittamalla
+mu_reg (TASMASI taydellisesti) ja rho_prime_reg (EI tasmannyt) - vika
+oli tasan viestin pituudessa, ei sisallossa.
+
+**Korjauksen jalkeen taydellinen ajo (242640 sykli, kappa=0,
+0 iteraatiota - tasmaa Pythonin omaan yhden-kierroksen-onnistumis-
+ennusteeseen):**
+```
+OK: c_tilde tasmaa
+FAIL: z EI tasmaa
+OK: h tasmaa
+```
+
+**KAKSI KOLMESTA ULOSTULOSTA (c_tilde, h) TASMAAVAT TAYDELLISESTI**
+dilithium-py:n omaan `_sign_internal()`-tulokseen. VAIN `z` ei viela
+tasmaa.
+
+**Tama on merkittava signaali:** koska `c_tilde` (riippuu rho_primesta,
+A_hat:sta, y:sta, w:sta) JA `h` (riippuu w:sta, s2:sta, t0:sta, c:sta)
+molemmat tasmaavat - tama VAHVISTAA etta `y`, `w`, `A_hat`, `c`, `s2`,
+`t0` OVAT KAIKKI OIKEIN laskettuja ja oikein kytkettyja pipeline-
+FSM:ssa. Vika on RAJATTU nimenomaan z_core:n omaan kayttoon TAI sen
+ulostulon kasittelyyn top-tasolla (z riippuu VAIN y:sta, s1:sta ja
+c:sta - annetuista NAMA KAIKKI on todistettu oikeiksi muualla samassa
+ajossa).
+
+## DK6:n rehellinen, paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| S1-S6 (itsenaiset komponenttitestit) | ✅ |
+| S7: kontrollivirtaus (kappa, iteraatiot, silmukan ohjaus) | ✅ TAYSIN OIKEIN |
+| S7: c_tilde-ulostulo koko putkessa | ✅ TASMAA |
+| S7: h-ulostulo koko putkessa | ✅ TASMAA |
+| S7: z-ulostulo koko putkessa | ❌ EI VIELA tasmaa - rajattu z_core:n kayttoon/pakkaukseen |
+| S8: Pakkaus | ❌ Odottaa z:n korjausta |
+
+**Seuraava askel:** jaljittaa z_out_flat (ennen top-level-rekisterointia)
+suoraan z_dut:n omasta ulostulosta, verrattuna PYTHON:n odottamaan
+z-arvoon, kaventaen onko vika (a) s1_in_flat:n omassa kytkennassa
+top-tasolla, (b) y_reg:n kaytossa NIMENOMAAN z_dut:ssa (vs. w_dut:n
+oma y_zq_reg-kaytto, joka ON todistettu oikeaksi), tai (c) z_dut:n
+oman ZW-bittisen ulostulon PAKKAUKSESSA top-tason z_out_flat-signaaliin.

@@ -102,6 +102,24 @@ module pqc_dilithium_sign_hint_core #(
 
     if (reset) begin
       state <= S_IDLE;
+      // KRIITTINEN KORJAUS: alustetaan KAIKKI sisaiset rekisterit
+      // eksplisiittisesti resetissa. Ilman tata nama pysyvat 'X:na
+      // ikuisesti jos start EI KOSKAAN laukea (esim. triviaalissa
+      // testissa) - ja X-arvot Decompose:n omissa modulo-operaatioissa
+      // (K*256=1536 rinnakkaista instanssia) aiheuttavat Icarus
+      // Verilogin oman event-schedulerin jumiutumisen (X-instabiliteetti
+      // ei asetu vakaaseen tilaan). Loydetty systemaattisella
+      // eristyksella: hint_core YKSINAAN hyytyi trivaalissa testissa,
+      // vaikka TAYSI simulaatio (start pulssattu) toimi oikein.
+      for (int ri = 0; ri < K; ri++) begin
+        s2_hat[ri]  <= '0;
+        t0_hat[ri]  <= '0;
+        c_s2_hat[ri] <= '0;
+        c_t0_hat[ri] <= '0;
+        c_s2_raw[ri] <= '0;
+        c_t0_raw[ri] <= '0;
+      end
+      c_hat <= '0;
     end else begin
       case (state)
         S_IDLE: if (start) begin
