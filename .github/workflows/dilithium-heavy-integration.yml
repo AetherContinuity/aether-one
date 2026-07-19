@@ -32,7 +32,7 @@ jobs:
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
       - name: Run Sign positive test (koko hylkayssilmukka + pakkaus, ~242000 sykli)
-        run: bash hardware/pqc-rtl/run_dilithium_sign_positive_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_sign_positive.sh
 
   test-pqc-rtl-dilithium-sign-multiseed-heavy:
     runs-on: ubuntu-latest
@@ -42,4 +42,4 @@ jobs:
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
       - name: Run Sign multi-seed test (kolme riippumatonta siementa, ~726000 sykli yhteensa)
-        run: bash hardware/pqc-rtl/run_dilithium_sign_multiseed_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_sign_multiseed.sh

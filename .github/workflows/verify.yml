@@ -220,14 +220,23 @@ jobs:
       - name: Run full ML-KEM protocol chain (KeyGen->Encaps->Decaps, shared secret match, random input)
         run: bash hardware/pqc-rtl/run_m4_tau_full_protocol_test.sh
 
-  test-pqc-rtl-dilithium-sign-components:
+  test-pqc-rtl-dilithium-sign-unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
-      - name: Run nopeat Sign-komponenttitestit (S1,S2,S4,S6-makehint,S8-pakkaus)
-        run: bash hardware/pqc-rtl/run_dilithium_sign_components_test.sh
+      - name: Run UNIT-tason Sign-primitiivitestit (make_hint, pack_z, pack_h)
+        run: bash hardware/pqc-rtl/run_unit_dilithium_sign_primitives.sh
+
+  test-pqc-rtl-dilithium-sign-component:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run COMPONENT-tason Sign-vaihetestit (S1,S2,S4,S8)
+        run: bash hardware/pqc-rtl/run_component_dilithium_sign_stages.sh
 
   test-pqc-rtl-dilithium-verify-regression:
     runs-on: ubuntu-latest
@@ -236,13 +245,13 @@ jobs:
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
       - name: Run Verify positive test (aito allekirjoitus -> verify_ok=1)
-        run: bash hardware/pqc-rtl/run_dilithium_verify_positive_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_verify_positive.sh
       - name: Run Verify negative-signature test (yhden bitin muutos allekirjoituksessa -> verify_ok=0)
-        run: bash hardware/pqc-rtl/run_dilithium_verify_negative_sig_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_verify_negative_sig.sh
       - name: Run Verify negative-pubkey test (yhden bitin muutos julkisessa avaimessa -> verify_ok=0)
-        run: bash hardware/pqc-rtl/run_dilithium_verify_negative_pk_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_verify_negative_pk.sh
       - name: Run Verify multi-seed test (kolme riippumatonta satunnaista avainparia -> verify_ok=1 kaikille)
-        run: bash hardware/pqc-rtl/run_dilithium_verify_multiseed_test.sh
+        run: bash hardware/pqc-rtl/run_integration_dilithium_verify_multiseed.sh
 
   test-pqc-rtl-verilator-lint:
     runs-on: ubuntu-latest
