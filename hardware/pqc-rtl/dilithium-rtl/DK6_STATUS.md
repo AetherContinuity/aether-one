@@ -194,3 +194,49 @@ PASS: z=y+c*s1 ja normitarkistus tasmaavat taydellisesti
 tarvitsee: r0=(w-c*s2).low_bits(alpha) + normitarkistus (samantyyppinen
 kuin S5), c_t0=c*t0_hat.from_ntt() + normitarkistus, ja MakeHint
 (UUSI, mutta yksinkertainen - Decompose:n kaannospuoli UseHint:sta).
+
+## S6: hintien muodostus VALMIS - PASS seka reject etta accept-tapauksissa (2026-07-19, jatko 5)
+
+**MakeHint (yksittainen kerroin):** `pqc_dilithium_make_hint.sv` -
+FIPS 204 Algoritmi 39, TASMALLEEN dilithium-py:n oman kaavan mukaisesti
+(EI algebrallista sievennysta). PASS TAYDELLISESTI 506 testitapauksessa.
+
+**Koko S6-orkestraattori:** `pqc_dilithium_sign_hint_core.sv` -
+s2:n ja t0:n forward-NTT (6+6), c:n forward-NTT (1), pisteittaiset
+kertolaskut (Barrett), inverse-NTT (6+6) = 25 NTT-operaatiota
+yhteensa, r0=LowBits(w-c_s2)+normitarkistus, c_t0:n oma
+normitarkistus, MakeHint(-c_t0,w-c_s2+c_t0)->h, sum_hint>OMEGA-
+tarkistus.
+
+**Testitulokset (KAKSI erillista tapausta, KESKEINEN kattavuus):**
+```
+Reject-tapaus (r0-normi ylittyy): reject=1, PASS
+Accept-tapaus (kaikki tarkistukset lapaisevat): reject=0, PASS
+```
+
+**PASS TAYDELLISESTI MOLEMMISSA TAPAUKSISSA** (111692 sykli
+kummallekin), verrattu suoraan `dilithium-py`:n omaan
+c_s2/r0/c_t0/h/sum_hint-laskentaketjuun. Loydettiin ETSIMALLA
+(kappa-arvoja kokeillen) sekä hylkays- etta hyvaksymistapaus, jotta
+molemmat haaraset tulisivat todennettua - EI vain triviaali "aina
+sama tulos" -kattavuus.
+
+## DK6:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ✅ |
+| S5: z + normitarkistus | ✅ |
+| S6: MakeHint + h | ✅ |
+| S7: Hylkayssilmukan ohjaus | ❌ Seuraava, AINOA aidosti uusi tyyppi |
+| S8: Pakkaus | ❌ |
+
+**Kuusi kahdeksasta vaiheesta valmiina - kaikki matemaattiset
+rakennuspalikat ovat nyt olemassa.** Jaljella: S7 (koko silmukan
+OHJAUS - kaikkien nyt olemassa olevien palasten yhdistaminen
+kappa-inkrementoivaksi hylkayssilmukaksi) ja S8 (allekirjoituksen
+lopullinen pakkaus, uudelleenkayttaen bit_pack_z/s/pack_h-tyylisia
+jo todistettuja kaavoja).
