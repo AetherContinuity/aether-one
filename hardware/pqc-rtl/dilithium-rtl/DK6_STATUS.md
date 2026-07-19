@@ -571,3 +571,54 @@ sama todistuskattavuus kuin Verifylla.
 rinnakkain samalla koneella (CPU-kilpailu hidastaa molempia
 merkittavasti ja voi aiheuttaa aikakatkaisuja) - ne kannattaa ajaa
 PERAKKAIN, yksi kerrallaan, tarkistaen valmistuminen valissa.
+
+## LOYDETTY: hylkays-ja-uusintayritys-mekanismi ei toimi oikein toisella kierroksella (2026-07-19, jatko 13, NIST ACVP -tyo)
+
+**NIST ACVP sigGen-FIPS204 (tgId=10, tcId=139, deterministic, rnd=0)
+paljasti taman:** ensimmaista kertaa taman projektin historiassa
+testattiin AITOA hylkays-ja-uusintayritys-tilannetta (dilithium-py:n
+oma jaljitys vahvisti: kappa=0 hylatty z-normin vuoksi, kappa=5
+hyvaksytty, 2 yritysta yhteensa).
+
+**RTL:n oma kappa-eteneminen TASMASI TAYDELLISESTI** (0->5, sama kuin
+Python), MUTTA lopullinen c_tilde EI tasmannut kappa=5:n odotettuun
+arvoon. Tama on AITO, uusi loydos - EI koskaan aiemmin testattu
+polku (kaikki aiemmat onnistuneet Sign-testit kayttivat
+kappa=0-onnistumistapauksia, joten yksikaan alimoduuli EI KOSKAAN
+ollut kaynnistynyt TOISTA KERTAA saman ajon sisalla ennen tata).
+
+**Koodikatselmus (ilman lisaa kalliita simulaatioita, kayttajan oman
+strategiaohjeen mukaisesti) tarkisti kaikkien epaillyimpien
+alimoduulien oman tilan alustuksen S_IDLE->start-siirtymassa:**
+- `expand_mask_vector`: i_ctr<=0 - OK
+- `sign_w_core`: y_ctr<=0 - OK
+- `sign_z_core`: s1_ctr<=0 - OK
+- `sign_hint_core`: ctr<=0 - OK
+- `SampleInBall`: init_idx<=0, coeffs[]-taulukko taysin
+  uudelleenalustettu (256 paikkaa) JOKA kutsulla - OK
+
+**KAIKKI ILMEISIMMAT ehdokkaat NAYTTAVAT rakenteellisesti OIKEILTA.**
+Vika on todennakoisesti hienovaraisempi - mahdollisia jatkotutkimus-
+suuntia:
+1. Jokin REKISTERI top-tasolla (sign_top2.sv), joka VAHINGOSSA
+   paivittyy/sailyy vaarin toisen kierroksen aikana (esim. c_reg,
+   w_flat_reg ajoitusongelma).
+2. `pqc_dilithium_unpack_z.sv` (kaytetaan ExpandMaskin sisalla) - ei
+   viela tarkistettu oman tilansa suhteen.
+3. Ajoitusrajapinta ExpandA:n (KERRAN laskettu) ja sen kayton valilla
+   toisella kierroksella - onko A_hat_reg AIDOSTI muuttumaton.
+
+**PAATOS kayttajan oman strategiaohjeen mukaisesti:** TATA EI jatketa
+lisaa kalliilla (yli 2 tunnin CPU-aikaa vaatineilla) taysilla
+simulaatioilla tassa istunnossa. Seuraavassa istunnossa suositellaan
+JOKO (a) tarkempaa koodikatselmusta em. jaljelle jaaneista
+epailyista, TAI (b) YHDEN, huolellisesti suunnitellun debug-ajon
+kayttamista (VALMIIKSI kaikki tarvittavat hierarkkiset tarkistukset
+sisaltaen), jotta vika loytyy YHDELLA ajolla useiden sijaan.
+
+**TARKEA HUOMIO projektin tilasta:** tama EI muuta aiempien
+lopputulosten patevyytta - kappa=0-onnistumistapaukset (kolme
+riippumatonta siementa + alkuperainen dilithium-py-referenssi) OVAT
+EDELLEEN PASS ja PATEVAT. Vika on RAJATTU nimenomaan hylkays-ja-
+uusintayritys-mekanismin (S7) omaan, aiemmin testaamattomaan
+polkuun.
