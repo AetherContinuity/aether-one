@@ -33,3 +33,19 @@ compile_dilithium() {
   shift
   iverilog -g2012 -o "$out" $DILITHIUM_RTL_FILES "$@"
 }
+
+# Sign-spesifiset RTL-tiedostot (DK6, lisatty S1-S8:n jalkeen)
+DILITHIUM_SIGN_RTL_FILES="$DILITHIUM_RTL_FILES \
+  dilithium-rtl/pqc_dilithium_expand_mask_poly.sv dilithium-rtl/pqc_dilithium_expand_mask_vector.sv \
+  dilithium-rtl/pqc_dilithium_sign_w_core.sv \
+  dilithium-rtl/pqc_dilithium_sign_challenge.sv \
+  dilithium-rtl/pqc_dilithium_sign_z_core.sv \
+  dilithium-rtl/pqc_dilithium_make_hint.sv dilithium-rtl/pqc_dilithium_sign_hint_core.sv \
+  dilithium-rtl/pqc_dilithium_sign_top2.sv \
+  dilithium-rtl/pqc_dilithium_pack_z.sv dilithium-rtl/pqc_dilithium_pack_z_vector.sv dilithium-rtl/pqc_dilithium_pack_h.sv dilithium-rtl/pqc_dilithium_pack_sig.sv"
+
+compile_dilithium_sign() {
+  local out="$1"
+  shift
+  iverilog -g2012 -o "$out" $DILITHIUM_SIGN_RTL_FILES "$@"
+}

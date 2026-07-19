@@ -497,3 +497,45 @@ tavupakkaus) ON NYT KOKONAAN TOIMINNASSA JA TODENNETTU.
 toiminnassa ja todennettu dilithium-py:ta vasten.** Jaljella:
 Verifyn kaltainen CI-regressiosuoja Signille (positiivinen, negatiivinen,
 monisiemeninen) ennen koko ketjun julistamista lopullisesti valmiiksi.
+
+## CI-strategian tarkistus: pitkat integraatiotestit EIVAT ole ensisijainen debuggaustyokalu (2026-07-19, jatko 11)
+
+**Kayttajan oma, tarkea strategiahavainto:** kun S1-S8 on jo
+itsenaisesti todistettu ja pakkaus toimii, jokainen taysi
+end-to-end-ajo (400 000-1 000 000+ sykli) antaa vain vahan uutta
+tietoa suhteessa 10-20+ minuutin ajoaikaan. TAMA VAHVISTUI
+KAYTANNOSSA: kaksi rinnakkaista pitkaa ajoa (koko RTL-ketju
+KeyGen->Sign->Verify, ja Sign-monisiemeninen testi) kilpailivat
+CPU:sta ja AJAUTUIVAT AIKAKATKAISUUN (28 min) ilman etta kumpikaan
+antoi lopullista tulosta.
+
+**Loydetty MYOS tehokkuusongelma testi-infrastruktuurista:** yhteinen
+`dilithium_common_files.sh`:n tiedostolista sisaltaa jo raskaita
+moduuleja (`sign_hint_core`, 1536 rinnakkaista instanssia), joten
+SEN PAALLE rakennettu "nopeiden komponenttitestien" skripti karsi
+samasta hitaasta elaboraatiosta kuin taydet integraatiotestit -
+vaikka itse testattava moduuli oli pieni. KORJATTU: uusi
+`run_dilithium_sign_components_test.sh` kayttaa MINIMAALISIA
+tiedostolistoja per testi, EI yhteista raskasta listaa.
+
+**Uusi CI-strategia (toteutettu):**
+1. `run_dilithium_sign_components_test.sh` - KAHDEKSAN nopeaa
+   komponenttitestia (S1,S2,S4,S6-makehint,S8-pakkaus), KAIKKI alle
+   60 sekunnissa yhteensa. Lisatty PAAWORKFLOW'HUN (ajetaan joka pushilla).
+2. Verify-regressio (4 testia) - PYSYY paaworkflow'ssa (jo lukittu).
+3. UUSI ERILLINEN workflow `dilithium-heavy-integration.yml`:
+   Sign-positiivinen (~242000 sykli) ja Sign-monisiemeninen
+   (~726000 sykli) - AJETAAN VAIN julkaisutagilla (v*) tai kasin
+   laukaistuna (workflow_dispatch), EI joka pushilla.
+
+**`full_chain_tb.sv` (koko RTL-ketju KeyGen->Sign->Verify) tila:**
+rakennettu, mutta EI VIELA VAHVISTETTU - ajo aikakatkaistiin ennen
+valmistumista (paasi KeyGenin ja tr-laskennan lapi noin 17 minuutissa,
+ei ehtinyt pidemmalle). SAILYTETTY tiedostona tulevaa kasin ajettavaa
+todennusta varten, EI VIELA lisatty automaattiseen CI-workflow'hun
+kunnes se on ensin vahvistettu toimivaksi erillisena, hallittuna ajona.
+
+**Kehityssyklin uusi periaate (kayttajan oma kaava):**
+```
+Muutos -> nopeat moduulitestit (20-60s) -> CI-regressiot -> (tarvittaessa) yksi pitka end-to-end-ajo
+```

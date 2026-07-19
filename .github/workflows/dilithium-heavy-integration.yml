@@ -1,0 +1,45 @@
+name: Dilithium Heavy Integration Tests (release/manual only)
+
+# TAMA WORKFLOW SISALTAA raskaat, satojatuhansia sykleja vaativat
+# integraatiotestit (Sign-orkestrointi yhdella referenssivektorilla,
+# monisiemeninen Sign-testi, koko RTL-ketju KeyGen->Sign->Verify).
+#
+# STRATEGIA (kayttajan oma ehdotus): naita EI ajeta joka pushilla,
+# koska ne vievat 10-20+ minuuttia mutta antavat vain vahan uutta
+# tietoa sen jalkeen kun yksittaiset S1-S8-komponentit ja pakkaus on
+# jo todistettu erikseen (nopeissa, jokaisella pushilla ajettavissa
+# komponenttitesteissa ja Verify-regressiossa). Sen sijaan naita
+# ajetaan:
+#   - Kun julkaisutagi (v*) luodaan
+#   - Kasin laukaistuna (workflow_dispatch)
+#
+# Jos jokin nailla loytaa regression, palataan takaisin nopeampiin
+# komponenttitesteihin kaventamaan vikaa - EI kayteta tata pitkaa
+# ajoa ensisijaisena debuggaustyokaluna.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  test-pqc-rtl-dilithium-sign-positive-heavy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run Sign positive test (koko hylkayssilmukka + pakkaus, ~242000 sykli)
+        run: bash hardware/pqc-rtl/run_dilithium_sign_positive_test.sh
+
+  test-pqc-rtl-dilithium-sign-multiseed-heavy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run Sign multi-seed test (kolme riippumatonta siementa, ~726000 sykli yhteensa)
+        run: bash hardware/pqc-rtl/run_dilithium_sign_multiseed_test.sh
