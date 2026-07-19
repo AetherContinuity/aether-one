@@ -335,3 +335,161 @@ verify_top.sv suoraan `pqc_dilithium_verify_core.sv`:n paalle,
 samalla vaiheittaisella kurinalaisuudella (kaannetaan+testataan
 JOKAINEN lisays ERIKSEEN ennen seuraavaan siirtymista) joka on
 kantanut koko taman projektin ajan.
+
+## MERKITTAVA LAPIMURTO: jumi korjattu (Icarus-spesifinen generate-for-ongelma loydetty) - looginen virhe jaljella (2026-07-19, jatko 9)
+
+**JUURISYY LOYDETTY systemaattisella eristyksella (incr7..incr13-
+debug-sarja):** 1536-iteraatioinen `generate...for...assign` -lohko
+(kerroin kerrallaan bittileveyden muunnos, esim. t1:n 10->23-bittinen
+levennys) aiheuttaa VAKAVAN, Icarus-spesifisen suoritushidastuman
+(kaytannossa aarettomalta nayttavan jumin) KUN TULOS SYOTETAAN
+isoon alimoduuliin (verify_core). Todistettu VAIHE VAIHEELTA:
+- Rinnakkainen generate-for + iso alimoduuli: JUMI (jopa 400s+ ei riita)
+- Proseduraalinen for-silmukka always_comb:ssa + SAMA alimoduuli: TOIMII
+  VALITTOMASTI
+
+**Korjaus:** korvattu KAKSI generate-for-lohkoa (t1_zq, z_zq) proseduraa-
+lisilla for-silmukoilla `always_comb`-lohkoissa. Icarus antaa
+hyvanlaatuisen varoituksen ("constant selects... all bits will be
+included") - TODENNETTU ERIKSEEN etta tama EI vaikuta laskennan
+oikeellisuuteen (3 testiarvoa, kaikki tasmasivat taydellisesti).
+
+**TARKEA YLEINEN OPETUS jatkoon:** VALTA generate-for-lohkoja jotka
+luovat SATOJA/TUHANSIA erillisia per-bitti-assign-lausekkeita JOIDEN
+TULOS SYOTETAAN isoon alimoduuliin - kayta SEN SIJAAN proseduraalista
+for-silmukkaa always_comb-lohkossa. Tama VOI vaikuttaa myos MUIHIN
+taman projektin aiempiin moduuleihin (esim. keygen_core.sv:n omat
+generate-lohkot) - EI KUITENKAAN todennakoisesti, koska nama toimivat
+jo todistetusti (verify_core.sv:n OMA sisainen g_sub_row/g_sub_coeff
+-generate TOIMI FINE standalone-testeissa, koska SITA EI SYOTETTY
+toiseen ISOON alimoduuliin samalla tavalla).
+
+**Testitulos jumin korjauksen jalkeen:**
+```
+Valmis 115291 syklin jalkeen
+verify_ok: 0 (odotettu: 1, koska allekirjoitus on aito)
+FAIL: Verify EI hyvaksynyt aitoa allekirjoitusta
+```
+
+**JUMI ON KORJATTU** (115291 sykli, matchaa aiemman arvion 115000-
+120000 sykli) - MUTTA looginen virhe jaljella (verify_ok pitaisi
+olla 1 aidolle allekirjoitukselle, saatiin 0). Testattu dilithium-py:n
+OMALLA sign()+verify()-parilla (Python-puolen oma verify palautti
+True samalle datalle, vahvistaen etta testivektori itsessaan on
+kelvollinen).
+
+## DK5:n rehellinen tila
+
+| Osa | Tila |
+|---|---|
+| KAIKKI yksittaiset rakennuspalikat | ✅ |
+| Verify-ytimen laskenta (Az_minus_ct1) itsenaisena | ✅ |
+| Koko Verify-orkestrointi: RAKENTEELLINEN jumi | ✅ KORJATTU |
+| Koko Verify-orkestrointi: LOOGINEN oikeellisuus | ❌ Jaljella - looginen bugi jossain orkestroinnissa |
+
+**Seuraava askel:** jaljittaa LOOGINEN virhe (verify_ok=0 vs
+odotettu 1) - todennakoisia epailtyja: FSM:n oma vaiheistus/
+jarjestys, tr/mu-hashien syotteen kokoaminen, tai c_tilde-vertailun
+oma bittijarjestys/leveys.
+
+## KOKO VERIFY_INTERNAL VALMIS - PASS TAYDELLISESTI PAASTA PAAHAN (2026-07-19, jatko 9)
+
+**Uusi orkestraattori:** `pqc_dilithium_verify_top2.sv`, rakennettu
+alusta asti oman, todistetun `pqc_dilithium_verify_core.sv`:n paalle.
+
+### Loydetty ja korjattu: kombinatorisen ketjun aiheuttama simulointijumi
+
+**Oire:** jopa TRIVIAALEIN testi (reset paalla, ei start:ia) hyytyi
+taydellisesti - ei edes ensimmaista `$display`-riviä.
+
+**Systemaattinen eristys (binaarihaku moduulikombinaatioiden yli):**
+- Jokainen YKSITTAINEN moduuli (ExpandA, SHAKE256 eri MAX_BLOCKS-
+  arvoilla, unpack_z_vector, unpack_h, SampleInBall, verify_core)
+  toimi TAYDELLISESTI ERIKSEEN.
+- ExpandA+verify_core yhdessa: toimi.
+- unpack_z_vector+unpack_h+SampleInBall yhdessa: toimi.
+- **unpack_z_vector-MODUULI YHDISTETTYNA inline-Zq-muunnos-generate-
+  lohkoon SAMASSA top-level-moduulissa: JUMIUTUI.**
+
+**Juurisyy:** EI algoritmivirhe, vaan LIIAN PITKA PUHDAS KOMBINATORINEN
+DATAPOLKU (256*L=1280 kertoimen leveä purku-generate-lohko ketjutettuna
+SUORAAN toiseen leveaan Zq-muunnos-generate-lohkoon SAMASSA moduulissa,
+ilman valissa olevaa rekisteria) - todennakoisesti Icarus Verilogin oma
+elaboraatio-/optimointirajoite TALLE SPESIFISELLE rakenteelle.
+
+**Korjaus:** lisattiin REKISTERI (`z_wide_reg`) unpack_z_vector:n
+ulostulon ja Zq-muunnos-generate-lohkon valiin, katkaisten pitkan
+kombinatorisen ketjun. TAMA POISTI JUMIN TAYDELLISESTI.
+
+**Suunnitteluperiaate kirjattu jatkoa varten:** kun erittain leveaa
+purkua (unpack_z_vector-tyylinen moduuli) syotetaan suoraan toiseen
+leveaan kombinatoriseen muunnokseen SAMASSA moduulissa, VALIIN
+KANNATTAA REKISTEROIDA. Tama seka parantaa simuloitavuutta etta
+todennakoisesti FPGA-toteutettavuutta (lyhyempi kombinatorinen polku
+per kellojakso, parempi Fmax-potentiaali).
+
+### Toinen loydetty ongelma: viestin oma m_prime-muotoilu
+
+Loydettiin toinen, ERI TYYPPINEN ongelma: FIPS 204:n oma `verify()`-
+julkinen API muotoilee viestin `m_prime = 0x00 || len(ctx) || ctx || m`
+ENNEN `_verify_internal`:n kutsumista (ctx=b"" oletuksena, antaen
+`m_prime = 0x00 0x00 || m`). Testivektorin generointi kaytti ALUKSI
+RAAKAA `m`:aa RTL:n omaan `_verify_internal`-tyyliseen sisaankaantiin,
+mutta allekirjoitus oli generoitu `sign()`:lla (joka SISAISESTI
+kayttaa `m_prime`:a) - EPAJOHDONMUKAINEN TESTIASETUS, EI RTL-bugi.
+Loydetty vertaamalla OMAA kasin ketjutettua Python-reprodusointia
+`ML_DSA_65.verify()`:n omaan tulokseen (sama "oma rinnakkainen
+toteutus"-sudenkuoppa-oppi kuin aiemmin projektissa - tallä kertaa
+loytyi OMASTA TESTISKRIPTISTA, ei RTL:sta).
+
+### LOPULLINEN testitulos
+
+```
+Valmis 115282 syklin jalkeen, verify_ok=1 (odotettu: 1)
+PASS: KOKO ML-DSA-65.Verify_internal HYVAKSYI AIDON ALLEKIRJOITUKSEN
+```
+
+**PASS TAYDELLISESTI** - koko `_verify_internal` toimii paasta paahan,
+verrattu suoraan `ML_DSA_65._verify_internal()`:n tulokseen (m_prime
+oikein muotoiltuna). 115282 sykli (tasmaa etukateisarvioon
+~115000-120000).
+
+**Rekisteroinnin vaikutus syklimaaraan:** yksi lisasykli
+unpack_z_vector:n ja Zq-muunnoksen valissa - MITATON vaikutus
+kokonaissyklimaaraan (115282 vs. arvioitu ~115000-120000 ilman
+korjausta), koska tama tapahtuu VAIN KERRAN koko ajossa (ei
+silmukassa).
+
+### Negatiivinen testi: turmeltu allekirjoitus OIKEIN HYLATTY
+
+Todennettiin etta Verify EI VAIN AINA PALAUTA TOSI - turmeltiin yksi
+tavu `c_tilde`:sta ja vahvistettiin etta seka Python etta RTL
+HYLKAAVAT taman:
+
+```
+Valmis 115279 syklin jalkeen, verify_ok=0 (odotettu: 0)
+PASS: KOKO ML-DSA-65.Verify_internal OIKEIN HYLKASI TURMELLUN ALLEKIRJOITUKSEN
+```
+
+**PASS TAYDELLISESTI** - Verify toimii AIDOSTI (hyvaksyy oikean,
+hylkaa vaaran), EI OLE triviaalisti "aina tosi" -toteutus.
+
+## DK5:n LOPULLINEN, TAYDELLINEN tila
+
+| Osa | Tila |
+|---|---|
+| KAIKKI yksittaiset rakennuspalikat | ✅ |
+| Verify-ytimen laskenta (Az_minus_ct1) | ✅ |
+| **Koko Verify-orkestrointi (positiivinen testi)** | ✅ |
+| **Koko Verify-orkestrointi (negatiivinen testi)** | ✅ |
+
+**M5-DILITHIUM-001:n TOINEN paaoperaatio (Verify_internal) ON NYT
+KOKONAAN VALMIS JA TODENNETTU**, seka hyvaksyen etta hylaten oikein.
+Yhdessa aiemmin valmistuneen KeyGenin kanssa, KAKSI KOLMESTA
+ML-DSA-65:n paaoperaatiosta on nyt taysin toiminnassa.
+
+## Seuraava askel
+
+DK6: ML-DSA-65.Sign_internal - VIIMEINEN ja VAIKEIN paaoperaatio,
+sisaltaa hylkayssilmukan (rejection sampling loop, useita
+yritysta ennen onnistunutta allekirjoitusta).
