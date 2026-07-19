@@ -440,3 +440,60 @@ monisiemeninen).
 
 **Molemmat loydettiin SAMALLA menetelmalla: valivaiheiden
 jaljittaminen ja vertailu Pythonin omaan laskentaan, ERI vaiheissa.**
+
+## S8: koko allekirjoituksen pakkaus VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 10)
+
+**pack_z (yksi + koko L-vektori):** `pqc_dilithium_pack_z.sv` /
+`pqc_dilithium_pack_z_vector.sv` - sama "vakio miinus arvo" -kaava
+kuin unpack_z:ssa (symmetrinen, sama laskutoimitus molempiin suuntiin).
+PASS ensimmaisella yrityksella.
+
+**pack_h (uusi, sekventiaalinen):** `pqc_dilithium_pack_h.sv` -
+kaanteinen operaatio jo todistetulle unpack_h:lle (tiheasta 0/1-
+taulukosta harvaan positiolista+offsetit-esitykseen). Testattu
+KOLMELLA eri hint-jakaumalla, MOLEMMAT aarirajat (0 ja OMEGA=55) mukaan
+lukien - PASS TAYDELLISESTI KAIKISSA.
+
+**Koko allekirjoituksen kokoonpano:** `pqc_dilithium_pack_sig.sv` -
+yhdistaa c_tilde+pack_z_vector+pack_h yhdeksi 3309-tavuiseksi
+allekirjoitukseksi.
+
+**LOPULLINEN TESTITULOS:**
+```
+Valmis 1597 syklin jalkeen
+PASS: koko allekirjoituksen pakkaus (3309 tavua) tasmaa taydellisesti
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, verrattu suoraan
+`dilithium-py`:n omaan `_sign_internal()`-tulokseen (koko 3309-
+tavuinen pakattu allekirjoitus, tavu tavulta).
+
+## DK6:n TAYDELLINEN, LOPULLINEN tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ✅ |
+| S5: z + normitarkistus | ✅ |
+| S6: MakeHint + h | ✅ |
+| S7: Hylkayssilmukan orkestrointi | ✅ |
+| S8: Allekirjoituksen pakkaus | ✅ |
+
+**KAIKKI KAHDEKSAN VAIHETTA VALMIINA.** M5-DILITHIUM-001:n KOLMAS JA
+VIIMEINEN paaoperaatio (Sign_internal, MUKAAN LUKIEN lopullinen
+tavupakkaus) ON NYT KOKONAAN TOIMINNASSA JA TODENNETTU.
+
+## ML-DSA-65:n LOPULLINEN kokonaistilanne
+
+| Paaoperaatio | Tila |
+|---|---|
+| KeyGen | ✅ TAYSIN VALMIS |
+| Verify | ✅ TAYSIN VALMIS (+ CI-lukittu) |
+| Sign (S1-S8) | ✅ TAYSIN VALMIS |
+
+**Kaikki kolme FIPS 204 ML-DSA-65:n paaoperaatiota ovat nyt taysin
+toiminnassa ja todennettu dilithium-py:ta vasten.** Jaljella:
+Verifyn kaltainen CI-regressiosuoja Signille (positiivinen, negatiivinen,
+monisiemeninen) ennen koko ketjun julistamista lopullisesti valmiiksi.
