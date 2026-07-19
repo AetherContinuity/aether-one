@@ -240,3 +240,56 @@ OHJAUS - kaikkien nyt olemassa olevien palasten yhdistaminen
 kappa-inkrementoivaksi hylkayssilmukaksi) ja S8 (allekirjoituksen
 lopullinen pakkaus, uudelleenkayttaen bit_pack_z/s/pack_h-tyylisia
 jo todistettuja kaavoja).
+
+## S7: hylkayssilmukan orkestrointi - EDISTYSTA, mutta jaljella integraatio-ongelma (2026-07-19, jatko 6)
+
+**Rakennettu:** `pqc_dilithium_sign_top.sv` - yhdistaa KAIKKI S1-S6:n
+jo todistetut komponentit (ExpandMask, sign_w_core, sign_challenge,
+sign_z_core, sign_hint_core) yhdeksi kappa-inkrementoivaksi
+hylkayssilmukaksi, uudelleenkayttaen taydellisesti jo todistettuja
+alimoduuleja.
+
+**Loydetty sama ilmio kuin aiemmin Verify-tyossa:** trivaali testi
+(vain reset) hyytyy taydellisesti kun `pqc_dilithium_sign_hint_core`
+on mukana koko orkestroinnissa - vaikka TAMA SAMA moduuli on
+ITSENAISESTI todistettu virheettomaksi (ks. S6:n oma testitulos, PASS
+seka reject- etta accept-tapauksissa).
+
+**Systemaattinen eristys ALOITETTU, EI VIELA VALMIS:**
+- Ilman hint_core:a: trivaali testi PASSAA valittomasti.
+- ExpandA+verify_core-tyylinen yhdistelma yksinaan: PASSAA (todistettu
+  aiemmin Verify-tyossa).
+- `w_flat`:n rekisterointi (sama korjaus kuin Verifyssa auttoi
+  unpack_z_vector:n kanssa) EI YKSINAAN riittanyt taman kombinaation
+  korjaamiseen - viittaa etta kyseessa on MONIMUTKAISEMPI vuoro-
+  vaikutus kuin Verifyn oma, yhden rekisterin ratkaisema tapaus.
+
+**PAATOS taman istunnon rajoissa:** aika-/monimutkaisuusrajoitusten
+vuoksi taman spesifisen integraatio-ongelman TAYDELLINEN ratkaisu
+JATETAAN AVOIMEKSI seuraavaa istuntoa varten. TAMA EI OLE algoritmi-
+virhe (kaikki S1-S6-komponentit ovat edelleen itsenaisesti
+todistettu oikeiksi) - kyseessa on SAMA luokan simulointi-
+/elaboraatio-ongelma kuin Verifyssa, mutta VAATII lisaa systemaattista
+eristysta (todennakoisesti useamman rekisterin lisaamista useamman
+moduulin valiin, tai vaihtoehtoisesti koko orkestroinnin jakamista
+pienempiin, valirekisteroityihin lohkoihin).
+
+## DK6:n rehellinen tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ ITSENAISESTI TODISTETTU |
+| S2: koko y-vektori | ✅ ITSENAISESTI TODISTETTU |
+| S3: w-laskenta | ✅ ITSENAISESTI TODISTETTU |
+| S4: Challenge (c) | ✅ ITSENAISESTI TODISTETTU |
+| S5: z + normitarkistus | ✅ ITSENAISESTI TODISTETTU |
+| S6: MakeHint + h | ✅ ITSENAISESTI TODISTETTU (seka reject etta accept) |
+| S7: Hylkayssilmukan orkestrointi | ⏳ RAKENNETTU, mutta integraatio-ongelma avoin (simulointijumi kun hint_core mukana) |
+| S8: Pakkaus | ❌ Odottaa S7:n valmistumista |
+
+**Seuraava askel:** jatkaa S7:n integraatio-ongelman systemaattista
+eristysta - todennakoisesti lisaa rekistereita s2_in_flat/t0_in_flat:n
+ja hint_core:n valiin (samaan tapaan kuin w_flat_reg), tai vaihtoehto-
+isesti kokeilla rekisteroida KOKO hint_core:n omat SISAANMENOT
+(w,s2,t0,c) YHDELLA kellojaksolla ennen kuin hint_core:n start
+laukaistaan.
