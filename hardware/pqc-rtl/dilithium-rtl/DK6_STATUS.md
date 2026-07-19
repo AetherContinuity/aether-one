@@ -539,3 +539,35 @@ kunnes se on ensin vahvistettu toimivaksi erillisena, hallittuna ajona.
 ```
 Muutos -> nopeat moduulitestit (20-60s) -> CI-regressiot -> (tarvittaessa) yksi pitka end-to-end-ajo
 ```
+
+## Sign monisiemeninen VAHVISTETTU - kolme siementa ajettu ERIKSEEN, ei rinnakkain (2026-07-19, jatko 12)
+
+**Menetelma korjattu kayttajan oman ohjeen mukaisesti:** aiempi
+rinnakkainen ajo (koko RTL-ketju + monisiemeninen samanaikaisesti)
+ajautui CPU-kilpailun vuoksi aikakatkaisuun. TALLA KERTAA kolme
+siementa ajettiin PERAKKAIN, jokainen omana, erillisena prosessinaan,
+tarkistaen valmistuminen ennen seuraavan kaynnistysta.
+
+**Tulokset (KOLME ERILLISTA ajoa):**
+```
+Siemen 0: Valmis 242651 syklin jalkeen, kappa=0, iteraatioita=0
+          c_tilde/z/h KAIKKI tasmaavat - PASS
+
+Siemen 1: Valmis 242643 syklin jalkeen, kappa=0, iteraatioita=0
+          c_tilde/z/h KAIKKI tasmaavat - PASS
+
+Siemen 2: Valmis 242645 syklin jalkeen, kappa=0, iteraatioita=0
+          c_tilde/z/h KAIKKI tasmaavat - PASS
+```
+
+**PASS TAYDELLISESTI KAIKILLA KOLMELLA RIIPPUMATTOMALLA SIEMENELLA**,
+kukin verrattu suoraan dilithium-py:n omaan _sign_internal()-tulokseen.
+
+Sign_internal on nyt vahvistettu SEKA yhdella referenssivektorilla
+ETTA kolmella riippumattomalla, itsenaisesti loydetylla siemenella -
+sama todistuskattavuus kuin Verifylla.
+
+**Metodologinen opetus:** raskaita simulaatioita EI PIDA ajaa
+rinnakkain samalla koneella (CPU-kilpailu hidastaa molempia
+merkittavasti ja voi aiheuttaa aikakatkaisuja) - ne kannattaa ajaa
+PERAKKAIN, yksi kerrallaan, tarkistaen valmistuminen valissa.
