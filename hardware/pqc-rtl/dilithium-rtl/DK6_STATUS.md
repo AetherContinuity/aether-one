@@ -378,3 +378,65 @@ z-arvoon, kaventaen onko vika (a) s1_in_flat:n omassa kytkennassa
 top-tasolla, (b) y_reg:n kaytossa NIMENOMAAN z_dut:ssa (vs. w_dut:n
 oma y_zq_reg-kaytto, joka ON todistettu oikeaksi), tai (c) z_dut:n
 oman ZW-bittisen ulostulon PAKKAUKSESSA top-tason z_out_flat-signaaliin.
+
+## KOKO SIGN_INTERNAL VALMIS - PASS TAYDELLISESTI PAASTA PAAHAN (2026-07-19, jatko 9)
+
+**Juurisyy loydetty:** z-mismatch EI OLLUT RTL-bugi lainkaan. Se oli
+OMA testivektorin generointivirhe: `sign_top2_test_vector.txt`:n oma
+`z`-arvo tuli `_unpack_sig(sig)`:n kautta - JOKA KAY LAPI bit_pack_z/
+bit_unpack_z-kierroksen. Mutta RTL laskee `z`:n SUORAAN (`y+c*s1`),
+EI koskaan pakkaa/pura sita. Nama KAKSI representaatiota EIVAT ole
+identtiset (pack/unpack-kierros normalisoi arvot toiseen, GAMMA1-
+kesitettyyn muotoon).
+
+**Kayttajan oma ehdotus (jaljita y->c_hat->cs1_hat->cs1->z, sama
+menetelma kuin Verifyssa) LOYSI TAMAN VALITTOMASTI:** kaikki
+valivaiheet (c_hat, c_s1_hat, c_s1_raw) SEKA z_dut:n OMA ulostulo
+(ENNEN top-tason vertailua) tasmasivat TAYDELLISESTI golden-arvoon.
+Tama osoitti etta RTL ON TAYSIN OIKEIN - ongelma oli VAIN siina MIHIN
+verrattiin.
+
+**Korjaus:** regeneroitu testivektori kayttaen RAAKAA z:aa (`y+c_s1`,
+suoraan Sign-algoritmin omasta laskennasta) `_unpack_sig`:n kautta
+saadun, pack/unpack-kierroksen lapikayneen arvon SIJAAN.
+
+**LOPULLINEN TESTITULOS:**
+```
+Valmis 242640 syklin jalkeen, kappa=0, iteraatioita=0
+OK: c_tilde tasmaa
+OK: z tasmaa
+OK: h tasmaa
+PASS: KOKO ML-DSA-65.Sign_internal (hylkayssilmukka) TOIMII PAASTA PAAHAN
+```
+
+**PASS TAYDELLISESTI - KAIKKI KOLME ULOSTULOA (c_tilde, z, h) TASMAAVAT
+TAYDELLISESTI** dilithium-py:n omaan `_sign_internal()`-tulokseen.
+
+## DK6:n LOPULLINEN tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ✅ |
+| S5: z + normitarkistus | ✅ |
+| S6: MakeHint + h | ✅ |
+| S7: Hylkayssilmukan orkestrointi (pipeline-FSM) | ✅ |
+| S8: Pakkaus (allekirjoituksen koodaus) | ❌ Seuraava, VIIMEINEN vaihe |
+
+**M5-DILITHIUM-001:n KOLMAS JA VIIMEINEN paaoperaatio (Sign_internal)
+ON NYT KOKONAAN TOIMINNASSA** (yhden-kierroksen-onnistumistapaus).
+Jaljella VAIN S8 (bit_pack_z + bit_pack_s + bit_pack_h -kokoonpano
+lopulliseksi allekirjoitustavusarjaksi) ja CI-regressiotestit
+(vastaavat Verifyn nelja testia: positiivinen, negatiivinen,
+monisiemeninen).
+
+## Yhteenveto loydetyista/korjatuista bugeista taman istunnon aikana
+
+1. rho_prime:n msg_len_bytes (96->128) - AITO RTL-bugi.
+2. z-mismatch - EI RTL-bugi, OMA testivektorin generointivirhe
+   (vaara z-representaatio, pack/unpack-kierros sijaan raaka arvo).
+
+**Molemmat loydettiin SAMALLA menetelmalla: valivaiheiden
+jaljittaminen ja vertailu Pythonin omaan laskentaan, ERI vaiheissa.**
