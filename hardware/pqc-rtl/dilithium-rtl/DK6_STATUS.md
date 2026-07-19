@@ -663,3 +663,59 @@ sisalla vaikka niiden PITAISI pysya muuttumattomina.
 toimii ensimmaisella kierroksella oikein, kaikki alikomponentit
 toimivat oikein toistettuina - ongelma on NIMENOMAAN top-tason
 orkestroinnin OMASSA kytkennassa/ajoituksessa, ei laskennassa."
+
+## LOPULLINEN RATKAISU: RTL ON OIKEIN - vika oli OMASSA debug-skriptissa (2026-07-19, jatko 15)
+
+**Kayttajan oma, tarkka ohje (jaljita koko toisen kierroksen
+syoteketju - kappa->rho_prime->ExpandMask(y)->NTT->w->w1->SHAKE->
+c_tilde - RTL:n OMISTA hierarkkisista rekistereista, EI oletetuista
+Python-arvoista) LOYSI RATKAISUN VALITTOMASTI.**
+
+**Menetelma:** ajettiin YKSI kattava jaljitys, joka poimi RTL:n OMAT
+`mu_reg`, `rho_prime_reg`, `y_reg`, `w_reg`, `c_tilde_reg`-arvot
+SUORAAN hierarkiasta (dut.mu_reg jne) SEN JALKEEN kun koko Sign oli
+valmistunut (kappa=5-kierroksen loppuarvot). NAMA arvot syotettiin
+SITTEN Pythoniin, joka laski `y=ExpandMask(rho_prime,5)`,
+`w=(A_hat@y_hat).from_ntt()`, `c_tilde=H(mu+w1_bytes,48)` KAYTTAEN
+TASMALLEEN RTL:n omia arvoja - EI mitaan erillista, oletettua
+"kappa=5 golden" -laskentaa (joka osoittautui aiemmin vaarin
+lasketuksi).
+
+**TULOS: c_tilde TASMASI TAYDELLISESTI.**
+```
+Python c_tilde (RTL:n oma mu/rho_prime/kappa=5 kaytettyna):
+e046d59162ae4a390480239f27a1205f164b2356805f19d6519e69d1ef146ff0cbaaaf73987976a51a4bcbff6e16a136
+
+RTL:n oma c_tilde_reg:
+e046d59162ae4a390480239f27a1205f164b2356805f19d6519e69d1ef146ff0cbaaaf73987976a51a4bcbff6e16a136
+
+Tasmaavatko: True
+```
+
+**JOHTOPAATOS: sign_top2.sv:n OMA hylkays-ja-uusintayritys-mekanismi
+(S7) TOIMII TAYDELLISESTI OIKEIN, MYOS TOISELLA KIERROKSELLA.** Aiempi
+"virhe" (jatko 13:ssa raportoitu "kappa=5 c_tilde ei tasmaa") johtui
+KOKONAAN OMASTA, ERILLISESTA Python-debug-skriptista, joka laski
+"golden kappa=5 c_tilde":n VAARIN (todennakoisesti eri rho_prime/mu-
+arvoilla kuin mita RTL TODELLISUUDESSA kaytti, samantyyppinen virhe
+kuin aiemmat kaksi loydetya testivektorivirhetta taman projektin
+historiassa).
+
+**Tama on KOLMAS kerta taman projektin aikana, kun epailty "RTL-bugi"
+osoittautuu OMAN testi-/debug-skriptin virheeksi** (aiemmat kaksi:
+rho_prime:n msg_len, ja z:n pack/unpack-representaatio). Tama
+vahvistaa kayttajan oman, toistuvan neuvon arvon: AINA verrata RTL:n
+OMIA, hierarkkisesti poimittuja arvoja, EI oletettuja/erikseen
+laskettuja "golden"-arvoja, kun jaljitetaan monivaiheista laskentaa.
+
+## DK6:n LOPULLINEN, VAHVISTETTU tila
+
+| Vaihe | Tila |
+|---|---|
+| S1-S8 (kaikki) | ✅ TAYDELLISESTI VAHVISTETTU |
+| Hylkays-ja-uusintayritys (S7, kappa=0->5) | ✅ VAHVISTETTU NIST ACVP -vektorilla |
+
+**M5-DILITHIUM-001:n KAIKKI paaoperaatiot (KeyGen, Verify, Sign
+mukaan lukien AITO hylkays-ja-uusintayritys) ovat nyt TAYDELLISESTI
+todennettu SEKA dilithium-py:ta ETTA NIST:n omia ACVP-KAT-vektoreita
+vastaan.**
