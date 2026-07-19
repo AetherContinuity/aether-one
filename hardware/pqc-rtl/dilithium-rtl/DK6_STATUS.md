@@ -109,3 +109,41 @@ koska EI tarvita vahennystermia).
 w:n HighBits-erottelu (uudelleenkaytettava Decompose:n omaa r1-osaa),
 bit_pack_w (jo valmis), ja SampleInBall (jo valmis) - todennakoisesti
 suoraviivainen kokoonpano jo olemassa olevista palasista.
+
+## S4: Challenge-generointi VALMIS - PASS ensimmaisella yrityksella (2026-07-19, jatko 3)
+
+**Toteutus:** `pqc_dilithium_sign_challenge.sv` - w1=HighBits(w)
+(TAYSIN SUORA Decompose:n oma r1-ulostulo, K*256 rinnakkaista
+kombinatorista instanssia) + bit_pack_w (jo todistettu) +
+SHAKE256(mu||w1_bytes,48) + SampleInBall (jo todistettu).
+
+**Testitulos:**
+```
+Valmis 613 syklin jalkeen
+OK: c_tilde tasmaa
+OK: c tasmaa
+PASS: Challenge-generointi tasmaa taydellisesti
+```
+
+**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, verrattu suoraan
+`dilithium-py`:n omaan laskentaketjuun (`w.high_bits(alpha)` ->
+`bit_pack_w` -> `H(mu+w1_bytes,48)` -> `sample_in_ball`).
+
+## DK6:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ✅ |
+| S5: z:n muodostus + normitarkistus | ❌ Seuraava |
+| S6: Hintien muodostus | ❌ |
+| S7: Hylkayssilmukan ohjaus | ❌ |
+| S8: Pakkaus | ❌ |
+
+**Nelja kahdeksasta vaiheesta valmiina, PUOLIVALISSA.** S5 tarvitsee:
+s1:n forward-NTT (jo todistettu DK4:sta), c*s1_hat-pisteittaiskerto-
+lasku (Barrett, jo todistettu), inverse-NTT (jo todistettu),
+z=y+c*s1-yhteenlasku, ja normitarkistus (UUSI, mutta yksinkertainen
+vertailuoperaatio).
