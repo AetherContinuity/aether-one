@@ -147,3 +147,50 @@ s1:n forward-NTT (jo todistettu DK4:sta), c*s1_hat-pisteittaiskerto-
 lasku (Barrett, jo todistettu), inverse-NTT (jo todistettu),
 z=y+c*s1-yhteenlasku, ja normitarkistus (UUSI, mutta yksinkertainen
 vertailuoperaatio).
+
+## S5: z=y+c*s1 + normitarkistus VALMIS - PASS (2026-07-19, jatko 4)
+
+**Toteutus:** `pqc_dilithium_sign_z_core.sv` - s1:n forward-NTT (5x)
++ c:n forward-NTT (1x, UUSI, jonka puuttumisen loysin ja korjasin
+ITSE ennen testausta) + pisteittainen kertolasku (Barrett) +
+inverse-NTT (5x) + z=y+c_s1-yhteenlasku + normitarkistus.
+
+**check_norm_bound-funktion yksinkertaistus:** dilithium-py:n oma
+bittikikka (`x^(x>>31)`-tyylinen etumerkinkasittely) korvattiin
+YKSINKERTAISEMMALLA, mutta TAYSIN VASTAAVALLA logiikalla (keskitetty
+Zq-edustaja + itseisarvo + vertailu). TODENNETTU EMPIIRISESTI
+100000 satunnaisella arvolla ETUKATEEN etta yksinkertaistus tasmaa
+taydellisesti alkuperaiseen ennen RTL-tyota.
+
+**Loydetty ja korjattu ITSE ennen testausta:** ensimmainen versio
+unohti c:n oman forward-NTT-muunnoksen (kaytti raakaa c_zq:ta
+NTT-domainissa olevan s1_hat:n kanssa pisteittaisessa kertolaskussa) -
+huomattu ja korjattu ennen ensimmaista testiajoa lisaamalla
+S_FWD_C_START/WAIT/STORE-tilat.
+
+**Testitulos:**
+```
+Valmis 48930 syklin jalkeen, reject=0 (odotettu 0)
+PASS: z=y+c*s1 ja normitarkistus tasmaavat taydellisesti
+```
+
+**PASS TAYDELLISESTI**, verrattu suoraan `dilithium-py`:n omaan
+`z=y+c_s1`-laskentaan ja `check_norm_bound`-tulokseen.
+
+## DK6:n paivitetty tila
+
+| Vaihe | Tila |
+|---|---|
+| S1: ExpandMask | ✅ |
+| S2: koko y-vektori | ✅ |
+| S3: w-laskenta | ✅ |
+| S4: Challenge (c) | ✅ |
+| S5: z + normitarkistus | ✅ |
+| S6: Hintien muodostus | ❌ Seuraava |
+| S7: Hylkayssilmukan ohjaus | ❌ |
+| S8: Pakkaus | ❌ |
+
+**Viisi kahdeksasta vaiheesta valmiina.** S6 (hintien muodostus)
+tarvitsee: r0=(w-c*s2).low_bits(alpha) + normitarkistus (samantyyppinen
+kuin S5), c_t0=c*t0_hat.from_ntt() + normitarkistus, ja MakeHint
+(UUSI, mutta yksinkertainen - Decompose:n kaannospuoli UseHint:sta).
