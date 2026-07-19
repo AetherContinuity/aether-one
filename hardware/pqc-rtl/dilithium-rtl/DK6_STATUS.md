@@ -622,3 +622,44 @@ riippumatonta siementa + alkuperainen dilithium-py-referenssi) OVAT
 EDELLEEN PASS ja PATEVAT. Vika on RAJATTU nimenomaan hylkays-ja-
 uusintayritys-mekanismin (S7) omaan, aiemmin testaamattomaan
 polkuun.
+
+## RATKAISEVA KAVENNUS: vika EI ole missaan yksittaisessa alimoduulissa (2026-07-19, jatko 14)
+
+**Kayttajan oma ohje (etsi datan elinkaaresta - RAM/rekisteri joka
+jaa osittain paivittamatta - EI laskureista) johti systemaattiseen
+"kaksoiskutsu"-testaukseen: jokainen S1-S6:n alimoduuli ajettiin
+KAHDESTI PERAKKAIN SAMASSA simulaatiossa (EI reset:ia valissa, VAIN
+start-pulssi uudestaan, ERI syotteilla), verraten KUMPAAKIN kutsua
+erikseen golden-arvoon.**
+
+**KAIKKI VIISI moduulia PASSASIVAT TAYDELLISESTI molemmilla
+kutsukerroilla:**
+```
+expand_mask_vector: PASS (molemmat kutsut)
+sign_w_core:        PASS (molemmat kutsut)
+sign_challenge:     PASS (molemmat kutsut)
+sign_z_core:        PASS (molemmat kutsut)
+sign_hint_core:     PASS (molemmat kutsut)
+```
+
+**JOHTOPAATOS: vika EI OLE missaan yksittaisessa S1-S6-laskenta-
+moduulissa.** Kaikki naista toimivat oikein toistetulla kutsulla,
+myos ilman reset:ia valissa. Tama KAVENTAA hakutilan LOPULLISESTI
+`pqc_dilithium_sign_top2.sv`:n OMAAN top-tason FSM-ohjaukseen ja
+rekisterikytkentaan (esim. c_reg, w_flat_reg, y_flat_reg, A_hat_reg,
+mu_reg - naiden VALITTOMAAN kaytto-/paivitysajoitukseen FSM:n
+tilasiirtymissa), EI mihinkaan alla olevaan laskentaan.
+
+**Seuraava askel (seuraavassa istunnossa):** tarkastella
+`pqc_dilithium_sign_top2.sv`:n OMAA FSM-koodia rivi riviltä,
+erityisesti silmukan paluukohtaa (S_LOOP_CHECK_Z/S_LOOP_CHECK_H ->
+S_LOOP_START_EM) ja jokaisen top-tason rekisterin
+kirjoitus-/lukuajoitusta - onko esim. jokin rekisteri luettu VALITTOMASTI
+SAMALLA syklilla kun se kirjoitetaan (race condition), tai onko
+A_hat_reg/mu_reg vahingossa alttiina uudelleenkirjoitukselle silmukan
+sisalla vaikka niiden PITAISI pysya muuttumattomina.
+
+**Tama on juuri sellainen kavennys jota kayttaja ennakoi:** "Sign
+toimii ensimmaisella kierroksella oikein, kaikki alikomponentit
+toimivat oikein toistettuina - ongelma on NIMENOMAAN top-tason
+orkestroinnin OMASSA kytkennassa/ajoituksessa, ei laskennassa."
