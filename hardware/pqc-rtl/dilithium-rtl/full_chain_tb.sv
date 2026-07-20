@@ -81,12 +81,26 @@ module full_chain_tb;
     .c_tilde_out(c_tilde_out), .kappa_final_out(kappa_final_out), .iter_count_out(iter_count_out)
   );
 
+  // sign_top2.sv:n oma z_out_flat on Zq-edustajamuodossa - pack_z
+  // OLETTAA jo keskitetyn etumerkillisen arvon. PAKOLLINEN muunnos
+  // (ks. sama korjaus sign_nist_acvp_tb.sv:ssa, loydetty NIST ACVP
+  // sigGen-testivektorilla).
+  logic [L*256*ZW-1:0] z_centered;
+  localparam int SIGN_Q = 8380417;
+  genvar gzci;
+  generate
+    for (gzci = 0; gzci < L*256; gzci++) begin : g_z_center
+      wire [ZW-1:0] z_raw = z_out_flat[gzci*ZW +: ZW];
+      assign z_centered[gzci*ZW +: ZW] = (z_raw > (SIGN_Q-1)/2) ? (z_raw - SIGN_Q) : z_raw;
+    end
+  endgenerate
+
   // === pack_sig ===
   logic packsig_start, packsig_done;
   logic [8*(48+L*640+OMEGA+K)-1:0] sig_out;
   pqc_dilithium_pack_sig #(.OMEGA(OMEGA), .K(K), .L(L)) packsig_dut (
     .clk(clk), .reset(reset), .start(packsig_start),
-    .c_tilde_in(c_tilde_out), .z_in_flat(z_out_flat), .h_in_flat(h_out_flat),
+    .c_tilde_in(c_tilde_out), .z_in_flat(z_centered), .h_in_flat(h_out_flat),
     .done(packsig_done), .sig_out(sig_out)
   );
 

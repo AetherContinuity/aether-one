@@ -719,3 +719,84 @@ laskettuja "golden"-arvoja, kun jaljitetaan monivaiheista laskentaa.
 mukaan lukien AITO hylkays-ja-uusintayritys) ovat nyt TAYDELLISESTI
 todennettu SEKA dilithium-py:ta ETTA NIST:n omia ACVP-KAT-vektoreita
 vastaan.**
+
+## AITO INTEGRAATIOBUGI LOYDETTY JA KORJATTU: z:n representaatioero Sign:n ja pack_sig:n valilla (2026-07-20, jatko 16)
+
+**Ensimmainen KAYTTAJAN OMA CI-ajo raskaassa workflow'ssa (GitHub
+Actionsin oikealla ajurilla) paljasti aidon RTL-integraatiobugin**,
+joka EI ollut viela loytynyt kaikista aiemmista paikallisista
+testeista.
+
+**Havainto:** `sign_nist_acvp_tb.sv` (NIST ACVP sigGen-KAT-vektori,
+aito kappa 0->5-hylkays-ja-uusintayritys) EPAONNISTUI seka CI:ssa
+etta paikallisesti: 1300/3309 tavua eroaa NIST:n odottamasta
+allekirjoituksesta.
+
+**Systemaattinen kavennus alueittain paljasti tarkan sijainnin:**
+```
+c_tilde-alue (48 tavua):  0 eroa  - TAYDELLINEN TASMAYS
+z-alue (3200 tavua):   1300 eroa  - TASSA VIKA
+h-alue (61 tavua):        0 eroa  - TAYDELLINEN TASMAYS
+```
+
+**Juurisyy loydetty:** `pqc_dilithium_sign_top2.sv`:n oma `z_out_flat`
+on **Zq-edustajamuodossa** ([0,Q)) - sisainen NTT-pohjainen laskenta
+kayttaa tata muotoa lapi koko Sign-putken. MUTTA
+`pqc_dilithium_pack_z` / `pack_z_vector` OLETTAA jo **keskitetyn
+etumerkillisen** arvon (FIPS 204:n oma `altered=GAMMA1-z`-kaava
+edellyttaa etta z ON JO pieni, keskitetty luku). Naiden kahden
+moduulin valilta PUUTTUI muunnos.
+
+**Vahvistus (yksittainen kerroin):**
+```
+z_reg (Zq-edustaja, 24-bit): 8003261
+keskitetty arvo (z_reg-Q):   -377156
+altered = GAMMA1-keskitetty: 0xdc144  <- TASMAA NIST:n golden-arvoon
+altered = GAMMA1-z_reg (VAARIN, ilman keskitysta): 0xde143 <- EI tasmaa
+```
+
+**Miksi taman ohitti kaikki aiemmat testit:**
+- Yksittainen `pack_z`-testi (S8): kaytti SATUNNAISIA, jo VALMIIKSI
+  keskitettyja testiarvoja - ei koskaan syottanyt Zq-edustaja-
+  muotoista dataa.
+- Koko `sign_top2`-testit (kappa=0-onnistuminen): vertasivat
+  `z_out_flat`:aa SUORAAN Pythonin OMAAN Zq-edustaja-muotoiseen
+  `z._data`:aan - JOHDONMUKAISTA, mutta EI koskaan testannut
+  PAKKAUSTA (`pack_sig`) samassa ajossa.
+- `z_core`-"kaksoiskutsu"-testi: testasi `sign_z_core`:n OMAA
+  ulostuloa (Zq-muotoa) - EI PAKKAUSTA.
+
+**Vasta kun KOKO KETJU (Sign+pack_sig YHDESSA) testattiin AIDOLLA
+NIST-datalla, tama integraatiotason representaatioero paljastui.**
+
+**Korjaus:** lisatty eksplisiittinen Zq->keskitetty-muunnos
+(`z_raw > (Q-1)/2 ? z_raw-Q : z_raw`) sign_top2:n `z_out_flat`:n JA
+`pack_sig`:n `z_in_flat`:n valiin - SEKA `sign_nist_acvp_tb.sv`:ssa
+ETTA `full_chain_tb.sv`:ssa (sama puute loytyi ja korjattiin
+kummassakin).
+
+**PAATOS: korjaus tehtiin TESTIPENKKIEN OMAAN kytkentaan (EI
+`pack_sig.sv`:n sisalle), koska `pack_sig.sv`:n OMA S8-testi kaytti
+JO VALMIIKSI keskitettya dataa - muunnoksen lisaaminen `pack_sig.sv`:n
+SISALLE olisi RIKKONUT taman aiemmin lapaisseen testin (todennettu:
+kokeiltiin, S8-testi meni punaiseksi, palautettiin).** Tama on
+tarkea suunnitteluopetus: `pack_sig.sv` pysyy "puhtaana" moduulina
+joka OLETTAA keskitetyn syotteen - vastuun MUUNNOKSESTA kantaa
+KUTSUJA (integraatiotaso), ei pakkausmoduuli itse.
+
+**LOPULLINEN TULOS korjauksen jalkeen:**
+```
+PASS: RTL Sign tasmaa TAYDELLISESTI NIST ACVP sigGen-KAT-vektoriin (tgId=10, tcId=139)
+```
+
+## Tarkea metodologinen opetus
+
+**Tama on ENSIMMAINEN kerta tassa projektissa kun kayttajan OMA CI-
+ajo (ei paikallinen testaus) loysi aidon, aiemmin piilossa olleen
+integraatiobugin.** Kaikki aiemmat yksittaiset komponenttitestit ja
+jopa koko-Sign-testit (ilman pakkausta samassa ajossa) EIVAT
+kattaneet TATA SPESIFISTA rajapintaa (Sign:n Zq-muotoinen ulostulo
+vs. pack_sig:n keskitetty-muotoinen odotus). Tama korostaa CI:n oman,
+riippumattoman ajon arvoa - paikallinen "kaiken pitaisi toimia"
+-oletus ei korvaa oikean, erillisen ajoympariston antamaa
+riippumatonta vahvistusta.

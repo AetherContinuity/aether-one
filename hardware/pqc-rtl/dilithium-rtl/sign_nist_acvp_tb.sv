@@ -36,11 +36,30 @@ module sign_nist_acvp_tb;
     .c_tilde_out(c_tilde_out), .kappa_final_out(kappa_final_out), .iter_count_out(iter_count_out)
   );
 
+  // sign_top2.sv:n oma z_out_flat on Zq-edustajamuodossa ([0,Q)) - sen
+  // sisainen NTT-pohjainen laskenta kayttaa tata muotoa lapi koko
+  // Sign-putken (sama konventio kuin Verify:n oma sisainen kaytto).
+  // pack_z/pack_z_vector (kaytetaan pack_sig:n sisalla) OLETTAA
+  // KUITENKIN jo keskitetyn etumerkillisen arvon (FIPS 204:n oma
+  // "altered=GAMMA1-z"-kaava) - TAMA MUUNNOS ON PAKOLLINEN ennen
+  // pakkausta. LOYDETTY NIST ACVP sigGen-FIPS204 -testivektorilla:
+  // puuttuva muunnos aiheutti vaarin pakatun z:n aina kun jokin
+  // kerroin edustaa negatiivista arvoa Zq-muodossa.
+  localparam int SIGN_Q = 8380417;
+  logic [L*256*ZW-1:0] z_centered;
+  genvar gzi;
+  generate
+    for (gzi = 0; gzi < L*256; gzi++) begin : g_z_center
+      wire [ZW-1:0] z_raw = z_out_flat[gzi*ZW +: ZW];
+      assign z_centered[gzi*ZW +: ZW] = (z_raw > (SIGN_Q-1)/2) ? (z_raw - SIGN_Q) : z_raw;
+    end
+  endgenerate
+
   logic packsig_start, packsig_done;
   logic [8*(48+L*640+OMEGA+K)-1:0] sig_out;
   pqc_dilithium_pack_sig #(.OMEGA(OMEGA), .K(K), .L(L)) packsig_dut (
     .clk(clk), .reset(reset), .start(packsig_start),
-    .c_tilde_in(c_tilde_out), .z_in_flat(z_out_flat), .h_in_flat(h_out_flat),
+    .c_tilde_in(c_tilde_out), .z_in_flat(z_centered), .h_in_flat(h_out_flat),
     .done(packsig_done), .sig_out(sig_out)
   );
 
