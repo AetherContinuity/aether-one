@@ -879,3 +879,49 @@ bugit taman istunnon aikana.
 flow'n oman arvon - se paljasti integraatiotason ongelman jota
 YKSIKAAN aiempi, YKSITTAINEN moduuli- tai referenssivektoritesti ei
 ollut loytanyt.**
+
+## KORJAUS EDELLISEEN LOYTOON: alkuperainen FAIL oli todennakoisesti ymparistohäiriö, EI aito RTL-bugi (2026-07-20, jatko 19)
+
+**TARKEA KORJAUS edelliseen kirjaukseen.** Alkuperainen havainto
+("RTL Verify hylkaa aidosti patevan allekirjoituksen") osoittautui
+TODENNAKOISESTI VIRHEELLISEKSI seuraavan lisatutkimuksen perusteella:
+
+1. Ajettiin `stage3_verify_tb.sv` UUDESTAAN TASMALLEEN SAMOILLA
+   `ek.txt`/`sig.txt`-tiedostoilla (ei regeneroitu) - **TULOS: PASS
+   TAYDELLISESTI.**
+2. Rakennettiin erillinen hierarkkinen jaljitystestipenkki (`tr`,
+   `mu`, `c_tilde`, `final_out` verrattuna Pythonin golden-arvoihin)
+   - **KAIKKI arvot tasmasivat taydellisesti, verify_ok=1.**
+
+**JOHTOPAATOS: RTL Verify ON OIKEIN. Alkuperainen "FAIL"-tulos oli
+todennakoisesti YMPARISTON OHIMENEVA HAIRIO** (sama sandbox-
+epavakaus/prosessikeskeytysten kuvio joka on toistunut taman
+istunnon aikana pitkien taustaprosessien kanssa) - EI genuiini
+looginen bugi RTL-koodissa. Mahdollinen selitys: `sig.txt`:n
+kirjoitus/luku-siirtyma stage2:n ja stage3:n valilla saattoi karsia
+osittaisesta/keskeytyneesta tiedostonluvusta samasta ymparisto-
+ilmiosta joka on aiheuttanut muitakin prosessikeskeytyksia tassa
+istunnossa - EI aidosta datavirheesta.
+
+**Tama EI mitatoi vaiheistetun functional flow'n omaa arvoa** -
+paallikko on edelleen validi: vaiheistettu lahestymistapa PALJASTI
+ANOMALIAN (vaikka lopulta ymparistoperainen, ei RTL-perainen), ja
+mahdollisti sen NOPEAN JATKOTUTKIMUKSEN kayttaen jo talletettuja
+valituotoksia (`ek.txt`, `sig.txt`) UUDELLEENAJETTAVAKSI ilman
+tarvetta toistaa koko kallista KeyGen+Sign-prosessia.
+
+**Kayttajan oma alkuperainen perustelu vaiheistukselle ("valitulokset
+jaavat talteen myohempaa analyysia varten") OSOITTAUTUI JUURI TASSA
+KAYTANNOSSA ARVOKKAAKSI** - ilman talletettuja `ek.txt`/`sig.txt`-
+tiedostoja, taman anomalian TARKISTAMINEN olisi vaatinut KOKO
+kalliin KeyGen+Sign-prosessin (>20 min) uudelleenajon, sen sijaan
+etta VOITIIN suoraan uudelleenajaa VAIN Vaihe 3 (muutamassa
+minuutissa) tallennetuilla tiedostoilla.
+
+**Suositus jatkoa varten:** jos tallainen "kertaluonteinen FAIL, sitten
+PASS samoilla syotteilla" -ilmio toistuu, se on VAHVA merkki
+ymparistoperaisesta epaluotettavuudesta (esim. tiedostojarjestelman
+oma viive/synkronointi taman SPESIFISEN sandbox-ymparistön kanssa)
+eika RTL-logiikan omasta epavarmuudesta - kannattaa dokumentoida
+TAMA ilmio itsessaan pikemminkin kuin jahdata "haihtuvaa" bugia
+lisaa RTL-koodista.

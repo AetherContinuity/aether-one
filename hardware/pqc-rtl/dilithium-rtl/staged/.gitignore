@@ -1,0 +1,6 @@
+# Vaiheistetun functional flow'n valituotokset - generoituvat ajon
+# aikana, EI tallenneta versionhallintaan (CI tallentaa ne omana
+# artefaktinaan tarvittaessa, ks. dilithium-heavy-integration.yml).
+ek.txt
+sk_state.txt
+sig.txt

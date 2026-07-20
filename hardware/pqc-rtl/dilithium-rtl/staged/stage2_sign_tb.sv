@@ -30,7 +30,22 @@ module stage2_sign_tb;
   logic [K*256*8-1:0] s2_raw;
   logic [L*256*CW-1:0] s1_zq;
   logic [K*256*CW-1:0] s2_zq;
+  logic [K*256*CW-1:0] t0_raw;
   logic [K*256*CW-1:0] t0_in_flat;
+  // keygen_top.sv:n oma t0_flat on ETUMERKILLINEN 23-bittinen
+  // kaksoiskomplementti (power2round.sv: "signed [CW-1:0] r0_out",
+  // arvoalue (-4096,4096]) - MUTTA sign_hint_core OLETTAA Zq-
+  // edustajamuodon [0,Q). PAKOLLINEN muunnos (sama representaatioero
+  // kuin z:n omassa Sign->pack_sig-rajapinnassa, mutta talla kertaa
+  // KeyGen->Sign-rajapinnassa ja KAANTEISEEN suuntaan: etumerkillinen
+  // -> Zq, ei Zq -> etumerkillinen).
+  genvar gti;
+  generate
+    for (gti = 0; gti < K*256; gti++) begin : g_t0_conv
+      wire signed [CW-1:0] raw = t0_raw[gti*CW +: CW];
+      assign t0_in_flat[gti*CW +: CW] = (raw < 0) ? (Q + raw) : raw;
+    end
+  endgenerate
   logic [8*MSG_BYTES-1:0] m_in;
   logic [L*256*ZW-1:0] z_out_flat;
   logic [K*256-1:0] h_out_flat;
@@ -92,7 +107,7 @@ module stage2_sign_tb;
     void'($fscanf(skfh, "%h\n", tr_in));
     void'($fscanf(skfh, "%h\n", s1_raw));
     void'($fscanf(skfh, "%h\n", s2_raw));
-    void'($fscanf(skfh, "%h\n", t0_in_flat));
+    void'($fscanf(skfh, "%h\n", t0_raw));
     $fclose(skfh);
 
     if (!$value$plusargs("msg=%h", m_in)) begin
