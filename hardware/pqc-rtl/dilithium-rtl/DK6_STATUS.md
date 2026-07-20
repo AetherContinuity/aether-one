@@ -840,3 +840,42 @@ tarvitse olla YKSI valtava, kaiken-yhdessa-simulaatio.
 tiedostona referenssiksi/dokumentaatioksi, mutta EI kayteta enaa
 ensisijaisena todennusmenetelmana** - korvataan vaiheistetulla,
 tiedostopohjaisella lahestymistavalla seuraavassa istunnossa.
+
+## UUSI LOYTO: RTL Verify hylkaa AIDOSTI PATEVAN allekirjoituksen (2026-07-20, jatko 18)
+
+**Vaiheistettu functional flow (KeyGen->Sign->Verify) loysi UUDEN,
+aiemmin havaitsemattoman bugin.** Vaihe 1 (KeyGen) ja Vaihe 2 (Sign,
+kappa=15, 3 hylkaysiteraatiota) PASSASIVAT paikallisesti taydellisesti.
+MUTTA Vaihe 3 (Verify) HYLKASI Sign:n tuottaman, GENUINE-allekirjoituksen.
+
+**Riippumaton vahvistus Pythonilla (kayttaen RTL:n omia ek.txt/sig.txt-
+tiedostoja):**
+```
+Pythonin oma _verify_internal: True
+h.sum_hint(): 42 (OMEGA=55)
+z.check_norm_bound: False (=lapaisee normitarkistuksen)
+```
+
+**JOHTOPAATOS: allekirjoitus ON AIDOSTI PATEVA (Python hyvaksyy sen
+taydellisesti). Vika on RTL VERIFY:ssa (`pqc_dilithium_verify_top2.sv`),
+JOKA VIRHEELLISESTI HYLKAA taman.**
+
+**Miksi tama ei loytynyt aiemmin:** kaikki aiemmat Verify-testit
+(dilithium-py-referenssit, NIST ACVP sigVer, monisiemeninen) kayttivat
+allekirjoituksia jotka olivat PERAISIN joko (a) yhden iteraation
+Sign-prosessista TAI (b) valmiiksi paketoiduista dilithium-py:n omista
+`sign()`-kutsuista jotka EIVAT valttamatta sisaltaneet tasan tallaista
+h/z-arvoyhdistelmaa. TAMA on ENSIMMAINEN kerta kun Verify testattiin
+allekirjoituksella joka on peraisin AIDOSTI MONI-ITERAATIOISESTA
+(kappa=15, 3 hylkaysta) RTL Sign -prosessista.
+
+**Seuraava askel:** jaljittaa RTL Verify:n omat sisaiset arvot
+(mu, c_tilde_check, w_prime jne) tama SPESIFINEN sig/ek-parin kanssa,
+verraten Pythonin omaan uudelleenlaskentaan loytaakseen tarkan
+poikkeaman - sama menetelma joka on toistuvasti loytanyt aiemmatkin
+bugit taman istunnon aikana.
+
+**Tama on tarkea, aito loydos: se osoittaa vaiheistetun functional
+flow'n oman arvon - se paljasti integraatiotason ongelman jota
+YKSIKAAN aiempi, YKSITTAINEN moduuli- tai referenssivektoritesti ei
+ollut loytanyt.**
