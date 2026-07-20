@@ -800,3 +800,43 @@ vs. pack_sig:n keskitetty-muotoinen odotus). Tama korostaa CI:n oman,
 riippumattoman ajon arvoa - paikallinen "kaiken pitaisi toimia"
 -oletus ei korvaa oikean, erillisen ajoympariston antamaa
 riippumatonta vahvistusta.
+
+## Resurssihavainto: koko RTL-ketjun yhdistäminen ei ole kestävä lähestymistapa (2026-07-20, jatko 17)
+
+**Kayttajan oma havainto:** koko RTL-ketjun (KeyGen+Sign+Verify)
+yhdistaminen YHTEEN Icarus-simulaatioon kasvattaa muistinkaytt0a
+merkittavasti (havaittu ~3.9GB kokonaismuistin kaytossa jaettussa
+ymparistossa) - PAALLEKKAIN, koska KAIKKI kolme paaoperaatiota
+(mukaan lukien niiden OMAT raskaat alimoduulit kuten sign_hint_core:n
+1536 rinnakkaista instanssia) elaboroituvat SAMANAIKAISESTI YHDEKSI
+netlistiksi.
+
+**Tama on aito, tarkea havainto post-kvanttikryptografian
+laitteistoverifioinnin OMASTA resurssi-intensiivisyydesta:** ML-DSA-
+65:n rakenne (useita NTT-muunnoksia, laajoja rinnakkaisia Decompose/
+MakeHint-instansseja, moninkertaisia SHAKE-kutsuja) on merkittavasti
+raskaampi verifioida kuin perinteiset, pienemman avainkoon
+algoritmit - tama koskee seka simulointiaikaa ETTA muistinkayttoa.
+
+**Uusi suositeltu lahestymistapa (jatkossa):** VAIHEISTETTU, tiedosto-
+pohjainen ketjutus KOKO-KETJUN yhden-simulaation sijaan:
+1. Aja KeyGen ERIKSEEN, tallenna ek/dk (tai s1/s2/t0/rho/K/tr)
+   TIEDOSTOON.
+2. Aja Sign ERIKSEEN (lukien Vaihe 1:n tiedoston), tallenna
+   allekirjoitus TIEDOSTOON.
+3. Aja Verify ERIKSEEN (lukien Vaihe 1:n ek JA Vaihe 2:n
+   allekirjoituksen), tarkista verify_ok.
+
+Tama vastaa OIKEAN tape-out-/verifiointivuon omaa kaytantoa (erilliset,
+itsenaiset ajot tiedostorajapinnoilla) - JOKAINEN vaihe vapauttaa
+muistinsa OMAN prosessinsa paatyttya, EIKA yksikaan YKSITTAINEN ajo
+kasva kolmen paaoperaatio yhdistetyn koon suuruiseksi. Tama on MYOS
+linjassa jo aiemmin omaksutun periaatteen kanssa (pitkat integraatio-
+ajot VAIN tarvittaessa, ei paivittaisena tyokaluna) - mutta menee
+askeleen pidemmalle: MYOS silloin kun integraatio TARVITAAN, sen EI
+tarvitse olla YKSI valtava, kaiken-yhdessa-simulaatio.
+
+**full_chain_tb.sv (koko-ketjun yhden-simulaation versio) SAILYTETAAN
+tiedostona referenssiksi/dokumentaatioksi, mutta EI kayteta enaa
+ensisijaisena todennusmenetelmana** - korvataan vaiheistetulla,
+tiedostopohjaisella lahestymistavalla seuraavassa istunnossa.
