@@ -53,3 +53,23 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
       - name: Run Sign vs. NIST ACVP sigGen-FIPS204 (aito hylkays-ja-uusintayritys, kappa 0->5, ~360000 sykli)
         run: bash hardware/pqc-rtl/run_integration_dilithium_sign_nist_acvp.sh
+
+  test-pqc-rtl-dilithium-functional-flow-heavy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: Run vaiheistettu functional flow (KeyGen->ek.txt/sk_state.txt->Sign->sig.txt->Verify->PASS/FAIL)
+        run: bash hardware/pqc-rtl/run_integration_dilithium_functional_flow.sh
+      - name: Tallenna valituotokset (ek.txt, sk_state.txt, sig.txt) myohempaa analyysia varten
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dilithium-functional-flow-artifacts
+          path: |
+            hardware/pqc-rtl/dilithium-rtl/staged/ek.txt
+            hardware/pqc-rtl/dilithium-rtl/staged/sk_state.txt
+            hardware/pqc-rtl/dilithium-rtl/staged/sig.txt
+          if-no-files-found: ignore

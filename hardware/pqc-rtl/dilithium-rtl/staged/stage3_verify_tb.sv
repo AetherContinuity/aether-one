@@ -17,7 +17,7 @@ module stage3_verify_tb;
   localparam int K = 6;
   localparam int L = 5;
   localparam int OMEGA = 55;
-  localparam int MSG_BYTES = 8;
+  localparam int MSG_BYTES = 30;
 
   logic clk, reset, start, done, verify_ok;
   logic [8*(32+K*320)-1:0] ek_in;
@@ -46,7 +46,7 @@ module stage3_verify_tb;
     $fclose(sigfh);
 
     if (!$value$plusargs("msg=%h", m_in)) begin
-      m_in = {8'h41,8'h42,8'h43,8'h44,8'h45,8'h46,8'h00,8'h00}; // TAYTYY tasmata Vaihe 2:n omaan
+      m_in = 240'h1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100; // TAYTYY tasmata Vaihe 2:n omaan
     end
 
     repeat (3) @(posedge clk);

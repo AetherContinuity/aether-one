@@ -20,7 +20,7 @@ module stage2_sign_tb;
   localparam int CW = 23;
   localparam int ZW = 24;
   localparam int OMEGA = 55;
-  localparam int MSG_BYTES = 8;
+  localparam int MSG_BYTES = 30;
   localparam int Q = 8380417;
 
   logic clk, reset, start, done;
@@ -96,10 +96,10 @@ module stage2_sign_tb;
     $fclose(skfh);
 
     if (!$value$plusargs("msg=%h", m_in)) begin
-      m_in = {8'h41,8'h42,8'h43,8'h44,8'h45,8'h46,8'h00,8'h00}; // 0x00||0x00||"ABCDEF" (m_prime, ctx tyhja)
+      m_in = 240'h1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100;
     end
     if (!$value$plusargs("rnd=%h", rnd_in)) begin
-      rnd_in = 256'h0; // deterministinen (rnd=0)
+      rnd_in = 256'h0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d;
     end
 
     repeat (3) @(posedge clk);

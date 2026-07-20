@@ -50,6 +50,26 @@ vahvistettu - ks. DK6_STATUS.md).
 
 Nimeamiskaytanto uusille skripteille: `run_integration_<aihe>.sh`.
 
+### Functional flow vs. regression flow (Integration-tason oma jako)
+
+Kayttajan oma ehdotus (2026-07-20): Integration-tason testit jakautuvat
+edelleen KAHTEEN erilliseen tavoitteeseen, joita EI kannata sitoa
+samaan testiin:
+
+- **Functional flow**: todistaa etta KOKO algoritmiketju (esim.
+  KeyGen->Sign->Verify) toimii PAASTA PAAHAN, tiedostopohjaisesti
+  vaiheistettuna (`run_integration_dilithium_functional_flow.sh`).
+  Jokainen vaihe on OMA Icarus-prosessinsa (KeyGen->ek.txt/sk_state.txt
+  ->Sign->sig.txt->Verify->PASS/FAIL) - muisti vapautuu jokaisen
+  vaiheen valissa, VALITTAEN merkittavaa resurssienkulutusta joka
+  havaittiin kun kaikki kolme paaoperaatiota yhdistettiin YHTEEN
+  simulaatioon (`full_chain_tb.sv`, SAILYTETTY dokumentaationa mutta
+  EI enaa ensisijainen menetelma).
+- **Regression flow**: estaa regressiot jokaisella commitilla (Unit-
+  ja Component-tason nopeat testit, seka Verify/Sign-regressiot
+  omilla referenssivektoreillaan). NAMA ajetaan PAAWORKFLOW'SSA joka
+  pushilla.
+
 ## Miksi tama jako on tarkea
 
 Yhteinen, kaiken kattava tiedostolista (esim. `dilithium_common_files.sh`)

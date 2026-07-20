@@ -48,7 +48,7 @@ module stage1_keygen_tb;
 
     // Siemen: komentoriviltä ($value$plusargs) tai oletusarvo
     if (!$value$plusargs("zeta=%h", zeta_in)) begin
-      zeta_in = 256'h0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20;
+      zeta_in = 256'h000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
     end
 
     repeat (3) @(posedge clk);
