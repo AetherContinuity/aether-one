@@ -87,3 +87,80 @@ Tulos: PASS, tcId=1 (14410 sykli), tcId=2 (14410 sykli), tcId=3 (14426 sykli). 3
 5. Vain yksi Encaps-vektori (tcId=1) - lisaa voidaan lisata mekaanisesti
    samalla `gen_mlkem_nist_encaps_vector.py`-skriptilla eri tc_id-
    argumentilla.
+
+## RTL Decaps vs. NIST ACVP encapDecap-FIPS203 (ML-KEM-512, tgId=4, 5 tapausta)
+
+Testattu `pqc_mlkem_decaps_top.sv` (Phase A: `decaps_a_core`, Phase B:
+`decaps_b1_core`) NIST:n omia dk+c->K-KAT-vektoreita vasten.
+
+**Luokittelu (valid/rejection) tehty RIIPPUMATTOMASTI** Pythonin
+omalla `c'==c`-laskennalla `gen_mlkem_nist_decaps_vectors.py`:ssa,
+EI luotettu pelkkaan JSON:n `reason`-kenttaan - riippumaton laskenta
+tasmasi `reason`-kenttaan kaikissa 10:ssa tarkistetussa tapauksessa.
+
+Valitut tapaukset: tcId 76,79 (valid decapsulation), tcId 77,78,80
+(modified ciphertext / implisiittinen hylkays).
+
+Tulos: kaikki 5 tapausta K tasmaa NIST-vektoriin.
+
+### Vaihekohtaiset syklit, 5 eri avainta (NIST:n oma data)
+
+| tcId | luokka | Phase A (sykli) | Phase B (sykli) | Yhteensa |
+|---|---|---|---|---|
+| 76 | valid | 7666 | 14195 | 21863 |
+| 79 | valid | 7666 | 14188 | 21856 |
+| 77 | rejection | 7666 | 14183 | 21851 |
+| 78 | rejection | 7666 | 14195 | 21863 |
+| 80 | rejection | 7666 | 14186 | 21854 |
+
+**Havainto:** Phase A on TASMALLEEN sama (7666) kaikissa viidessa
+tapauksessa. Phase B vaihtelee ~12 syklin sisalla (14183-14195), MUTTA
+tama vaihtelu EI korreloi valid/rejection-luokan kanssa (esim. tcId=78
+[rejection] ja tcId=76 [valid] ovat MOLEMMAT 14195 - identtiset;
+tcId=77 [rejection] on PIENIN kaikista). **Syy loydetty:** NAMA 5
+NIST-testitapausta kayttavat KAIKKI ERI avainta (eri dk/rho jokaiselle
+tcId:lle) - Phase B:n oma vaihtelu selittyy TODENNAKOISESTI `ExpandA`:n
+(SampleNTT-hylkaysnaytteistys, rho-riippuvainen) avain-kohtaisella
+iteraatiomaaralla, EI valid/rejection-erolla.
+
+### Puhdas saman-avaimen vertailu (sekavuustekija poistettu)
+
+Koska NIST:n oma data EI tarjoa saman avaimen useampaa ciphertext-
+tapausta tassa testiryhmassa, rakennettiin YKSI lisavertailu: tcId=76:n
+OMA avain (dk) + tcId=76:n oma validi ciphertext SEKA siita johdettu,
+yhdella tavulla korruptoitu ciphertext (SAMA avain molemmissa,
+riippumattomasti Pythonilla luokiteltu ja K-arvo vahvistettu).
+
+| Tapaus | luokka | Phase A | Phase B | Yhteensa |
+|---|---|---|---|---|
+| tcId=76:n oma c | valid | 7666 | 14195 | 21863 |
+| tcId=76:n dk + korruptoitu c | rejection | 7666 | 14195 | 21863 |
+
+**TASMALLEEN IDENTTISET syklimaarat molemmilla poluilla, kaikissa
+kolmessa mittarissa (Phase A, Phase B, kokonaissykli), kun avain
+pidetaan vakiona.**
+
+### Johtopaatos (tarkka muotoilu, ks. M3-MLKEM-002-encaps-decaps-plan.md)
+
+**Decaps on SYKLITASOLLA vakioaikainen** valid- ja rejection-poluille,
+kun avain pidetaan vakiona (mika on oikea vertailuasetelma - eri
+avaimien oma, itsenainen syklivaihtelu ExpandA:n rho-riippuvaisen
+hylkaysnaytteistyksen kautta ON ERI KYSYMYS, EI FO-vertailun oma
+vuoto). Tama EI ole vaite etta Decaps on "vakioaikainen" laajemmassa
+mielessa - jaljelle jaava vuotopinta (kytkentaaktiivisuus vertailu-/
+mux-logiikassa, SAMALLA syklilla mutta datariippuvasti) ON
+maaritelmallisesti `toggle-count-proxy`-tyokalun oma kohde, ei
+mitattu tassa.
+
+Ennuste (M3-MLKEM-002-encaps-decaps-plan.md, kirjattu ennen mittausta,
+molemmilla ehdoilla: vakioaikainen vertailu JA J-hash ehdotta
+laskettu) TOTEUTUI TASAN puhtaassa saman-avaimen vertailussa.
+
+### Sivutuote: z:n kasittelyn ensimmainen NIST-ankkurointi
+
+Rejection-tapaukset (77,78,80) todensivat ENSIMMAISTA KERTAA `z`:n
+(dk:n neljas osa) kasittelyn koko ketjun - `dk`-purku -> `z`:n sijainti
+-> `J(z||c)`-syote (800 tavua) - NIST:n omaa dataa vasten. Valid-polku
+EI KOSKAAN kayta z:aa (K_bar lasketaan mutta hylataan valinnassa), joten
+tama on Decapsin AINOA osa jota mikaan aiempi testi (Encaps, KeyGen)
+ei ole ankkuroinut.
