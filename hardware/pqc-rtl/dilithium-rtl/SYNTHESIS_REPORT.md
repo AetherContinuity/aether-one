@@ -128,7 +128,7 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
 | Rinnakkaisrakenteen (1536x) skaalauskayra | ✅ MITATTU (N=1,16,256,1536) - taydellisesti lineaarinen, EI jako-optimoinnin tuomaa vahennysta |
 | Paatason moduulien (KeyGen/Sign/Verify) LUT/FF-maara | ❌ EI mitattu - resurssirajoite tassa ymparistossa (mutta 1536x-osan oma osuus NYT tunnetaan tarkasti) |
 | ECP5/muu FPGA-kohteen resurssikaytto | ❌ EI tehty - sama avoin kysymys kuin ML-KEM:lla |
-| Fmax / kriittinen polku | ❌ EI maaritetty |
+| Fmax / kriittinen polku | ⚠️ KARKEA ARVIO saatu (`ltp`, 107 tasoa Barrett-mulmod:issa, ~9-16 MHz karkea haitari) - EI taydellinen P&R-pohjainen mittaus |
 | Suorituskykymittarit (syklimaara -> aika) | Katso DK6_STATUS.md: KeyGen ~87K sykli, Sign yhden-kierroksen ~242K sykli (vaihtelee hylkaysten mukaan), Verify ~115K sykli |
 
 ## Suositus jatkotyolle
@@ -160,35 +160,52 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
    MUTTA vaatisi ensin FSM-tason muutoksen (silmukointi K-ulottuvuuden
    yli), joka on suurempi RTL-muutos kuin tama kierros kattoi.
 
-## Fmax-yritys: ECP5 P&R, havainto resurssirajoitteesta (2026-07-21)
+## Fmax-arvio: looginen kriittinen polku (`ltp`), EI taydellista P&R:aa
 
-**Yritettiin** kayttajan oman ehdotuksen mukaisesti: `synth_ecp5`
-(ilman BRAM-inferenssia) + `nextpnr-ecp5 --85k` NTT-ytimelle
-(pienin/kevyin toistuva rakennuspalikka joka sisaltaa oman
-sisaisen muistinsa).
+**Tausta:** taydellinen FPGA-kohdekohtainen P&R-pohjainen Fmax-mittaus
+(`nextpnr-ecp5`) EI KONVERGOINUT tassa ymparistossa edes yhdelle,
+suhteellisen pienelle rakennuspalikalle usean yrityksen jalkeen
+(28 min ja sen jalkeen 11+ min 50 min:n yrityksesta ennen keskeytysta) -
+sama luokan resurssirajoite kuin muualla tassa raportissa.
 
-**Havainto:** PELKKA sijoitteluvaihe (`nextpnr`:n oma simuloitu
-jaahdytys/annealing-algoritmi, EI VIELA reititys tai ajoitusanalyysi)
-EI KONVERGOITUNUT 28 minuutissa (1700s aikaraja) yhdelle,
-suhteellisen pienelle moduulille (NTT-ydin, ~39K solua geneerisessa
-synteesissa). Uudelleenkaynnistetty pidemmalla (50 min) aikarajalla.
+**Vaihtoehto joka TOIMI nopeasti:** Yosysin oma `ltp` (longest
+topological path) -komento, joka laskee LOOGISEN (EI fyysisen,
+ei reititysta huomioivan) kriittisen polun LUT-tason soluja pitkin,
+teknologiakartoituksen (`synth`, sisaltaen `abc`) jalkeen. Tama EI
+korvaa taydellista P&R:aa (ei huomioi reititysviivetta, joka usein
+DOMINOI todellisilla FPGA:lla), mutta antaa NOPEASTI (muutamassa
+sekunnissa) karkean, LOGIIKKATASOJEN maaraan perustuvan arvion.
 
-**Tama on SAMA luokan resurssirajoite** joka on toistunut taman
-projektin simulointi- ja synteesityossa lapi taman ja edellisten
-istuntojen (ks. DK6_STATUS.md jatko 17, SYNTHESIS_REPORT.md:n oma
-paatason-synteesin OOM-havainto ylla) - taman sandbox-ymparistön
-laskentateho/aikabudjetti EI RIITA taydelliseen FPGA-kohdekohtaiseen
-sijoittelu+reititys+ajoitusanalyysiin edes YKSITTAISELLE, suhteellisen
-pienelle rakennuspalikalle jarkevassa ajassa.
+**Tulos - Barrett-modulokertolasku (`pqc_dilithium_barrett_mulmod.sv`),
+NTT:n toistuvin ja syvin kombinatorinen rakennuspalikka:**
 
-**Johtopaatos Fmax-tyolle:** taydellinen, luotettava Fmax-arvio
-vaatii TODENNAKOISESTI dedikoidun, taman sandbox-ympariston ulkopuolisen
-laskentaresurssin (nopeampi CPU ja/tai enemman aikaa kaytettavissa
-per ajo). Vaihtoehtoinen, kevyempi lahestymistapa jatkotyolle:
-1. Kayta Yosysin oman `abc9`-passin sisaista, karkeaa viive-estimaattia
-   (ei taydellista P&R:aa) - vahemman tarkka mutta huomattavasti
-   nopeampi.
-2. Laske looginen kriittinen polku SUORAAN RTL-tasolta (esim. Barrett-
-   modulokertolaskun oma pitka kertolasku+vertailuketju NTT-butterflyn
-   sisalla) ja arvioi tyypillisen ECP5-LUT4-viiveen (~0.3-0.5ns/taso)
-   perusteella - karkea, mutta nopeasti saatava arvio.
+```
+107 logiikkatasoa (LUT-ekvivalenttia solua) pisimmalla polulla
+```
+
+**Karkea Fmax-arvio, KAKSI eri oletuksella per-taso-viiveesta
+(ECP5-luokan FPGA, LUT4+reititys, EI mitattu vaan tyypillisia
+kirjallisuusarvoja kayttaen):**
+
+| Oletus (ns/taso) | Arvioitu kokonaisviive | Arvioitu Fmax |
+|---|---|---|
+| 0.6 ns (optimistinen, vahan reititysta) | ~64 ns | ~15.6 MHz |
+| 1.0 ns (konservatiivinen, tyypillinen ruuhkautunut reititys) | ~107 ns | ~9.3 MHz |
+
+**TARKEA VAROITUS:** tama ON KARKEA ARVIO, EI mitattu Fmax. Todellinen
+arvo VOI OLLA merkittavasti erilainen kun huomioidaan (a) todellinen
+reititysviive (joka vaatii taydellisen P&R:n), (b) ABC9:n oma
+timing-driven-optimointi joka VOISI lyhentaa polkua eri tavoitteilla
+optimoituna, (c) mahdollinen pipelinointi (TAMA Barrett-toteutus ON
+puhtaasti kombinatorinen, EI pipelinoitu - yksi rekisteroity
+valivaihe puolittaisi todennakoisesti taman viiveen, kustannuksella
+yhdesta lisasyklista per NTT-butterfly-operaatio).
+
+**Johtopaatos:** 107 tason kombinatorinen Barrett-reduktio ilman
+pipelinointia ON TODENNAKOISESTI merkittava Fmax-rajoitin taman
+toteutuksen nykyisessa muodossa. TAMA ON KONKREETTINEN, TOIMIVA
+optimointikohde jos korkeampi kellotaajuus on tavoite: Barrett-
+mulmod:in oma jakaminen 2-3 rekisteroituun valivaiheeseen (pipeline)
+lyhentaisi KRIITTISTA polkua merkittavasti kustannuksella muutamasta
+lisasyklista per NTT-vaihe (joita jo nyt on satoja per taysi NTT-
+muunnos, joten suhteellinen lisakustannus olisi pieni).
