@@ -110,6 +110,51 @@ toteutuksen (tayysi rinnakkainen vertailu) lukemiselle, EI sokea.**
    (seka valid etta rejection) taulukkona `M3_MLKEM_ACVP_STATUS.md`:aan.
 5. `check_reporting_discipline.sh` ajetaan ENNEN commit-vaihetta.
 
+## Tarkka termi joka pitaa kirjoittaa NAIN, ei lyhentaa (2026-07-21, ENNEN mittausta)
+
+FSM-katkelma vahvistaa viela yhden asian: `K_final_out <= (c_in ===
+c_prime) ? K_prime_in : shake256_out` on ITSESSAAN syklivakio
+DATARIIPPUVA multiplekseri - molemmat K-ehdokkaat (`K_prime_in` ja
+`shake256_out`) OVAT jo rekistereissa valmiina, ja valinta tapahtuu
+YHDESSA syklissa riippumatta siita kumpi valitaan.
+
+**KUN ennuste (ei syklitasoeroa, molemmilla ehdoilla: vakioaikainen
+vertailu JA J-hash aina laskettu) TOTEUTUU, OIKEA johtopaatos ON
+TASMALLEEN RAJATTU:**
+
+> "Decaps on **SYKLITASOLLA** vakioaikainen."
+
+**EI:**
+
+> "Decaps on vakioaikainen."
+
+**Miksi tama ero on kirjoitettava eksplisiittisesti tulosten yhteyteen
+(EI vain tahan suunnitteludokumenttiin):** "syklitasolla vakioaikainen"
+on juuri sellainen vaite joka LYHENEE lainauksissa muotoon
+"vakioaikainen" ellei rajaus ole naulattu TEKSTIIN siina kohaa missa
+tulos esitetaan, EI vain jossain aiemmassa suunnitteludokumentissa
+josta lainaaja ei valttamatta lue asti loppuun.
+
+**Jaljelle jaava vuotopinta taman mittauksen JALKEEN ON MAARITELMALLISESTI
+kytkentaaktiivisuus (toggle) vertailu- ja mux-logiikassa** - TAMA ON
+`toggle-count-proxy`-tyokalun oma kohde, EI syklilaskurin. Syklilaskuri
+EI VOI havaita eroa joka syntyy SAMALLA syklilla tapahtuvasta, mutta
+DATASTA RIIPPUVASTA kytkentamaarasta (esim. `c_in === c_prime`:n oma
+XOR-puu kytkee eri maaran portteja riippuen SIITA MISSA KOHDASSA
+c_in ja c_prime eroavat, vaikka TULOS ja AIKA ovat molemmat vakioita).
+
+## Seuraus infrastruktuurivalinnalle (kirjattu ETUKATEEN, ei jalkikateen)
+
+Jos Decaps-mittaus vahvistaa ennusteen (EI syklitasoeroa) - taman
+JALKEEN `SymbiYosys` vs. `toggle-count-proxy` -valinta ON KAYTANNOSSA
+jo ratkennut: SymbiYosys todistaisi TOIMINNALLISIA invariantteja jotka
+OVAT JO ACVP-ankkuroituja (vahvistaisi jo vahvinta, todennetuinta
+osaa). Toggle-proxy kohdistuisi AINOAAN jaljella olevaan
+TUNTEMATTOMAAN (kytkentaaktiivisuus). Tama paatos ON EHDOLLINEN
+Decaps-mittauksen omalle tulokselle - JOS mittaus TUOTTAA yllatyksen
+(syklitasoero loytyy), TAMA paatos ON UUDELLEENARVIOITAVA, ei
+automaattisesti voimassa.
+
 ## Rajaus
 
 Tama EI ole toggle-count-proxy-infrastruktuurin rakentamista eika
