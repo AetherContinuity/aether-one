@@ -4,56 +4,53 @@
 
 ## Tausta
 
-Sama metodologia kuin ML-DSA-65:lle (ks. `dilithium-rtl/NIST_ACVP_
-STATUS.md`) - todennetaan RTL suoraan NIST:n virallisia ACVP-KAT-
-vektoreita vasten, EI vain omaa `mlkem_golden.py`-referenssia vasten.
-Tama korjaa aiemmin tunnistetun epasymmetrian: ML-DSA-65:n kaikki
-kolme paaoperaatiota olivat jo NIST-ACVP-todennettuja, ML-KEM ei
-ollenkaan.
+Sama menetelma kuin ML-DSA-65:lle (`dilithium-rtl/NIST_ACVP_STATUS.md`):
+RTL testataan NIST:n virallisia ACVP-KAT-vektoreita vastaan, ei vain
+omaa `mlkem_golden.py`-referenssia vastaan.
 
-Lahde: sama `usnistgov/ACVP-Server`, hakemisto
+Lahde: `usnistgov/ACVP-Server`, hakemisto
 `gen-val/json-files/ML-KEM-{keyGen,encapDecap}-FIPS203/`.
 
-RTL-toteutus kohdistuu **ML-KEM-512** (K=2), vahvistettu
-`pqc_mlkem_keygen_core.sv`:n omasta `parameter int K = 2`.
+RTL kohdistuu ML-KEM-512 (K=2, `pqc_mlkem_keygen_core.sv`:n oma
+parametri).
 
-## Ensimmainen askel: mlkem_golden.py:n oma vahvistus NIST:ia vastaan
+## mlkem_golden.py vs. NIST (ML-KEM-512, tcId=1)
 
-```
-tcId=1: ek tasmaa=True, dk tasmaa=True
-```
-PASS ensimmaisella yritetylla tcId:lla (ML-KEM-512-ryhman
-ensimmainen testi).
+Tulos: ek tasmaa, dk tasmaa.
 
 ## RTL KeyGen vs. NIST ACVP keyGen-FIPS203 (ML-KEM-512, tcId=1)
 
-**Testattu suoraan** `pqc_mlkem_keygen_core.sv`:aa (olemassa olevan
-`tb/pqc_mlkem_keygen_tb.sv`:n kautta, testivektori vaihdettu NIST-
-peraiseksi) NIST:n omaa d+z->ek/dk-KAT-vektoria vasten.
+Testattu `pqc_mlkem_keygen_core.sv`, olemassa olevan `tb/pqc_mlkem_
+keygen_tb.sv`:n kautta, testivektori NIST-peraiseksi vaihdettuna.
 
-```
-OK ek (=ekPKE): tasmaa golden-malliin
-OK dk (=dkPKE||ek||H(ek)||z): tasmaa golden-malliin
-PASS: ML-KEM.KeyGen_internal(d,z) -> (ek,dk) tasmaa golden-malliin
-```
+Tulos: PASS, tcId=1, 8024 sykli.
 
-**PASS TAYDELLISESTI ENSIMMAISELLA YRITYKSELLA**, ~8024 sykli
-(80236000 ps @ 10ns/sykli).
+**Merkitys taman yhden tuloksen omalla painoarvolla:** ML-KEM KeyGen
+on deterministinen putki ilman haarautuvia polkuja. `mlkem_golden.py`
+on jo aiemmin validoitu tuhannen siemenen omassa regressiossa (ks.
+`m2-golden/mlkem_regression.py`) - NIST-vektori on samaa testia eri
+syotteella, EI uusi polku. Tama poistaa "referenssi ja toteutus
+molemmat vaarin samalla tavalla" -riskin taman yhden operaation
+osalta, mutta EI todista mitaan mita `mlkem_golden.py`:n oma
+regressio ei jo kattanut rakenteellisesti.
 
 ## Tunnetut rajoitukset / jatkotyo
 
-1. Vain yksi KAT-vektori (tcId=1) toistaiseksi - lisaa voidaan lisata
-   samalla menetelmalla.
-2. **Encaps/Decaps ei viela testattu NIST:n omia ACVP-vektoreita
-   vastaan** (`ML-KEM-encapDecap-FIPS203`) - looginen seuraava askel,
-   sisaltaa Fujisaki-Okamoto-muunnoksen implisiittisen hylkayksen
-   (Decaps), joka on erityisen tarkeaa oikeellisuuden kannalta.
-3. Vain ML-KEM-512 (K=2) todennettu - RTL EI tue muita parametri-
-   sarjoja (K=3/4), joten tama on koko toteutuksen kattava tulos
-   taman parametrin osalta.
+1. Yksi KAT-vektori (tcId=1). Sama kritiikki joka koski Dilithiumin
+   tcId=26-vaihetta koskee tata symmetrisesti: ohut mutta ankkuroitu.
+   Kun JSON->txt-ekstraktio on kirjoitettu, lisatapausten ajaminen on
+   mekaanista - vahintaan 3-5 per operaatio suositellaan.
 
-## Merkitys
+2. **Encaps/Decaps ei viela testattu.** Tama on ainoa kohta jossa
+   uutta polkua oikeasti testataan: NIST:n oma `encapDecap-FIPS203`
+   sisaltaa tarkoituksella rikottuja siphertext-arvoja
+   (`reason: "modify c"` tms.) ja odottaa etta implisiittinen
+   hylkays (Fujisaki-Okamoto, `K_bar = J(z||c)`) tuottaa TASMALLEEN
+   oikean arvon rikotulle syotteelle. Projektin omat, itse generoidut
+   Decaps-hylkaystestit (`byte_corrupted`, `bit_corrupted`) EIVAT
+   korvaa tata - NIST:n omat hylkaystapaukset ovat riippumattomia
+   testivektoreita samalla tavalla kuin sigVer/sigGen olivat
+   ML-DSA-puolella. Tama on seuraava askel, priorisoiden hylkays-
+   polkuja triviaalien onnistumistapausten sijaan.
 
-**ML-KEM:n KeyGen ON NYT NIST-ACVP-todennettu**, sulkien osan
-aiemmin tunnistetusta ML-KEM/ML-DSA-epasymmetriasta. Encaps/Decaps
-jaavat viela avoimiksi.
+3. Vain ML-KEM-512 (K=2) - RTL ei tue muita parametrisarjoja.
