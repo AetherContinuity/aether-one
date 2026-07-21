@@ -128,7 +128,7 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
 | Rinnakkaisrakenteen (1536x) skaalauskayra | ✅ MITATTU (N=1,16,256,1536) - taydellisesti lineaarinen, EI jako-optimoinnin tuomaa vahennysta |
 | Paatason moduulien (KeyGen/Sign/Verify) LUT/FF-maara | ❌ EI mitattu - resurssirajoite tassa ymparistossa (mutta 1536x-osan oma osuus NYT tunnetaan tarkasti) |
 | ECP5/muu FPGA-kohteen resurssikaytto | ❌ EI tehty - sama avoin kysymys kuin ML-KEM:lla |
-| Fmax / kriittinen polku | ⚠️ KARKEA ARVIO saatu (`ltp`, 107 tasoa Barrett-mulmod:issa, ~9-16 MHz karkea haitari) - EI taydellinen P&R-pohjainen mittaus |
+| Fmax / kriittinen polku | ⚠️ Looginen kriittinen polku mitattu (`ltp`: 107 tasoa Barrett-mulmod:issa) - EI absoluuttista Fmax-lukua, vaatii P&R:n. Ks. SYNTH-001 jatkotyoksi. |
 | Suorituskykymittarit (syklimaara -> aika) | Katso DK6_STATUS.md: KeyGen ~87K sykli, Sign yhden-kierroksen ~242K sykli (vaihtelee hylkaysten mukaan), Verify ~115K sykli |
 
 ## Suositus jatkotyolle
@@ -183,29 +183,36 @@ NTT:n toistuvin ja syvin kombinatorinen rakennuspalikka:**
 107 logiikkatasoa (LUT-ekvivalenttia solua) pisimmalla polulla
 ```
 
-**Karkea Fmax-arvio, KAKSI eri oletuksella per-taso-viiveesta
-(ECP5-luokan FPGA, LUT4+reititys, EI mitattu vaan tyypillisia
-kirjallisuusarvoja kayttaen):**
+**Tarkka, puolustettavissa oleva muotoilu (kayttajan oma tarkennus
+2026-07-21 - EI karkeaa MHz-haitaria, koska se antaisi vaaran
+kuvan mittaustarkkuudesta):**
 
-| Oletus (ns/taso) | Arvioitu kokonaisviive | Arvioitu Fmax |
-|---|---|---|
-| 0.6 ns (optimistinen, vahan reititysta) | ~64 ns | ~15.6 MHz |
-| 1.0 ns (konservatiivinen, tyypillinen ruuhkautunut reititys) | ~107 ns | ~9.3 MHz |
+> Yosys `ltp` reports a longest topological path of 107 logic
+> levels through the Barrett modular multiplier. This identifies
+> the Barrett reduction pipeline as the dominant combinational
+> path. Absolute Fmax requires technology mapping and place-and-
+> route, but the result strongly indicates that additional
+> pipelining of the Barrett datapath is the primary optimization
+> candidate.
 
-**TARKEA VAROITUS:** tama ON KARKEA ARVIO, EI mitattu Fmax. Todellinen
-arvo VOI OLLA merkittavasti erilainen kun huomioidaan (a) todellinen
-reititysviive (joka vaatii taydellisen P&R:n), (b) ABC9:n oma
-timing-driven-optimointi joka VOISI lyhentaa polkua eri tavoitteilla
-optimoituna, (c) mahdollinen pipelinointi (TAMA Barrett-toteutus ON
-puhtaasti kombinatorinen, EI pipelinoitu - yksi rekisteroity
-valivaihe puolittaisi todennakoisesti taman viiveen, kustannuksella
-yhdesta lisasyklista per NTT-butterfly-operaatio).
+**`ltp`:n tunnetut rajoitukset (miksi absoluuttista MHz-lukua EI
+esiteta tassa vahvana johtopaatoksena):**
+- EI huomioi reititysviiveita (jotka usein DOMINOIVAT todellisilla
+  FPGA:lla, erityisesti ruuhkautuneissa suunnitelmissa).
+- EI huomioi FPGA:n omaa LUT-rakennetta (esim. 4- vs. 6-tulon LUT:t)
+  eika carry-ketjuprimitiiveja, jotka voivat merkittavasti nopeuttaa
+  esim. yhteenlasku-/vertailuketjuja verrattuna geneeriseen LUT-
+  mappaukseen.
+- EI huomioi place-and-route:n omia optimointeja (esim. ABC9:n oma
+  timing-driven-synteesi, joka VOISI jarjestaa logiikan eri tavalla
+  optimoiden nimenomaan kriittista polkua).
 
-**Johtopaatos:** 107 tason kombinatorinen Barrett-reduktio ilman
-pipelinointia ON TODENNAKOISESTI merkittava Fmax-rajoitin taman
-toteutuksen nykyisessa muodossa. TAMA ON KONKREETTINEN, TOIMIVA
-optimointikohde jos korkeampi kellotaajuus on tavoite: Barrett-
-mulmod:in oma jakaminen 2-3 rekisteroituun valivaiheeseen (pipeline)
-lyhentaisi KRIITTISTA polkua merkittavasti kustannuksella muutamasta
-lisasyklista per NTT-vaihe (joita jo nyt on satoja per taysi NTT-
-muunnos, joten suhteellinen lisakustannus olisi pieni).
+**Mita 107 tasoa KUITENKIN kertoo luotettavasti:**
+1. Kyseessa ON syva kombinatorinen polku, vaikka absoluuttista
+   kellotaajuutta ei viela tiedeta.
+2. Kriittinen polku on TODENNAKOISESTI algoritmisessa rakenteessa
+   (Barrett-reduktion oma pitka kertolasku+vertailuketju), EIKA
+   satunnaisessa reitityksessa.
+3. Pipelinoinnilla ON REALISTINEN mahdollisuus parantaa
+   suorituskykya - tama on KONKREETTINEN, toteutettavissa oleva
+   optimointikohde (ks. SYNTH-001 alla).
