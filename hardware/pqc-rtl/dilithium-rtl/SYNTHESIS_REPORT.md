@@ -159,3 +159,36 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
    taydelle moduulille eika vain sen Decompose/MakeHint-alirakenteelle,
    MUTTA vaatisi ensin FSM-tason muutoksen (silmukointi K-ulottuvuuden
    yli), joka on suurempi RTL-muutos kuin tama kierros kattoi.
+
+## Fmax-yritys: ECP5 P&R, havainto resurssirajoitteesta (2026-07-21)
+
+**Yritettiin** kayttajan oman ehdotuksen mukaisesti: `synth_ecp5`
+(ilman BRAM-inferenssia) + `nextpnr-ecp5 --85k` NTT-ytimelle
+(pienin/kevyin toistuva rakennuspalikka joka sisaltaa oman
+sisaisen muistinsa).
+
+**Havainto:** PELKKA sijoitteluvaihe (`nextpnr`:n oma simuloitu
+jaahdytys/annealing-algoritmi, EI VIELA reititys tai ajoitusanalyysi)
+EI KONVERGOITUNUT 28 minuutissa (1700s aikaraja) yhdelle,
+suhteellisen pienelle moduulille (NTT-ydin, ~39K solua geneerisessa
+synteesissa). Uudelleenkaynnistetty pidemmalla (50 min) aikarajalla.
+
+**Tama on SAMA luokan resurssirajoite** joka on toistunut taman
+projektin simulointi- ja synteesityossa lapi taman ja edellisten
+istuntojen (ks. DK6_STATUS.md jatko 17, SYNTHESIS_REPORT.md:n oma
+paatason-synteesin OOM-havainto ylla) - taman sandbox-ymparistön
+laskentateho/aikabudjetti EI RIITA taydelliseen FPGA-kohdekohtaiseen
+sijoittelu+reititys+ajoitusanalyysiin edes YKSITTAISELLE, suhteellisen
+pienelle rakennuspalikalle jarkevassa ajassa.
+
+**Johtopaatos Fmax-tyolle:** taydellinen, luotettava Fmax-arvio
+vaatii TODENNAKOISESTI dedikoidun, taman sandbox-ympariston ulkopuolisen
+laskentaresurssin (nopeampi CPU ja/tai enemman aikaa kaytettavissa
+per ajo). Vaihtoehtoinen, kevyempi lahestymistapa jatkotyolle:
+1. Kayta Yosysin oman `abc9`-passin sisaista, karkeaa viive-estimaattia
+   (ei taydellista P&R:aa) - vahemman tarkka mutta huomattavasti
+   nopeampi.
+2. Laske looginen kriittinen polku SUORAAN RTL-tasolta (esim. Barrett-
+   modulokertolaskun oma pitka kertolasku+vertailuketju NTT-butterflyn
+   sisalla) ja arvioi tyypillisen ECP5-LUT4-viiveen (~0.3-0.5ns/taso)
+   perusteella - karkea, mutta nopeasti saatava arvio.
