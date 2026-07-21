@@ -34,11 +34,10 @@ seed->pk/sk-KAT-vektoria vasten (EI dilithium-py:n kautta).
 Valmis 87110 syklin jalkeen
 OK: ek (pk) tasmaa NIST ACVP -vektoriin
 OK: dk (sk) tasmaa NIST ACVP -vektoriin
-PASS: RTL KeyGen tasmaa TAYDELLISESTI NIST:n omaan ACVP-KAT-vektoriin
+PASS: RTL KeyGen tasmaa NIST:n omaan ACVP-KAT-vektoriin
 ```
 
-**PASS TAYDELLISESTI**, molemmat pk (1952 tavua) ja sk (4032 tavua)
-tasmaavat tavu tavulta.
+PASS, molemmat pk (1952 tavua) ja sk (4032 tavua) tasmaavat tavu tavulta.
 
 ## RTL Verify vs. NIST ACVP sigVer-FIPS204 (ML-DSA-65, tcId=140)
 
@@ -49,10 +48,10 @@ parametriin ilman muutoksia), hylkaystapaus ("modified message").
 
 ```
 Valmis 115282 syklin jalkeen, verify_ok=0 (NIST:n oma testPassed=0)
-PASS: RTL Verify tasmaa TAYDELLISESTI NIST:n omaan ACVP sigVer-KAT-vektoriin
+PASS: RTL Verify tasmaa NIST:n omaan ACVP sigVer-KAT-vektoriin
 ```
 
-**PASS TAYDELLISESTI.**
+PASS.
 
 ## RTL Sign vs. NIST ACVP sigGen-FIPS204 (ML-DSA-65, tgId=10, tcId=139)
 
@@ -69,11 +68,10 @@ RTL:n omaan sisaiseen tulkintaan).
 
 ```
 Sign valmis 361102 syklin jalkeen, kappa=5, iteraatioita=1
-PASS: RTL Sign tasmaa TAYDELLISESTI NIST ACVP sigGen-KAT-vektoriin (tgId=10, tcId=139)
+PASS: RTL Sign tasmaa NIST ACVP sigGen-KAT-vektoriin (tgId=10, tcId=139)
 ```
 
-**PASS TAYDELLISESTI**, koko 3309-tavuinen pakattu allekirjoitus
-tasmaa tavu tavulta. TARKEA HUOMIO: tama SPESIFINEN testitapaus
+PASS, koko 3309-tavuinen pakattu allekirjoitus tasmaa tavu tavulta. TARKEA HUOMIO: tama SPESIFINEN testitapaus
 sisaltaa AIDON hylkays-ja-uusintayritys-tilanteen (kappa 0->5, YKSI
 hylkayskierros ennen onnistumista) - EI triviaali "kappa=0 heti
 onnistuu" -tapaus. Tama on ainoa NIST-vektori tassa projektissa joka
@@ -121,13 +119,12 @@ testit kattavat jo triviaalin polun, mutta NIST-data ei viela.
 
 ## Merkitys
 
-**PAIVITETTY 2026-07-21:** KAIKKI KOLME ML-DSA-65:n paaoperaatiota
-(KeyGen, Verify, Sign) on nyt todennettu SUORAAN NIST:n omia
-virallisia KAT-vektoreita vastaan - KAIKKI KOLME PASS TAYDELLISESTI.
-Tama on merkittavasti vahvempi todiste standardinmukaisuudesta kuin
-pelkka dilithium-py-vertailu, koska se poistaa mahdollisen
-"molemmat vaarin samalla tavalla" -riskin kokonaan (referenssi ja
-toteutus ovat nyt kahdesta RIIPPUMATTOMASTA lahteesta). ML-DSA-65
-on siis TAYSIN ACVP-ankkuroitu; ML-KEM (FIPS 203) EI OLE VIELA
-(ks. kohta 3 ylla) - tama epasymmetria on nyt tunnistettu, EI enaa
-piilossa.
+KeyGen, Verify ja Sign on jokainen testattu vahintaan yhta NIST:n
+omaa KAT-vektoria vasten, kaikki kolme PASS. Tama on eri asia kuin
+`dilithium-py`-vertailu: referenssi ja toteutus tulevat nyt kahdesta
+riippumattomasta lahteesta samalle testitapaukselle, joten "molemmat
+vaarin samalla tavalla" -riski ei koske tata tulosta samalla tavalla
+kuin se koski pelkkaa golden-mallia vasten tehtya testausta.
+
+Kattavuus on toistaiseksi yksi vektori per operaatio (ks. "Tunnetut
+rajoitukset"). ML-KEM:n oma vastaava tila on `M3_MLKEM_ACVP_STATUS.md`:ssa.

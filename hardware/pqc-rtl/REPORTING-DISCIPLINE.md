@@ -48,10 +48,66 @@ jalkeen (mika itsessaan olisi saannon 2 hengen vastainen: oman
 korjausteon laajuuden esittely ei ole sama asia kuin korjaus).
 Saanto koskee JATKOSSA kirjoitettavia dokumentteja.
 
-## Tarkistettavuus
+## Tarkistettavuus: kieltolista + CI-grep
 
-Nama saannot ovat mekaanisia: statusdokumentin voi grepata
-superlatiiveista ("taydellisesti", "erittain", "merkittava",
-emojit) samalla tavalla kuin sivukanavamainintoja voi gropata
-muualta. Tama TARKOITTAA etta noudattamista VOI JA PITAA tarkistaa
-mekaanisesti, ei vain luottaa hyvaan tahtoon.
+Kayttajan oma huomio 2026-07-21: periaatetasolle jaava saantodokumentti
+on itsessaan rituaali jota se yrittaa estaa - "raportoidaan ilman
+arvottamista" ei ole tarkistettavissa ellei sita operationalisoi
+KIELLETYIKSI SANOIKSI. Alla on TASMALLINEN kieltolista ja CI-skripti
+joka gropaa sen "elavista referensseista" (ks. maaritelma alla) -
+EI historiallisista milestone-lokeista, jotka sailyvat sellaisenaan
+(paivatty tapahtumakirjaus, ei voimassa oleva evidenssivaite).
+
+**Elava referenssi** = dokumentti johon TULEVAT sessiot ankkuroituvat
+lahtooletuksena (esim. `NIST_ACVP_STATUS.md`, `M3_MLKEM_ACVP_STATUS.md`,
+`FIPS203_COVERAGE.md`, `README.md`:n oma tilataulukko). **Historiallinen
+loki** = paivatty tapahtumakirjaus menneesta debug-loydosta tai
+virstanpylvaasta (esim. `DK1_STATUS.md`...`DK6_STATUS.md`:n oma
+"jatko N" -kirjaus, `README.md`:n yksityiskohtaiset narratiivikohdat) -
+naita EI tarkisteta taman listan mukaan, koska niiden superlatiivit
+ovat kosmeettinen vika kirjoitushetken tapahtumasta, ei nykyinen
+evidenssivaite.
+
+### Kieltolista (elaville referensseille)
+
+```
+taydellisesti / TAYDELLISESTI
+erittain (+ mika tahansa positiivinen adjektiivi, esim. "erittain vahva")
+merkittava / merkittavasti (paitsi kun kuvaa mitattua LUKUARVOA,
+  esim. "36% lyhennys" - kuvaa TALLOIN mittaa, ei arvoa)
+🎉 (tai mika tahansa emoji)
+"riippumaton vahvistus" / "independent confirmation" (ELLEI dokumentoitu
+  ERI mallin tai ihmisen oman tarkistuksen lahteeksi)
+"ensimmaisella yrityksella" yhdistettyna arvottavaan sanaan (esim.
+  "PASS ensimmaisella yrityksella!" - PELKKA "PASS, N. yritys" on OK)
+```
+
+### CI-skripti (`check_reporting_discipline.sh`, lisataan hardware/pqc-rtl/-juureen)
+
+```bash
+#!/bin/bash
+# Grep-tarkistus elaville referenssidokumenteille. EI tarkista
+# historiallisia lokeja (DK*_STATUS.md, README.md:n narratiivi-
+# kohdat) - vain nykytilaa kuvaavat dokumentit.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+LIVING_DOCS="dilithium-rtl/NIST_ACVP_STATUS.md M3_MLKEM_ACVP_STATUS.md FIPS203_COVERAGE.md"
+BANNED_PATTERN='TAYDELLISESTI|erittain (vahva|hyva|merkittava)|🎉|riippumaton vahvistus|independent confirmation'
+
+FAIL=0
+for doc in $LIVING_DOCS; do
+  if [ -f "$doc" ]; then
+    if grep -inE "$BANNED_PATTERN" "$doc"; then
+      echo "FAIL: $doc sisaltaa kielletyn ilmauksen (ks. REPORTING-DISCIPLINE.md)"
+      FAIL=1
+    fi
+  fi
+done
+
+if [ "$FAIL" -eq 0 ]; then
+  echo "PASS: elavat referenssidokumentit lapaisevat raportointikuritarkistuksen"
+else
+  exit 1
+fi
+```

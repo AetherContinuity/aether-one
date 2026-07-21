@@ -220,6 +220,13 @@ jobs:
       - name: Run full ML-KEM protocol chain (KeyGen->Encaps->Decaps, shared secret match, random input)
         run: bash hardware/pqc-rtl/run_m4_tau_full_protocol_test.sh
 
+  test-pqc-rtl-reporting-discipline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tarkista elavat referenssidokumentit kielletyista ilmauksista (ks. REPORTING-DISCIPLINE.md)
+        run: bash hardware/pqc-rtl/check_reporting_discipline.sh
+
   test-pqc-rtl-dilithium-sign-unit:
     runs-on: ubuntu-latest
     steps:
