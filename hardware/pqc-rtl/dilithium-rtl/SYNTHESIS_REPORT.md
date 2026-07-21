@@ -55,34 +55,55 @@ vaihe) sen sijaan etta yrittaisi kartoittaa sen BRAM-lohkoon - tama
 ON ODOTETTU, OIKEA kaytos generiselle (ei-arkkitehtuurikohtaiselle)
 synteesille.
 
-## Ekstrapoloidut arviot paatason moduuleille
+## Rinnakkaisrakenteen (1536 instanssia) skaalauskoe - MITATTU, EI ekstrapoloitu
 
-`pqc_dilithium_verify_core.sv` ja `pqc_dilithium_sign_hint_core.sv`
-instantioivat `Decompose`/`MakeHint`/`UseHint`-tyyppisia moduuleja
-**K*256 = 1536 kertaa RINNAKKAIN** (ei kertaalleen sekventiaalisesti).
-Naiveilla (ei jaetun logiikan optimoinnilla) skaalauksella:
+**Paivitys 2026-07-20 (kayttajan oma ehdotus):** sen sijaan etta
+luotettaisiin naiiviin lineaariseen ekstrapolointiin, rakennettiin
+parametrisoitu rinnakkaiskaare (`pqc_dilithium_decompose_parallel_
+wrapper.sv`, `pqc_dilithium_make_hint_parallel_wrapper.sv`) ja
+synteesoitiin TODELLISILLA N-arvoilla: N=1, 16, 256, 1536.
 
-| Rinnakkainen rakenne | Yksi instanssi | x1536 (naiivi skaalaus) |
-|---|---|---|
-| Decompose (UseHint:n oma sisainen kaytto) | 2 984 solua | **~4 583 000 solua** |
-| MakeHint (sign_hint_core:n oma kaytto) | 6 283 solua | **~9 651 000 solua** |
+| N | Decompose (solua) | Solua/instanssi | Make_hint (solua) | Solua/instanssi |
+|---|---|---|---|---|
+| 1 | 2 983 | 2983.0 | 6 283 (aiempi erillinen mittaus) | 6283 |
+| 16 | 47 728 | 2983.0 | - | - |
+| 256 | 763 904 | 2984.0 | - | - |
+| **1536** | **4 583 424** | **2984.0** | **9 659 904** | **6289.0** |
 
-**TARKEA VAROITUS:** tama on NAIIVI, YLAMITTAINEN arvio - todellinen
-synteesi todennakoisesti jakaisi paljon logiikkaa uudelleenkayttoon
-Yosysin oman `opt`/`share`-passin kautta (esim. Decompose:n oma
-`ALPHA`-jakolasku on identtinen jokaiselle 1536 instanssille, jolloin
-osa logiikasta VOISI periaatteessa jakaa resursseja, vaikka rakenne
-on rinnakkainen eika ajallisesti jaettu). TAMA ON JUURI SE SYY MIKSI
-taydellinen paatason synteesi on tarpeen TARKAN luvun saamiseksi -
-ekstrapolointi antaa vain KARKEAN SUURUUSLUOKKA-arvion (miljoonia
-soluja), EI tarkkaa resurssivaatimusta.
+**TARKEA, YLLATTAVA LOYDOS: skaalaus on TAYDELLISESTI LINEAARINEN,
+EI OSOITA MERKITTAVAA VAHENNYSTA Yosysin omasta `share`-optimoinnista.**
+Aiemmin taman raportin ensimmaisessa versiossa esitetty varovaisuus
+("todellinen luku voisi olla 30-50% pienempi jako-optimoinnin ansiosta")
+**OSOITTAUTUI VIRHEELLISEKSI TAMAN SPESIFISEN RAKENTEEN OSALTA** -
+mitattu N=1536-tulos (4 583 424 / 9 659 904 solua) TASMAA (jopa
+hieman YLITTAA) naiivin lineaarisen ekstrapoloinnin, EI ALITA sita.
 
-**Tama ekstrapoloitu suuruusluokka (miljoonia soluja rinnakkaiselle
-hint-kasittelylle) selittaa MYOS SUORAAN, miksi taman istunnon
-simulaatiot (erityisesti `sign_hint_core`:n oma testaus) osoittautuivat
-niin aikaa/muistia vievaksi Icarus Verilogissa - sama rakenteellinen
-skaalatekija (1536 rinnakkaista instanssia) vaikuttaa seka
-simulointiin etta synteesiin.**
+**Selitys:** `Decompose`/`MakeHint` ovat KOMBINATORISIA moduuleja
+JOIDEN JOKAINEN INSTANSSI SAA ERI, AJONAIKAISEN SYOTTEEN (eri
+kertoimen arvo). Yosysin `share`-optimointipassi loytaa yhdistettavaa
+logiikkaa VAIN kun useampi rakenne jakaa SAMAN syotteen tai
+VAKIOARVON - given jokainen 1536:sta instanssista prosessoi OMAA,
+toisistaan riippumatonta dataa, EI OLE mitaan jaettavaa logiikkaa.
+TAMA ON YLEINEN, ODOTETTAVISSA OLEVA TULOS datankasittelyputkille
+(data-parallel-rakenteille), jotka EIVAT sisalla toistuvia VAKIOITA.
+
+**Tama VAHVISTAA (EI vain ekstrapoloi) etta taydellinen verify_core/
+sign_hint_core -synteesi vaatisi VAHINTAAN ~4.6M+~9.7M=~14.3M solua
+PELKASTAAN Decompose/MakeHint-osilta (plus NTT-ytimet, SHAKE,
+ohjauslogiikka paalle) - TAMA YLITTAA MONINKERTAISESTI tyypillisen
+keskisuuren FPGA:n (esim. ECP5-85K, ~84k LUT) kapasiteetin, VAIKKA
+"solu" != "LUT" suoraan (yksi 4-tulon LUT voi toteuttaa useamman
+yksinkertaisen portin) - jarkeva LUT-arvio olisi silti todennakoisesti
+useita satoja tuhansia LUT:eja, edelleen MONINKERTAISESTI ECP5-85K:n
+kapasiteetin ylitse.
+
+**Muistinkaytto pysyi KOHTUULLISENA (~330MB) KAIKILLA testatuilla
+N-arvoilla mukaan lukien N=1536** - tama YLLATTAEN OSOITTAA etta
+PELKASTAAN Decompose/MakeHint-rakenteen OMA synteesi EI ITSESSAAN ollut
+paatason (KeyGen/Sign/Verify) synteesin OOM-ongelman syy - ongelma
+syntyy vasta kun tama YHDISTETAAN kaiken MUUN logiikan (NTT-ytimet,
+SHAKE-instanssit, ohjaus-FSM:t) kanssa YHDEKSI, valtavaksi
+suunnitteluksi.
 
 ## Kellotaajuus (Fmax) ja kriittinen polku
 
@@ -104,7 +125,8 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
 | Kysymys | Vastaus |
 |---|---|
 | Yksittaisten rakennuspalikkojen LUT/FF-maara | ✅ Mitattu taydellisesti (taulukko ylla) |
-| Paatason moduulien (KeyGen/Sign/Verify) LUT/FF-maara | ❌ EI mitattu - resurssirajoite tassa ymparistossa. Karkea ekstrapolointi annettu, EI tarkka luku. |
+| Rinnakkaisrakenteen (1536x) skaalauskayra | ✅ MITATTU (N=1,16,256,1536) - taydellisesti lineaarinen, EI jako-optimoinnin tuomaa vahennysta |
+| Paatason moduulien (KeyGen/Sign/Verify) LUT/FF-maara | ❌ EI mitattu - resurssirajoite tassa ymparistossa (mutta 1536x-osan oma osuus NYT tunnetaan tarkasti) |
 | ECP5/muu FPGA-kohteen resurssikaytto | ❌ EI tehty - sama avoin kysymys kuin ML-KEM:lla |
 | Fmax / kriittinen polku | ❌ EI maaritetty |
 | Suorituskykymittarit (syklimaara -> aika) | Katso DK6_STATUS.md: KeyGen ~87K sykli, Sign yhden-kierroksen ~242K sykli (vaihtelee hylkaysten mukaan), Verify ~115K sykli |
@@ -115,20 +137,25 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
    sandbox-ymparisto tarjoaa (>3.9GB muistia, pidempi aikabudjetti
    kuin muutama minuutti per ajo). Suositellaan ajamista dedikoidulla
    koneella/CI-ajurilla jolla EI ole tata rajoitetta.
-2. Kun paatason synteesi onnistuu, vertaa TODELLISTA solumaaraa
-   TAMAN raportin ekstrapoloituun arvioon (~4.6M/~9.7M soluja
-   rinnakkaisille hint-rakenteille) - merkittava ero (esim. 10x
-   pienempi) olisi VAHVA merkki siita etta Yosysin oma logiikanjako-
-   optimointi toimii tehokkaasti rinnakkaisten, identtisten alira-
-   kenteiden kanssa.
+2. **PAIVITETTY kayttajan oman ehdotuksen ja mitatun datan
+   perusteella:** koska N=1536-skaalaus ON VAHVISTETTU TAYDELLISESTI
+   LINEAARISEKSI (ei jako-optimoinnin tuomaa vahennysta), K-arvon
+   pienentaminen (esim. K=64 tai K=128 rinnakkaista instanssia 1536:n
+   sijaan, silmukoiden loput sekventiaalisesti) VOIDAAN NYT ARVIOIDA
+   LUOTETTAVASTI SUORAAN mitatusta per-instanssi-hinnasta (2984/6289
+   solua per Decompose/MakeHint-instanssi), ILMAN tarvetta arvailla
+   jako-optimoinnin vaikutusta - koska sita EI OLE tassa rakenteessa.
+   Esim. K=128: 128*2984≈382K solua (Decompose) + 128*6289≈805K solua
+   (MakeHint) - viela huomattava, mutta jo lahempana ECP5-luokan
+   FPGA:iden kapasiteettia kuin taydet 1536.
 3. Fmax/kriittinen polku vaatii joko FPGA-kohdekohtaisen `nextpnr`-
    ajon (ratkaisten ensin ML-KEM:n oman, viela avoimen ECP5-BRAM-
    kartoituskysymyksen) tai STA-tyokalun kaytonoton.
-4. Harkitse `sign_hint_core`:n ja `verify_core`:n OMAA UUDELLEEN-
-   ARKKITEHTUURIA sekventiaalisemmaksi (esim. K rinnakkaista
-   instanssia 1536:n sijaan, silmukoiden 256 kerrointa sekventiaali-
-   sesti kunkin K:n sisalla) JOS resurssikaytto osoittautuu
-   liialliseksi - tama olisi klassinen aika/pinta-ala-kompromissi,
-   joka pienentaisi seka simulointiaikaa etta synteesiresursseja
-   merkittavasti kustannuksella lisatyista kelloskykleista per
-   Verify/Sign-kutsu.
+4. **Konkreettinen jatkokoe (kayttajan oma ehdotus):** synteesoi
+   YKSI paatason moduuli (esim. `sign_hint_core.sv`) PARAMETRISOIDULLA
+   rinnakkaisuusasteella (esim. uusi `PARALLEL_K`-parametri joka
+   ohjaa MONTAKO 256-kertoimen K-riviä kasitellaan RINNAKKAIN vs.
+   SEKVENTIAALISESTI) - tama antaisi TODELLISEN, MITATUN datapisteen
+   taydelle moduulille eika vain sen Decompose/MakeHint-alirakenteelle,
+   MUTTA vaatisi ensin FSM-tason muutoksen (silmukointi K-ulottuvuuden
+   yli), joka on suurempi RTL-muutos kuin tama kierros kattoi.
