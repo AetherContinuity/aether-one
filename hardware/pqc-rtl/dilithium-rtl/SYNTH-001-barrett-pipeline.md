@@ -126,7 +126,81 @@ vaiheille.
   integraatiotestausta pitaisi tarvita toiminnallisen oikeellisuuden
   todentamiseksi, vain olemassa olevien ajaminen uudelleen.
 
-## Rajaukset (EI kuulu tahan tehtavaan)
+## Toteutus ja tulokset (2026-07-21) - VAIHE 2/2 SUORITETTU (Baseline + 2-vaiheinen pipeline)
+
+**Status paivitetty: Open -> osittain suoritettu (2-vaiheinen variantti
+VALMIS ja MITATTU, 3-vaiheinen viela avoin).**
+
+### Toteutettu
+
+- `pqc_dilithium_barrett_mulmod_pipe2.sv`: 2-vaiheinen rekisteroity
+  versio, jako TASMALLEEN `q_est`:n laskennan jalkeen (ks. "Muutos"
+  ylla). Kiintea 2 syklin latenssi.
+- `barrett_pipe2_tb.sv`: toiminnallinen testi, VERTAA pipe2:n
+  ulostuloa SUORAAN alkuperaisen kombinatorisen `pqc_dilithium_
+  barrett_mulmod.sv`:n tulokseen 100 000 satunnaisella (a,b)-parilla
+  (sama testimetodologia kuin alkuperaisen moduulin oma 100000-
+  parin todennus).
+- `pqc_dilithium_barrett_pipe2_stage1_measure.sv` /
+  `..._stage2_measure.sv`: kumpikin pipeline-vaihe ERISTETTYNA
+  puhtaasti kombinatorisena moduulina, JOTTA `ltp` voidaan mitata
+  KUMMALLEKIN vaiheelle ERIKSEEN (ei koko pipe2-moduulille kerralla,
+  mika antaisi vain suuremman VAIHEEN oman luvun).
+
+### Mitatut tulokset
+
+| Mittari | Baseline (0-vaihe) | 2-vaiheinen pipeline |
+|---|---|---|
+| `ltp` Vaihe 1 | 107 (koko moduuli) | **68** |
+| `ltp` Vaihe 2 | - | **41** |
+| Solumaara (koko moduuli) | 6 517 | **6 685** (+2.6%) |
+| FF-maara | 0 | **93** (tasmaa odotukseen: product_reg 46b + q_est_reg 24b + result_reg 23b = 93b) |
+| Toiminnallinen oikeellisuus | - | **PASS 100 000/100 000** satunnaista (a,b)-paria, tasmaa alkuperaiseen kombinatoriseen tulokseen tasmalleen |
+
+### Hyvaksymiskriteerin tarkistus
+
+| Kriteeri | Tulos |
+|---|---|
+| (a) `ltp` selvasti alle 107/vaihe, tavoite <60/vaihe | **OSITTAIN**: Vaihe 2 (41) ALITTAA tavoitteen selvasti. Vaihe 1 (68) ON merkittava parannus (-36% baselinesta) mutta EI aivan alita 60:n tavoitetta - epasymmetria selittyy silla etta Vaihe 1 sisaltaa KAKSI kertolaskua (a*b JA product*M_CONST) kun Vaihe 2 sisaltaa vain YHDEN (q_est*Q) + vahennyksen. |
+| (b) Olemassa olevat Unit-/Component-tason testit pysyvat vihreina | **EI VIELA SOVELLETTAVISSA** - `pqc_dilithium_ntt_core.sv` KAYTTAA EDELLEEN alkuperaista, kombinatorista `barrett_mulmod`:ia. Pipe2-moduulia EI OLE VIELA integroitu NTT-ytimeen (tama olisi ERILLINEN, laajempi FSM-muutos - ks. "Seuraava askel" alla). NTT-ytimen omat testit EIVAT siis ole voineet rikkoutua, koska mitaan olemassa olevaa TIEDOSTOA ei ole muutettu. |
+| (c) Sykliverkutus kohtuullinen | **EI VIELA MITATTAVISSA** - vaatii integraation (b:n tapaan). |
+
+### Rehellinen johtopaatos
+
+**Barrett-modulokertolaskun 2-vaiheinen pipeline ON TOTEUTETTU,
+TOIMINNALLISESTI TODENNETTU (100% tasmaavuus 100000 satunnaisella
+parilla) ja MITATTU (`ltp` 107 -> 68/41, FF 0->93, solut +2.6%).**
+Tama VAHVISTAA etta pipelinointi ON toimiva, konkreettinen keino
+lyhentaa kriittista polkua - mutta koska Vaihe 1 EI aivan yllä
+alkuperaiseen <60-tason tavoitteeseen, HARKITSE 3-vaiheista varianttia
+(jakaen Vaihe 1:n oman kahden kertolaskun valiin) TAI hyvaksy 68
+tasoa "riittavan hyvana" parannuksena (36% lyhennys) - tama on
+tietoinen paatos joka jaa avoimeksi jatkokeskustelulle.
+
+**TARKEA RAJAUS: taman pipeline-moduulin INTEGROINTI `pqc_dilithium_
+ntt_core.sv`:aan EI SISALTYNYT taman kierroksen tyohon** - NTT-ydin
+kayttaa Barrett-mulmod:ia OMAN FSM:nsa yhden tilan sisalla olettaen
+YHDEN SYKLIN latenssin (kombinatorinen); pipe2:n 2 syklin latenssi
+vaatisi NTT-ytimen OMAN FSM:n muokkaamisen (joko lisaamalla odotus-
+tiloja, tai suunnittelemalla butterfly-silmukka uudelleen pipeline-
+tayttoa hyodyntavaksi). TAMA ON OMA, ERILLINEN seuraava askel (ks.
+alla) - EI viela tehty, EIKA VAADITTU taman SYNTH-001-tehtavan
+kapean rajauksen puitteissa (ks. "Rajaukset"-osio ylla, joka
+ALUNPERIN rajasi tehtavan YHTEEN moduuliin).
+
+### Seuraava askel (jos jatketaan)
+
+1. Paattaa: riittaako 68/41-tason parannus, vai kokeillaanko viela
+   3-vaiheista varianttia Vaihe 1:n oman jakamiseksi.
+2. JOS pipe2 (tai 3-vaiheinen) paatetaan OTTAA KAYTTOON tuotannossa:
+   suunnitella `pqc_dilithium_ntt_core.sv`:n OMAN FSM:n muutos joka
+   huomioi 2 (tai 3) syklin latenssin - TAMA on merkittavasti
+   suurempi muutos kuin taman kierroksen oma tyo, ansaitsisi OMAN
+   SYNTH-002-tehtavansa.
+3. Fmax-vaikutus jaa edelleen mittaamatta (sama P&R-resurssirajoite
+   kuin baseline:lla) - `ltp`:n oma vahennys (107->68/41) ON
+   KUITENKIN vahva, tyokaluriippumaton signaali odotettavissa
+   olevasta parannuksesta.
 
 - Taydellinen paasta-paahan-Fmax-mittaus (jumissa P&R-konvergenssin
   takia tassa ymparistossa - seurataan erikseen, EI esta taman
