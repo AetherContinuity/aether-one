@@ -51,7 +51,52 @@ Tama on kayttajan oma, tarkka rajaus: "ilmainen sivutuote testista
 jonka ajat joka tapauksessa", EI korvike toggle-proxy-tyokalulle
 tai oikealle mittaukselle.
 
-## Jarjestys (sama menetelma kuin KeyGen:lle, ks. M3_MLKEM_ACVP_STATUS.md)
+## Etukateen kirjattu ennuste (2026-07-21, ENNEN ajoa)
+
+**Toteutuksen tarkistus tehty ENSIN** (`pqc_mlkem_decaps_b1_core.sv`,
+rivit 664-679; `pqc_mlkem_decaps_a_core.sv`:n oma silmukkarakenne):
+
+- Vertailu `match_out <= (c_in === c_prime)` tapahtuu YHDESSA
+  tilasiirtymassa (`S_WAIT_SHAKE256`->`S_DONE`), joka riippuu VAIN
+  `shake256_done`-signaalista - EI mistaan c_in/c_prime:n SISALLOSTA.
+  Tama ON TAYSI, LEVEA `===`-vertailu (kombinatorinen koko 768
+  tavulle YHDESSA lausekkeessa), EI tavukohtainen silmukka jolla
+  olisi mahdollisuus varhaiseen keskeytykseen.
+- `K_bar = J(z||c)` (SHAKE256) LASKETAAN AINA, EHDOTTA - ei
+  vertailun tuloksesta riippuen. Tama ON juuri FO:n oma
+  vakioaikaisuusvaatimus toteutettuna oikein RTL-tasolla.
+- `pqc_mlkem_decaps_a_core.sv`:n omat silmukat paattyvat KIINTEISIIN
+  laskuriarvoihin (`load_idx==255`, `sched_idx==63` jne.) - EI
+  mihinkaan DATA-ARVOON perustuen.
+
+**ENNUSTE (kirjattu ENNEN vaihekohtaisten syklien mittaamista):**
+kaikki seitseman vaihe (ks. ylla) tuottavat SAMAN syklimaaran
+valid- ja rejection-testitapauksille - **EI eroa** minkaan vaiheen
+kohdalla, mukaan lukien `compare_c` ja `k_select`, koska molemmat
+tapahtuvat YHDESSA, DATASTA RIIPPUMATTOMASSA tilasiirtymassa.
+
+**Taman ennusteen merkitys KUMPAANKIN suuntaan (kirjattu etukateen,
+jotta tulosta ei tulkita jalkikateen narratiiviin sopivaksi):**
+- **JOS ennuste toteutuu ("ei eroa"):** tama EI ole pettymys eika
+  merkitykseton tulos - se ON tulos. Se RAJAA FO-vuotokysymyksen
+  POIS syklitasolta tassa TOTEUTUKSESSA, ja siirtaa sen sinne missa
+  se OIKEASTI elaisi: datariippuvaan KYTKENTAAKTIIVISUUTEEN (toggle-
+  count) tai vertailun OMAAN gate-tason toteutukseen (esim. XOR-
+  puun oma rakenne, EI nakyvissa RTL-tasolla).
+- **JOS ero LOYTYY JOSSAIN vaiheessa siita huolimatta etta
+  toteutus NAYTTAA vakioaikaiselta:** TAMA OLISI ITSESSAAN loydos -
+  joko (a) mittausvirhe (esim. testipenkin oma ajoituslogiikka,
+  EI RTL) TAI (b) jokin RTL:n oma, tata tarkistusta EDELTAVA
+  rakenne (esim. SampleNTT:n oma hylkaysnaytteistys, joka ON
+  aidosti data-riippuvainen iteraatiomaaraltaan - TARKISTAMATON
+  taman ennusteen omassa katselmuksessa) tuo eron muualta kuin
+  itse FO-vertailusta.
+
+**Jos toteutus OLISI ollut sen sijaan tavukohtainen silmukka
+varhaisella keskeytyksella (`if (c[i] != c_prime[i]) break`),
+ennuste olisi PAINVASTAINEN - eron PUUTTUMINEN olisi tallöin ITSE
+mittausvirhe. Ennuste on siis EHDOLLINEN taman spesifisen RTL-
+toteutuksen (tayysi rinnakkainen vertailu) lukemiselle, EI sokea.**
 
 1. `mlkem_golden.py`:n oma vahvistus valittua NIST-tcId:ta vasten
    (Python ENSIN, RTL VASTA sen jalkeen).
