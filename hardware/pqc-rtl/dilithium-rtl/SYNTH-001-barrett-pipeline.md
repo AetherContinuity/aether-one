@@ -4,92 +4,66 @@
 **Created:** 2026-07-21
 **Priority:** Performance optimization candidate (post-functional-
 verification phase)
-**Related:** `SYNTHESIS_REPORT.md`, `pqc_dilithium_barrett_mulmod.sv`
+**Related:** `SYNTHESIS_REPORT.md`, `pqc_dilithium_barrett_mulmod.sv`,
+`SYNTH-TEMPLATE.md`
 
-## Background
+## Vakiorakenne (ks. SYNTH-TEMPLATE.md)
 
-Yosys `ltp` (longest topological path) analysis identified **107
-logic levels** through `pqc_dilithium_barrett_mulmod.sv`, the
-Barrett modular-reduction multiplier used pervasively throughout the
-NTT forward/inverse cores (hundreds of invocations per full 256-
-coefficient transform). This is the deepest recurring combinational
-block found anywhere in the M5-DILITHIUM-001 codebase.
+| Kohta | Sisalto |
+|---|---|
+| **Tavoite** | Vahentaa `pqc_dilithium_barrett_mulmod.sv`:n oma looginen kriittinen polku (107 tasoa) jakamalla nykyinen taysin kombinatorinen toteutus 2-3 rekisteroituun pipeline-vaiheeseen. YKSI moduuli, EI koko NTT- tai ML-DSA-putki kerralla. |
+| **Lahtotilanne** (MITATTU, ei arvioitu - 2026-07-21) | `ltp`: **107 logiikkatasoa**. Solumaara (`synth`+`stat`): **6517 solua**. FF-maara: **0** (taysin kombinatorinen). Nailla arvoilla EI viela ole tehty mitaan muutosta - tama on baseline. |
+| **Muutos** | Jaetaan Barrett-reduktion nykyinen yksisyklinen laskuketju (kertolasku -> Barrett-vakiokertolasku -> vahennys/korjaus) 2 TAI 3 rekisteroituun valivaiheeseen. Tarkka jakokohta paatetaan toteutusvaiheessa `ltp`:n omaa polkuerittelya kayttaen (etsitaan luonnollinen "puoliväli"-kohta pisimmalla polulla). |
+| **Mittarit** | (1) `ltp`-logiikkatasot JOKAISELLE pipeline-vaiheelle erikseen (tavoite: selvasti alle 107/vaihe). (2) Solu-/FF-maara (`synth`+`stat`) - FF:n odotetaan kasvavan (uudet pipeline-rekisterit), solumaaran pysyvan suunnilleen ennallaan. (3) Sykliverkutus koko NTT-ytimeen (`pqc_dilithium_ntt_core.sv`:n oma taysi 256-kertoiminen muunnos, verrattuna tunnettuun baseline-arvoon ~3584-4095 sykli/NTT). (4) Fmax - VASTA kun P&R-resursseja on kaytettavissa (EI pakollinen hyvaksymiskriteeri tassa vaiheessa, ks. alla). |
+| **Hyvaksymiskriteeri** | KAIKKI seuraavista: (a) `ltp` per pipeline-vaihe on selvasti pienempi kuin 107 (tavoite: <60 tasoa/vaihe); (b) KAIKKI olemassa olevat Barrett-mulmod:in JA NTT-ytimen Unit-/Component-tason testit (`TESTING.md`-taksonomia) pysyvat vihreina muuttamattomina; (c) sykliverkutus koko NTT-muunnokselle on kohtuullinen suhteessa saatuun `ltp`-parannukseen (ei kiinteaa kynnysarvoa etukateen - arvioidaan tapauskohtaisesti kun molemmat luvut ovat kaytettavissa). |
 
-A full place-and-route-based Fmax measurement (`nextpnr-ecp5`) did
-not converge within available time/resources in the development
-sandbox (see `SYNTHESIS_REPORT.md`), so absolute Fmax remains
-unmeasured. However, `ltp`'s logic-level count is a strong,
-tool-independent signal that this specific block is a primary
-critical-path contributor, and that pipelining it is a well-
-targeted optimization candidate - independent of what the eventual
-measured Fmax turns out to be.
+## Tausta
 
-## Objective
+Yosys `ltp` (longest topological path) -analyysi loysi **107
+logiikkatasoa** `pqc_dilithium_barrett_mulmod.sv`:n lapi - taman
+moduulin Barrett-modulokertolasku, jota kaytetaan satoja kertoja
+per taysi NTT-muunnos (forward JA inverse). Tama on syvin loydetty
+toistuva kombinatorinen lohko koko M5-DILITHIUM-001-koodikannassa.
 
-Explore splitting `pqc_dilithium_barrett_mulmod.sv`'s current
-single-cycle combinational implementation into a registered,
-multi-stage pipeline, and measure the resulting trade-offs.
+Taydellinen paikoitus+reititys-pohjainen Fmax-mittaus (`nextpnr-ecp5`)
+EI konvergoinut kaytettavissa olevalla ajalla/resursseilla tassa
+kehitysymparistossa (ks. `SYNTHESIS_REPORT.md`), joten absoluuttinen
+Fmax pysyy viela mittaamattomana. `ltp`:n oma logiikkatasomaara ON
+KUITENKIN vahva, tyokaluriippumaton signaali siita etta tama
+NIMENOMAINEN lohko on merkittava kriittisen polun ehdokas, ja etta
+sen pipelinointi on hyvin kohdennettu optimointikohde - riippumatta
+siita mika lopullinen mitattu Fmax osoittautuu olevan.
 
-## Proposed experiment matrix
+## Kokeilumatriisi
 
-| Variant | Description | Metrics to collect |
+| Variantti | Kuvaus | Kerattavat mittarit |
 |---|---|---|
-| **Baseline** | Current implementation (0-stage, fully combinational) | `ltp` logic levels (already: 107), cell count (already: 6517), FF count (already: 0) |
-| **2-stage pipeline** | Split multiply and Barrett-reduction steps across one register boundary | `ltp` logic levels per stage, cell count, FF count, cycles added per NTT butterfly call |
-| **3-stage pipeline** | Further split (e.g. multiply / partial-reduce / final-correct) | Same as above |
+| **Baseline** | Nykyinen toteutus (0-vaiheinen, taysin kombinatorinen) | `ltp` (jo mitattu: 107), solumaara (jo mitattu: 6517), FF-maara (jo mitattu: 0) |
+| **2-vaiheinen pipeline** | Kertolasku ja Barrett-reduktiovaihe jaettu yhdella rekisterirajalla | `ltp` per vaihe, solumaara, FF-maara, lisatyt syklit per NTT-butterfly-kutsu |
+| **3-vaiheinen pipeline** | Pidemmalle jaettu (esim. kertolasku / osittainen reduktio / lopullinen korjaus) | Samat kuin ylla |
 
-For each variant, collect:
-1. **`ltp` logic levels** (fast, already-proven method from this
-   session) for the longest path *within any single pipeline stage*
-   - the goal is to see this drop substantially below 107 per stage.
-2. **Cell/FF count** (generic `synth`/`stat`, already-proven method)
-   - expect FF count to increase (new pipeline registers), cell
-   count to stay roughly flat (same logic, just partitioned).
-3. **Cycle-count impact on the full NTT core.** `pqc_dilithium_ntt_core.sv`
-   invokes Barrett multiplication as part of each butterfly step;
-   adding pipeline stages to Barrett changes the core's own FSM
-   (either by adding wait states, or by restructuring to keep the
-   pipeline full across consecutive butterflies). Measure the new
-   total cycle count for one full 256-coefficient NTT transform
-   against the known baseline (previously measured elsewhere in
-   this project - see DK1 status for the original ~3584-4095
-   cycle/NTT figures) and confirm functional correctness is
-   unaffected (re-run the existing NTT unit/component tests from
-   `TESTING.md`'s taxonomy - this is a Unit/Component-level RTL
-   change, so it should be verifiable with the same fast tests,
-   NOT a new long integration run).
-4. **Fmax impact estimate.** Even without full P&R, a reduced
-   `ltp` logic-level count per stage is itself informative;
-   if/when a dedicated (non-resource-constrained) environment
-   becomes available, re-attempt `nextpnr-ecp5` on the pipelined
-   variant for a real, measured Fmax comparison against the
-   (still-unmeasured) baseline.
+## Miksi tama on hyva seuraava kohde
 
-## Why this is a good next target (rationale carried over from
-   discussion)
+- **Kapea, yhden moduulin muutos** - huomattavasti hallittavampi kuin
+  yrittaa optimoida koko ML-DSA-putkea kerralla.
+- Koska Barrett-kertolaskua kaytetaan **satoja kertoja** per NTT-
+  muunnos, mika tahansa viivelyhennys taalla KERTAUTUU koko Sign-/
+  Verify-/KeyGen-putkeen (kaikki kolme kayttavat NTT:ta laajasti).
+- Olemassa oleva testi-infrastruktuuri (Unit-tason `barrett_mulmod`-
+  synteesi/simulointi, Component-tason NTT-testit) tarjoaa jo
+  NOPEAN regressiosuojan tallle muutokselle - EI uutta raskasta
+  integraatiotestausta pitaisi tarvita toiminnallisen oikeellisuuden
+  todentamiseksi, vain olemassa olevien ajaminen uudelleen.
 
-- It is a **narrow, single-module** change - much more tractable
-  than attempting to optimize the entire ML-DSA pipeline at once.
-- Because Barrett multiplication is reused **hundreds of times**
-  per NTT transform, any latency reduction here compounds across
-  the entire Sign/Verify/KeyGen pipeline (all three use NTT
-  extensively).
-- The existing test infrastructure (Unit-level `barrett_mulmod`
-  synthesis/simulation, Component-level NTT tests) already provides
-  a fast regression harness for this change - no new heavy
-  integration testing should be required to validate functional
-  correctness of a pipelined variant, only re-running what already
-  exists.
+## Rajaukset (EI kuulu tahan tehtavaan)
 
-## Out of scope for this ticket
-
-- Full end-to-end Fmax measurement (blocked on P&R convergence in
-  this environment - tracked separately, not a blocker for starting
-  this exploration).
-- ECP5 BRAM-mapping investigation (pre-existing open item from
-  ML-KEM work, `SYNTHESIS_NOTE.md` - unrelated to Barrett pipelining).
-- Architecture-level parallelism changes to `sign_hint_core`/
-  `verify_core` (the 1536-instance Decompose/MakeHint structures) -
-  that is a separate, larger architectural question already noted
-  in `SYNTHESIS_REPORT.md`'s own recommendations, not part of this
-  ticket's narrow scope.
+- Taydellinen paasta-paahan-Fmax-mittaus (jumissa P&R-konvergenssin
+  takia tassa ymparistossa - seurataan erikseen, EI esta taman
+  tutkimuksen aloittamista).
+- ECP5 BRAM-kartoitustutkimus (aiemmin tunnettu avoin kysymys ML-KEM-
+  tyosta, `SYNTHESIS_NOTE.md` - ei liity Barrett-pipelinointiin).
+- `sign_hint_core`/`verify_core`:n oma arkkitehtuuritason
+  rinnakkaisuusmuutos (1536-instanssinen Decompose/MakeHint-rakenne) -
+  tama on erillinen, suurempi arkkitehtuurikysymys joka on jo
+  merkitty `SYNTHESIS_REPORT.md`:n omiin suosituksiin, ei osa taman
+  tehtavan kapeaa rajausta.
