@@ -82,7 +82,46 @@ merkittava / merkittavasti (paitsi kun kuvaa mitattua LUKUARVOA,
   "PASS ensimmaisella yrityksella!" - PELKKA "PASS, N. yritys" on OK)
 ```
 
-### CI-skripti (`check_reporting_discipline.sh`, lisataan hardware/pqc-rtl/-juureen)
+## Tunnettu rajaus 1: "taydellisesti" teknisessa vs. arvottavassa kaytossa
+
+Kayttajan oma huomio 2026-07-21: "taydellisesti" esiintyy MYOS
+legitiimissa TEKNISESSA merkityksessa ("tekniikkakartoitettu
+taydellisesti" = koko synteesiputki ajettu loppuun, ei osittain;
+NIST-lainauksissa "tasmaa taydellisesti tavutasolla" = tarkka
+bittivertailu). TAMA ON ERI ASIA kuin arvottava "PASS taydellisesti!"
+Grep EI EROTA naita.
+
+**Ratkaisu ei ole grepin semantisointi** (mahdotonta mekaanisesti) -
+vaan KIRJOITUSKAYTANTO: kun kuvataan TEKNISTA tarkkuutta/kattavuutta,
+kaytetaan sanoja "tasan", "bittitasan", "tavutasolla", "kokonaan
+ajettu" tms. - EI "taydellisesti", joka on VARATTU arvottavaksi
+sanaksi ja siksi kielletty elavissa referensseissa KOKONAAN, myos
+teknisessa merkityksessa. Tama on tietoinen, hieman ylivarovainen
+valinta: helpompi valttaa yksi sana kokonaan kuin yrittaa opettaa
+grep:lle konteksti.
+
+## Tunnettu rajaus 2: mekaaninen tarkistus estaa OIREEN, ei TAUTIA
+
+Kayttajan oma huomio 2026-07-21: grep estaa TUNNETUT kielletyt
+ilmaukset, mutta EI estä UUTTA "riippumaton vahvistus" -tyyppista
+kategoriavirhetta ERI sanoilla ilmaistuna (esim. "toinen ajo
+todisti saman" tai "tama vahvistaa etta menetelma toimii" ilman
+riippumatonta lahdetta). Tama ON HYVAKSYTTAVA RAJA - mekaaninen
+tarkistus ei voi kattaa semantiikkaa, sama periaate kuin TRNG-
+rajaus (`SYNTHESIS_NOTE.md`) on kirjattu eksplisiittisena tunnettuna
+rajoitteena, ei piilotettuna oletuksena.
+
+**TARKEA SEURAUS:** VIHREA CI (`check_reporting_discipline.sh` PASS)
+TARKOITTAA VAIN etta dokumentti ei sisalla LISTATTUJA kiellettyja
+sanoja - EI etta dokumentin SISALTO on epistemisesti oikein
+kalibroitu. Vihrea CI EI OLE hyvaksyntaleima sisallolle, VAIN
+merkki etta yksi, kapea, mekaaninen tarkistus lapaistiin. Tama
+erottelu TAYTYY pitaa mielessa kun luetaan taman projektin CI-
+tilaa - sama tapa jolla "kaikki testit vihreina" EI tarkoita
+"algoritmi on todistettu turvalliseksi kaikkia hyokkayksia vastaan"
+(ks. projektin oma, toistuvasti kirjattu sivukanavarajaus).
+
+### CI-skripti (`check_reporting_discipline.sh`, hardware/pqc-rtl/-juuressa)
 
 ```bash
 #!/bin/bash
