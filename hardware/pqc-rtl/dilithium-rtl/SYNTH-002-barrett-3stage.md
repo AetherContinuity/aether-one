@@ -72,5 +72,10 @@ lisakustannus koko muunnoksen tasolla).
 
 NTT-ytimen FSM:n muokkaaminen 3 syklin latenssin huomioimiseksi
 JOS 3-vaiheinen pipeline paatetaan ottaa kayttoon tuotannossa -
-tama ansaitsisi oman SYNTH-003-tehtavansa (integraatio, EI enaa
-pelkka Barrett-moduulin oma tutkimus).
+JAETTU KAHDEKSI erilliseksi tehtavaksi kayttajan oman ehdotuksen
+mukaisesti (integraatio ja optimointi eivat saa sekoittua):
+- `SYNTH-003A-barrett-ntt-integration.md`: pipe3:n kayttoonotto
+  NTT-ytimessa (puhdas integraatiotehtava).
+- `SYNTH-003B-normalization-optimization.md`: Vaihe 3:n oman
+  (41 tasoa, raskain kolmesta) normalisointilogiikan oma optimointi
+  (puhdas suorituskykytehtava, EI liity integraatioon).
