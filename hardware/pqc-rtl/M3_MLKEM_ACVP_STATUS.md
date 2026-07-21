@@ -54,3 +54,36 @@ regressio ei jo kattanut rakenteellisesti.
    polkuja triviaalien onnistumistapausten sijaan.
 
 3. Vain ML-KEM-512 (K=2) - RTL ei tue muita parametrisarjoja.
+
+## mlkem_golden.py vs. NIST Encaps (ML-KEM-512, tgId=1, tcId=1)
+
+Matkalla loydetty ja korjattu oma skriptivirhe (EI golden-mallin
+eika RTL:n virhe): `mlkem_encaps_internal` palauttaa `(K, c)`, mutta
+ensimmainen testiskripti purki paluuarvot jarjestyksessa `(c, k)`.
+Loytyi ennen RTL-vaihetta, koska referenssiketju vahvistetaan aina
+ensin - sama virhe RTL-vertailussa olisi nayttanyt RTL-bugilta.
+
+Korjattu ekstraktioskripti (`gen_mlkem_nist_encaps_vector.py`)
+sisaltaa nyt itsetarkistuksen: puretut kentat verrataan ML-KEM-512:n
+tunnettuihin tavupituuksiin (ek=800, c=768, K=32, m=32) ennen
+kirjoitusta. Tama olisi napannut taman spesifisen virheen (K/c-vaihto,
+32 vs. 768 tavua), vaikka EI eroa K:ta ja m:aa toisistaan (molemmat 32
+tavua).
+
+Tulos korjauksen jalkeen: c tasmaa, k tasmaa.
+
+## RTL Encaps vs. NIST ACVP encapDecap-FIPS203 (ML-KEM-512, tgId=1, tcId=1)
+
+Testattu `pqc_mlkem_encaps_top.sv` (olemassa olevan `fpga/tau/
+pqc_mlkem_encaps_top_tb.sv`:n kautta, testivektori NIST-peraiseksi
+vaihdettuna).
+
+Tulos: PASS, tcId=1, 14410 sykli.
+
+## Tunnetut rajoitukset / jatkotyo (paivitetty)
+
+4. **Decaps ei viela testattu.** Ks. `M3-MLKEM-002-encaps-decaps-plan.md`
+   etukateen kirjatulla ennusteella vaihekohtaisille sykleille.
+5. Vain yksi Encaps-vektori (tcId=1) - lisaa voidaan lisata mekaanisesti
+   samalla `gen_mlkem_nist_encaps_vector.py`-skriptilla eri tc_id-
+   argumentilla.
