@@ -78,7 +78,7 @@ Testattu `pqc_mlkem_encaps_top.sv` (olemassa olevan `fpga/tau/
 pqc_mlkem_encaps_top_tb.sv`:n kautta, testivektori NIST-peraiseksi
 vaihdettuna).
 
-Tulos: PASS, tcId=1, 14410 sykli.
+Tulos: PASS, tcId=1 (14410 sykli), tcId=2 (14410 sykli), tcId=3 (14426 sykli). 3/3.
 
 ## Tunnetut rajoitukset / jatkotyo (paivitetty)
 
