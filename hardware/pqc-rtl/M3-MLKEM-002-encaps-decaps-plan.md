@@ -155,6 +155,41 @@ Decaps-mittauksen omalle tulokselle - JOS mittaus TUOTTAA yllatyksen
 (syklitasoero loytyy), TAMA paatos ON UUDELLEENARVIOITAVA, ei
 automaattisesti voimassa.
 
+## Tulos (2026-07-21, JALKEEN mittauksen)
+
+Ennuste TOTEUTUI TASAN puhtaassa saman-avaimen vertailussa (Phase A,
+Phase B, kokonaissykli KAIKKI tasan samat molemmilla poluilla, ks.
+`M3_MLKEM_ACVP_STATUS.md`). Decaps on SYKLITASOLLA vakioaikainen
+SALAISEN DATAN suhteen - ExpandA:n oma, julkiseen `rho`:hon sidottu
+vaihtelu ON dokumentoitu ja vakioaikakonvention mukainen, EI vuoto.
+
+**Infrastruktuurivalinta RATKESI kuten ehdollisesti kirjattiin:**
+Decaps EI tuottanut yllatysta, joten `toggle-count-proxy` kohdistuu
+AINOAAN jaljella olevaan tuntemattomaan (kytkentaaktiivisuus), ja
+`SymbiYosys` vahvistaisi jo ACVP-ankkuroitua toiminnallisuutta.
+
+## Seuraavan kierroksen oma edellytys (kirjattu ETUKATEEN, kayttajan oma vaatimus)
+
+**Seuraava kierros ON infrastruktuurihanke, EI jatkumo tallle
+mittaukselle - ERI LUONTEINEN sessio.** Sille EI ole golden-vektoreita
+joita vasten verrata (toisin kuin taman ja kaikkien aiempien
+kierrosten oma ACVP-ankkurointi) - sen sijaan MITTAUSMENETELMA ITSE
+TAYTYY validoida ENSIN, ennen kuin sita kaytetaan Decapsin
+kytkentaaktiivisuuden mittaamiseen.
+
+**Konkreettinen vaatimus ennen `toggle-count-proxy`-tyokalun
+soveltamista Decapsiin:** rakenna TUNNETUSTI VUOTAVA "leikkitoteutus"
+(esim. tarkoituksella epatasa-arvoinen if/else-vertailu jonka TIEDETAAN
+kuluttavan eri maaran kytkentoja per haara) ja VAHVISTA etta
+`toggle-count-proxy` NAKEE taman TUNNETUN vuodon ENNEN kuin sen
+tulosta Decapsille tulkitaan luotettavaksi. Sama periaate kuin
+negatiivikontrolleissa yleensa: todista ETTA mittari NAKEE vian, VASTA
+SITTEN vaita ettei vikaa OLE kohteessa. Tama EI ole vapaaehtoinen
+askel - ilman sita "toggle-count-proxy nayttaa ei-eroa Decapsille"
+-tulos olisi yhta tulkinnanvarainen kuin taman kierroksen oma
+alkuperainen (korjattu) 5-eri-avaimen mittaus oli ennen sekavuustekijan
+tunnistamista.
+
 ## Rajaus
 
 Tama EI ole toggle-count-proxy-infrastruktuurin rakentamista eika

@@ -123,6 +123,22 @@ tcId:lle) - Phase B:n oma vaihtelu selittyy TODENNAKOISESTI `ExpandA`:n
 (SampleNTT-hylkaysnaytteistys, rho-riippuvainen) avain-kohtaisella
 iteraatiomaaralla, EI valid/rejection-erolla.
 
+### ExpandA:n oma, julkiseen syotteeseen sidottu vaihtelu - oma rivinsa, ei sivuhuomio
+
+**Tama ~12 syklin vaihtelu ON ajoitusvaihtelua JULKISESTA syotteesta,
+EI salaisesta.** `rho` on `ek`:n (julkisen avaimen) osa - hyokkaaja
+TIETAA rho:n jo ilman mitaan sivukanavaa, koska se on osa julkista
+avainta jonka hyokkaaja saa suoraan. Vakioaikakonvention (constant-
+time cryptography) mukaan JULKISESTA syotteesta riippuva ajoitus-
+vaihtelu ON HYVAKSYTTAVAA - vain SALAISESTA datasta (kuten `z`,
+`m_prime`, tai vertailun tulos) riippuva ajoitusvaihtelu olisi
+ongelma.
+
+**Tama TAYTYY sanoa AUKI, koska ilman tata joku lukee raakadatan
+(taulukko ylla), nakee syklierot ERI tcId:iden valilla, ja paattelee
+etta 'syklitasolla vakioaikainen' -vaite on VAARIN - vaikka se EI OLE,
+koska havaittu vaihtelu on JULKISEN, ei salaisen, syotteen aiheuttamaa.**
+
 ### Puhdas saman-avaimen vertailu (sekavuustekija poistettu)
 
 Koska NIST:n oma data EI tarjoa saman avaimen useampaa ciphertext-
@@ -131,26 +147,55 @@ OMA avain (dk) + tcId=76:n oma validi ciphertext SEKA siita johdettu,
 yhdella tavulla korruptoitu ciphertext (SAMA avain molemmissa,
 riippumattomasti Pythonilla luokiteltu ja K-arvo vahvistettu).
 
+**TARKEA EROTTELU EVIDENSSILAJIEN VALILLA (ei saa hukkua yhteen-
+vedossa):** taman kokeen rooli ON ERI kuin 5 NIST-vektorin oma rooli.
+
+- **5/5 NIST-vektoria** = KONFORMANSSIEVIDENSSI (RTL tuottaa oikean
+  K:n NIST:n omalle, riippumattomasti luokitellulle datalle).
+- **Saman-avaimen koe** = ITSE GENEROITU, KONTROLLOITU KOE
+  AJOITUSMITTAUKSEEN, EI konformanssitodiste. Tama ON tasan se
+  "itse generoitu hylkaystesti" -kategoria joka rajattiin ACVP-
+  ankkuroinnin ULKOPUOLELLE aiemmin taman dokumentin omassa
+  historiassa (ks. jatko: "projektin omat hylkaystestit EIVAT korvaa
+  NIST:n riippumattomia vektoreita") - mutta TASSA se on kaytetty
+  OIKEIN: kontrolloituna kokeena ajoituskysymykselle, EI
+  standardinmukaisuusvaitteena. Konformanssi tulee YKSINOMAAN 5/5
+  NIST-vektorista; ajoitusvaite tulee YKSINOMAAN kontrollikokeesta.
+  Naita EI pida sekoittaa.
+
 | Tapaus | luokka | Phase A | Phase B | Yhteensa |
 |---|---|---|---|---|
 | tcId=76:n oma c | valid | 7666 | 14195 | 21863 |
 | tcId=76:n dk + korruptoitu c | rejection | 7666 | 14195 | 21863 |
 
-**TASMALLEEN IDENTTISET syklimaarat molemmilla poluilla, kaikissa
-kolmessa mittarissa (Phase A, Phase B, kokonaissykli), kun avain
-pidetaan vakiona.**
+TASAN SAMAT syklimaarat molemmilla poluilla, kaikissa kolmessa
+mittarissa (Phase A, Phase B, kokonaissykli), kun avain pidetaan
+vakiona.
+
+**Rajaus koekattavuudelle:** taman kontrollikokeen oma korruptio testasi
+YHDEN tavun muutosta (yksi hylkaysreitti). Koska tulos oli TASAN SAMA
+syklimaara (ei "pieni ero"), LAAJEMPI korruptiovariaatio (useampi
+tavu, eri sijainnit) EI TODENNAKOISESTI toisi lisatietoa SYKLITASOLLA -
+jos yksi bittimuutos jo tuottaa saman syklimaaran kuin ei-mikaan-
+muutos, muut bittimuutokset todennakoisesti tekevat samoin (FSM:n oma
+rakenne ei haaraudu c:n sisallon perusteella, vain sen JALKEEN
+lasketun vertailun TULOKSEN perusteella, joka on jo osoitettu
+syklivakioksi mux:ina). Taman kontrollikokeen NYKYINEN laajuus (1
+tavu) RIITTAA taman kysymyksen kannalta - lisakorruptiovariaatiot
+EIVAT ole priorisoitu jatkotyoksi.
 
 ### Johtopaatos (tarkka muotoilu, ks. M3-MLKEM-002-encaps-decaps-plan.md)
 
-**Decaps on SYKLITASOLLA vakioaikainen** valid- ja rejection-poluille,
-kun avain pidetaan vakiona (mika on oikea vertailuasetelma - eri
-avaimien oma, itsenainen syklivaihtelu ExpandA:n rho-riippuvaisen
-hylkaysnaytteistyksen kautta ON ERI KYSYMYS, EI FO-vertailun oma
-vuoto). Tama EI ole vaite etta Decaps on "vakioaikainen" laajemmassa
-mielessa - jaljelle jaava vuotopinta (kytkentaaktiivisuus vertailu-/
-mux-logiikassa, SAMALLA syklilla mutta datariippuvasti) ON
-maaritelmallisesti `toggle-count-proxy`-tyokalun oma kohde, ei
-mitattu tassa.
+**Decaps on SYKLITASOLLA vakioaikainen SALAISEN DATAN suhteen; julkis-
+riippuvainen vaihtelu ExpandA:ssa on dokumentoitu ja vakioaikakonvention
+mukainen.** Tama tarkka muotoilu (KAKSI ehtoa: syklitaso + salainen
+data) ON PAKOLLINEN taman tuloksen esittamisessa - kumpikin sana
+("syklitasolla" JA "salaisen datan suhteen") on tarpeen, EI vain jompi
+kumpi.
+
+Jaljelle jaava vuotopinta (kytkentaaktiivisuus vertailu-/mux-logiikassa,
+SAMALLA syklilla mutta datariippuvasti) ON maaritelmallisesti
+`toggle-count-proxy`-tyokalun oma kohde, ei mitattu tassa.
 
 Ennuste (M3-MLKEM-002-encaps-decaps-plan.md, kirjattu ennen mittausta,
 molemmilla ehdoilla: vakioaikainen vertailu JA J-hash ehdotta
