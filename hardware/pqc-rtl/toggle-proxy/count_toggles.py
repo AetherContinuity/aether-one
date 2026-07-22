@@ -34,9 +34,15 @@ def parse_value(val_str):
     return int(val_str.replace('x', '0').replace('z', '0'), 2) if val_str else 0
 
 
-def parse_vcd(path, scope_filter):
+def parse_vcd(path, scope_filter, exclude_signals=None):
     """Palauttaa (kokonais_bittikytkennat, per-signaali-bittikytkennat)
-    annetun scope-prefiksin alla oleville signaaleille."""
+    annetun scope-prefiksin alla oleville signaaleille, PL exclude_
+    signals-listassa mainitut (esim. jaetut pass-through-signaalit
+    clk/reset/start/a_in/b_in, jotka EIVAT kerro moduulin OMASTA
+    datariippuvasta aktiivisuudesta vaan testipenkin kokonaiskestosta
+    tai muuttumattomasta syotteesta)."""
+    if exclude_signals is None:
+        exclude_signals = set()
 
     id_to_name = {}
     id_to_width = {}
@@ -63,7 +69,7 @@ def parse_vcd(path, scope_filter):
                 id_to_name[vcd_id] = sig_name
                 id_to_width[vcd_id] = width
                 scope_str = ".".join(current_scope_path)
-                if scope_filter in scope_str:
+                if scope_filter in scope_str and sig_name not in exclude_signals:
                     target_ids.add(vcd_id)
         elif line.startswith("$enddefinitions"):
             i += 1
@@ -105,15 +111,22 @@ def parse_vcd(path, scope_filter):
     return total_bit_toggles, per_signal_bit_toggles, per_signal_event_count
 
 
+DEFAULT_EXCLUDE = {"clk", "reset", "start", "a_in", "b_in"}
+
+
 def main():
-    if len(sys.argv) != 3:
-        print("Kaytto: count_toggles.py <vcd-tiedosto> <scope-prefiksi>")
+    if len(sys.argv) < 3:
+        print("Kaytto: count_toggles.py <vcd-tiedosto> <scope-prefiksi> [lisa-poissuljettavat, pilkulla]")
         sys.exit(1)
 
     vcd_path, scope_filter = sys.argv[1], sys.argv[2]
-    total, per_signal_bits, per_signal_events = parse_vcd(vcd_path, scope_filter)
+    exclude = set(DEFAULT_EXCLUDE)
+    if len(sys.argv) > 3:
+        exclude |= set(sys.argv[3].split(","))
 
-    print(f"{vcd_path} (scope='{scope_filter}'): kokonais_bittikytkennat={total}")
+    total, per_signal_bits, per_signal_events = parse_vcd(vcd_path, scope_filter, exclude)
+
+    print(f"{vcd_path} (scope='{scope_filter}', poissuljettu={sorted(exclude)}): kokonais_bittikytkennat={total}")
     for name, bits in sorted(per_signal_bits.items(), key=lambda x: -x[1])[:30]:
         events = per_signal_events[name]
         print(f"  {name}: {bits} bittikytkentaa ({events} tapahtumaa, ~{bits/events:.1f} bittia/tapahtuma)")

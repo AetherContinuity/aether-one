@@ -125,3 +125,45 @@ vuoksi.
    toinen, viela selittamaton vaihtelu) loytyivat SEKVENSSISSA,
    kumpikin ENNEN kuin virheellista tulosta olisi voitu raportoida
    Decapsista.
+
+## PAIVITYS 2026-07-22 (jatko 2): loydetty ja korjattu - clk selitti koko avoimen kysymyksen
+
+**Syy loydetty:** `count_toggles.py`:n RAPORTOITU "kokonais_bittikytkennat"
+SISALSI `clk`/`reset`/`start`/`a_in`/`b_in` -signaalien oman
+bittikytkentaosuuden, VAIKKA aiempi ohje oli TULKITA tulosta ilman
+naita - tyokalu itse EI kuitenkaan suodattanut niita pois RAPORTOIDUSTA
+kokonaisluvusta. `clk` (yksibittinen, tikittaa JOKA puolisyklilla)
+toggle-maara SKAALAUTUU koko testipenkin kokonaiskeston mukaan, joka
+on GATED hitaamman moduulin (leaky) OMALLA vaihtelevalla kestolla -
+tama YKSIN selitti koko havaitun, aiemmin selittamattoman vaihtelun
+MOLEMMISSA moduuleissa.
+
+**Korjaus:** lisatty eksplisiittinen `DEFAULT_EXCLUDE`-lista
+(`clk`,`reset`,`start`,`a_in`,`b_in`) joka JATETAAN POIS `target_ids`-
+joukosta jo VAR-maarittelyvaiheessa (EI vain manuaalisesta tulkinnasta,
+kuten ennen).
+
+**Uudelleenajettuna oikein suodatettuna:**
+
+| mismatch_pos | Leaky (bittikytkenta) | Const (bittikytkenta) |
+|---|---|---|
+| 0 | 6 | 6 |
+| 15 | 62 | 6 |
+| 31 | 124 | 6 |
+| ei eroa | 123 | 7 |
+
+**Leaky: selva monotoninen kasvu (6->62->124->123), tasmaa tunnettuun
+vuotoon. Const: kaytannossa vakio (6/6/6/7) kaikissa tapauksissa.**
+
+## Johtopaatos (paivitetty, TAMA ON NYT voimassa oleva tila)
+
+Toggle-count-proxy-menetelma, KORJATTUNA (bittitason Hamming-etaisyys
+JA eksplisiittinen pass-through-signaalien poissulkeminen suoraan
+tyokalusta, ei vain tulkinnasta), LAPAISEE seka positiivi- etta
+negatiivikontrollin selvasti erottuvalla tuloksella. Mittari ON NYT
+VALIDOITU. M3-MLKEM-002-suunnitelman oma edellytys taytetty toisen
+kierroksen jalkeen.
+
+**Seuraava askel:** soveltaa tata KORJATTUA tyokalua Decapsiin
+uudelleen (aiempi, virheellisella tyokalulla saatu Decaps-tulos on
+edelleen HYLATTY - uusi mittaus tehdaan taman korjatun version kanssa).
