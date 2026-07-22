@@ -1,9 +1,11 @@
 # Toggle-count-proxy: mittarin validointi tunnetulla vuodolla
 
-**Tila:** validoitu 2026-07-22. Mittari LAPAISI seka positiivi- etta
-negatiivikontrollin. EI VIELA sovellettu Decapsiin - se on erillinen,
-seuraava askel (ks. M3-MLKEM-002-encaps-decaps-plan.md:n oma
-edellytys).
+**Tila (paivitetty 2026-07-22, jatko):** EI VIELA VALIDOITU. Alkuperainen
+tapahtumapohjainen mittari osoittautui metodologisesti puutteelliseksi
+(mittasi vaaraa suuretta leveille signaaleille). Korjattu, bittitasoinen
+versio EI VIELA lapaise validointia - se paljastaa itse selittamattoman
+vaihtelun jopa tunnetussa leikkitoteutuksessa. Decapsiin EI OLE
+sovellettu mitaan luotettavaa tulosta. Ks. "Paivitys 2026-07-22" alla.
 
 ## Menetelma
 
@@ -55,14 +57,71 @@ MITTARI NAKEE TUNNETUN VUODON.
 TASAN SAMAT kaikissa neljassa tapauksessa - MITTARI EI NAYTA VUOTOA
 JOSSA SITA EI OLE.
 
-## Johtopaatos
+## PAIVITYS 2026-07-22: alkuperainen validointi oli metodologisesti puutteellinen, korjaus paljasti UUDEN avoimen kysymyksen
 
-Toggle-count-proxy-menetelma (VCD-dumppaus + kytkentalaskenta,
-rajattuna moduulin sisaisiin/ulostulosignaaleihin, pois lukien
-jaetut pass-through-tulot) LAPAISI seka positiivi- etta
-negatiivikontrollin selvasti erottuvalla tuloksella. Tama TAYTTAA
-M3-MLKEM-002-suunnitelman oman edellytyksen ("todista ETTA mittari
-nakee tunnetun vian, VASTA SITTEN vaita ettei vikaa OLE kohteessa")
-- mittari on nyt VALIDOITU taman kapean testiasetelman puitteissa.
+**Alkuperainen `count_toggles.py` (yllaoleva validointi) laski
+ARVONVAIHTOTAPAHTUMIA (yksi VCD-rivi = yksi "kytkenta"), EI
+BITTITASON Hamming-etaisyytta.** Tama on metodologisesti TYHJA
+leveille signaaleille (esim. 256-bittinen `K_final_out`): "arvo
+vaihtui" -tapahtumien maara on SAMA riippumatta siita ovatko kaksi
+eri arvoa lahella toisiaan vai taysin erilaisia. TODELLINEN
+tehonkulutukseen korreloiva suure ON bittien maara jotka vaihtavat
+tilaa, EI arvonvaihtotapahtumien lukumaara. TAMA LOYTYI ennen kuin
+tyokalua sovellettiin Decapsiin - Decaps-tulos ("kokonaiskytkennat
+tasan samat molemmilla poluilla") oli SAATU alkuperaisella,
+PUUTTEELLISELLA versiolla ja ON SITEN HYLATTAVA, EI raportoitava
+tuloksena.
 
-**EI VIELA sovellettu Decapsiin.** Tama on seuraava, erillinen askel.
+**Korjattu versio** (laskee XOR-pohjaisen Hamming-etaisyyden
+perakkaisten arvojen valilla monibittisille signaaleille) **PALJASTI
+UUDEN, VIELA RATKAISEMATTOMAN kysymyksen:** uudelleenajettuna toy-
+esimerkeille, SEKA `dut_leaky` ETTA `dut_const` naytttavat NYT
+kasvavaa bittikytkentamaaraa mismatch_pos:in mukaan (leaky:
+195/279/368/375; const: 195/223/252/257 jarjestyksessa pos=0/15/31/
+ei-eroa) - EI ENAA selkeaa positiivi/negatiivi-erottelua.
+
+**Tarkistettu ja HYLATTY hypoteesi:** syotteen oma korruptio (XOR
+0xFF) tuottaa SAMAN Hamming-painon (popcount=7) kaikissa kolmessa
+testatussa positiossa (a_in:n tavut noilla positioilla ovat kaikki
+popcount=1: 0x01, 0x10, 0x20) - tama EI siis selita havaittua
+vaihtelua.
+
+**Todellinen syy ON VIELA TUNNISTAMATTA.** Tama ON aito, avoin
+metodologinen kysymys - EI ratkaistu tassa istunnossa aikarajoitteen
+vuoksi.
+
+## Rehellinen tila 2026-07-22 (paivitetty)
+
+- **Alkuperainen validointi (tapahtumapohjainen) EI OLE ENAA voimassa**
+  - se mittasi vaaraa suuretta.
+- **Korjattu, bittitasoinen tyokalu ON OLEMASSA, MUTTA EI VIELA
+  VALIDOITU** - se ITSE paljastaa selittamattoman vaihtelun jopa
+  tunnetussa leikkitoteutuksessa, ENNEN kuin mitaan voidaan sanoa
+  Decapsista.
+- **Decapsiin EI OLE sovellettu mitaan luotettavaa toggle-analyysia
+  tassa istunnossa.** Aiemmin saatu "tasan sama kokonaiskytkenta-
+  maara" -tulos Decapsille perustui VIRHEELLISEEN tyokaluun ja ON
+  HYLATTY - EI raportoida `M3_MLKEM_ACVP_STATUS.md`:hen konformanssi-
+  tai ajoitusvaitteena.
+
+## Suositus jatkotyolle (seuraava istunto)
+
+1. Selvita miksi bittitason kytkentamaara vaihtelee `mismatch_pos`:n
+   mukaan MOLEMMISSA (leaky JA const) toy-moduuleissa, vaikka
+   syotteen oma korruption Hamming-paino on vakio. Epaillyt syyt
+   (EI viela tarkistettu): (a) `a_in`/`b_in`-signaalien OMA
+   toggle-osuus kokonaislaskennassa (naiden pitaisi ehka olla
+   POISSULJETTU, samalla tavalla kuin `clk`/`reset`/`start` jo
+   suljettiin pois - NAMA OVAT MYOS pass-through-syotteita, ei
+   moduulin OMAA laskentaa); (b) jokin muu, viela tunnistamaton
+   VCD-jasennyksen oma virhe.
+2. VASTA kun bittitasoinen tyokalu naytttaa SELKEAN, SELITETYN
+   positiivi/negatiivi-erottelun (sama vaatimus kuin alkuperainen
+   validointi, MUTTA nyt oikealla mittarilla) - VASTA SITTEN sovelleta
+   sita Decapsiin uudelleen.
+3. Tama ON tarkka esimerkki siita miksi mittarin validointi ENNEN
+   kohteen mittaamista on valttamatonta - kaksi eri metodologista
+   virhetta (tapahtuma- vs. bittipohjainen laskenta, JA nyt tama
+   toinen, viela selittamaton vaihtelu) loytyivat SEKVENSSISSA,
+   kumpikin ENNEN kuin virheellista tulosta olisi voitu raportoida
+   Decapsista.
