@@ -209,3 +209,59 @@ Rejection-tapaukset (77,78,80) todensivat ENSIMMAISTA KERTAA `z`:n
 EI KOSKAAN kayta z:aa (K_bar lasketaan mutta hylataan valinnassa), joten
 tama on Decapsin AINOA osa jota mikaan aiempi testi (Encaps, KeyGen)
 ei ole ankkuroinut.
+
+## Toggle-tason mittaus (korjatulla ja validoidulla tyokalulla), 2026-07-22
+
+Sovellettu `toggle-proxy/count_toggles.py`:n KORJATTUA, validoitua
+versiota (ks. `toggle-proxy/TOGGLE-PROXY-VALIDATION.md`) saman-avaimen
+valid/rejection-pariin (sama data kuin syklimittauksessa).
+
+**Kokonais-bittikytkenta (`decaps_b`-scope, jaetut pass-through-signaalit
+poissuljettu):** valid=2 738 664, rejection=2 738 419. Ero: 245 bittia
+(~0.009% kokonaismaarasta).
+
+**Kohdennettu tarkastelu vertailu-/valintalogiikan omille signaaleille:**
+
+| Signaali | valid | reject | ero |
+|---|---|---|---|
+| `c_prime` | 3048 | 3048 | 0 |
+| `K_prime_in` | 126 | 126 | 0 |
+| `r_prime_in` | 130 | 130 | 0 |
+| `z_in` | 137 | 137 | 0 |
+| `match_out` | 1 | 0 | 1 |
+| `K_final_out` | 126 | 138 | -12 |
+| `shake256_out` | 122 | 138 | -16 |
+
+**Havainto: `K_final_out`:n oma bittikytkentamaara TASMAA TASAN
+VALITUN ehdokkaan omaan maaraan molemmissa tapauksissa** (valid:
+K_final_out=126=K_prime_in; reject: K_final_out=138=shake256_out).
+Tama tarkoittaa etta MUX ITSESSAAN EI lisaa yhtaan ylimaaraista
+bittikytkentaa valinnan paalle - havaittu 245 bitin kokonaisero
+(ja K_final_out:n oma 12 bitin ero) SELITTYY KOKONAAN silla etta
+`K_prime` ja `K_bar` ovat kaksi ERI, satunnaista 256-bittista arvoa
+joilla ON eri Hamming-paino - TAMA ON VALTTAMATONTA MILLE TAHANSA
+kahdelle eri kryptografiselle arvolle, EIKA riipu valintalogiikan
+OMASTA rakenteesta.
+
+`match_out`:n oma 1-bitin ero ON ODOTETTU, FUNKTIONAALINEN ero (itse
+ULOSTULOARVO on data-riippuvainen TARKOITUKSELLA - tama EI OLE
+sivukanava LOGIIKAN yli, vaan itse FUNKTION oma, valttamaton tulos-
+arvo, samalla tavalla kuin MIKA TAHANSA booleaanisen funktion
+ulostulo VALTTAMATTA "vuotaa" oman arvonsa).
+
+### Johtopaatos (tarkka muotoilu)
+
+**Valinta-/vertailumekanismi (mux + `===`-vertailu) EI LISAA
+havaittavaa, MEKANISMIKOHTAISTA bittikytkenta-eroa valikoinnin PAALLE**
+- ainoa havaittu ero selittyy TAYSIN kahden ERI kryptografisen arvon
+(K_prime vs. K_bar) OMALLA, VALTTAMATTOMALLA Hamming-painoerolla, jota
+EI voida poistaa LOGIIKKASUUNNITTELULLA (constant-time-koodauksella) -
+tama vaatisi MASKAUSTA fyysisella tasolla, EI ole taman mittauksen
+oma kohde eika `constant-time`-konvention oma lupaus.
+
+**Tama TAYDENTAA (EI KORVAA) aiempaa syklitason tulosta:** Decaps on
+SYKLITASOLLA vakioaikainen salaisen datan suhteen (ks. ylla), JA
+valinta-/vertailumekanismin OMA bittikytkenta EI LISAA mekanismi-
+kohtaista eroa valikoinnin paalle - jaljelle jaava, VALTTAMATON
+Hamming-painovaihtelu ITSE ULOSTULOARVOSSA (K) ON ERI KYSYMYS
+(maskauksen, ei constant-time-koodauksen, ala).
