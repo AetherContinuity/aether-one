@@ -1,5 +1,37 @@
 # PROJECT_STATUS_AND_DIRECTION.md
 
+## Tarkoitus ja yleisö (lisätty 2026-07-27, täsmentää — ei korvaa — 19.7. päätöstä)
+
+Tämä on **tutkimusprototyyppi**, ajettuna Raspberry Pi 2 + Pi 5 -asetelmalla,
+ei työnhakuportfoliokappale. Molemmat ovat totta yhtä aikaa: DCEIN/TAU-
+arkkitehtuurivisio (ks. alla) on aito ja ohjaa yhä suuntaa, mutta tavoite
+tässä vaiheessa on arkkitehtuurin ja ACVP-ankkuroidun oikeellisuuden
+tutkiminen — ei suorituskyvyllä kilpaileminen, eikä työnhakua varten
+rakennettu näyteikkuna. Repo on avoin (ks. LICENSE, lisätty 2026-07-27)
+koska ajatuksena on että muutkin voisivat hyötyä tästä, ei koska sitä
+markkinoidaan mihinkään suuntaan.
+
+**Tästä seuraa suoraan tulkinta ainoalle repossa esiintyvälle
+suorituskykyluvulle (Fmax 30.4 MHz, ML-KEM NTT, ECP5) ja siitä
+johdetulle ~30x hitaammalle nopeudelle Pi 5:n CPU:hun verrattuna
+(FIPS203_COVERAGE.md, NIST_ACVP_STATUS.md):** tämä on **dokumentoitu
+rajaus**, ei pysäyttävä puute. Tavoite ei koskaan ollut voittaa CPU:ta
+lapiläpimenossa — tavoite on synteesikelpoinen, todennettu PQC-ydin
+joka voi toimia TAU:n (Trust Anchor Unit) kaltaisena luottamusankkurina
+arkkitehtuurissa jossa nopeus ei ole ensisijainen kriteeri. Jos suunta
+joskus muuttuu kohti oikeaa laitepolkua/tuotantoa, tämä luku on
+ensimmäinen asia joka pitää arvioida uudestaan, ennen mitään muuta.
+
+**Ainoa tunnistettu, yhä ratkaisematon avoin kysymys:** K=2 (ML-KEM-512,
+turvakategoria 1) rinnalla suunniteltu M5-DILITHIUM-001 (ML-DSA-65,
+turvakategoria 3) muodostaisi turvatasoiltaan epäsuhtaisen parin, jos
+molemmat toteutuisivat sellaisenaan samaan järjestelmään. Tätä ei ole
+vielä ratkaistu eikä sen tarvitse ratkaista NYT — mutta hinta kasvaa
+jokaisen uuden K=2-oletukseen sidotun testipenkin myötä, joten se
+kannattaa pitää mielessä ennen M5-DILITHIUM-001:n laajempaa työtä.
+
+---
+
 **Paivamaara:** 2026-07-19
 **Tarkoitus:** tallettaa projektin nykytila ja sovittu jatkosuunta ennen
 seuraavan tyovaiheen (M4-TAU-001) aloitusta.
