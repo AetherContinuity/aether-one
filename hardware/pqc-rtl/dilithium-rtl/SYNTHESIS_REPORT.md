@@ -114,11 +114,27 @@ kohtaisen `synth_ecp5`/`synth_ice40` + `nextpnr`-ajon (paikka/reititys
 standardisolukirjastolla. KUMPAAKAAN EI OLE VIELA TEHTY tassa
 projektissa Dilithium-moduuleille - tama on avoin jatkotyo (ks. alla).
 
-Aiempi ML-KEM-tyo (SYNTHESIS_NOTE.md, 2026-07-11) kohtasi MYOS
-avoimen, ratkaisemattoman kysymyksen ECP5-teknologiakartoituksessa
-(muistiobjektit katosivat odottamattomasti `synth_ecp5`-vaiheessa) -
-tama SAMA avoin kysymys koskee todennakoisesti myos Dilithium-
-moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
+**PAIVITYS: taman kappaleen alkuperainen muotoilu (viittasi SYNTHESIS_
+NOTE.md:n 2026-07-11 tilanteeseen "avoimena, ratkaisemattomana
+kysymyksena") oli vanhentunut jo kirjoitushetkella.** ML-KEM:n oma
+BRAM-inferointikysymys RATKAISTIIN M4-FPGA-002..004-tyopaketeissa
+(2026-07-14..19, ks. M4_FPGA_BRAM_STUDY.md ja M4_FPGA_003_RC.md):
+juurisyy EI ollut muistin koko tai case-pohjainen pankinvalinta
+(molemmat hypoteesit kokeellisesti kumottu), vaan `lane_fsm`:n
+KOMBINATORINEN lukurajapinta - ECP5:n DP16KD vaatii rekisteroidyn
+(synkronisen) luvun. Ratkaisu (READ_LATENCY=1-parametri + dedikoidut
+lukurekisterit per pankki + kirjoitus-/lukuarbitrointi + pankkikoon
+kasvatus 64:sta 128:aan) todistettiin taaksepainyhteensopivaksi
+(golden trace 64/64, taysi M3-regressio PASS) ja integroitiin
+tuotantoytimeen: 4x DP16KD, 3270 solua (ks. README.md:n M4-FPGA-004-rivi).
+
+Dilithiumin oma BRAM-inferointi ON silti tekematta - mutta EI enaa
+avoimena tutkimuskysymyksena, vaan TUNNETTUNA, KERTAALLEEN RATKAISTUNA
+menetelmana joka pitaa soveltaa uudelleen Dilithiumin eri NTT-
+arkkitehtuuriin (32-bit Montgomery, eri pankkirakenne kuin ML-KEM:n
+16-bit ydin). Todennakoinen lopputulos on sama kuvio (rekisteroity
+luku + dedikoidut rekisterit + arbitrointi + riittava pankkikoko),
+mutta tama on todistettava Dilithium-ytimelle erikseen, ei oletettava.
 
 ## Yhteenveto ja rehellinen tila
 
@@ -127,7 +143,7 @@ moduuleja, EIKA sita ole ratkaistu tassa kierroksessa.
 | Yksittaisten rakennuspalikkojen LUT/FF-maara | ✅ Mitattu taydellisesti (taulukko ylla) |
 | Rinnakkaisrakenteen (1536x) skaalauskayra | ✅ MITATTU (N=1,16,256,1536) - taydellisesti lineaarinen, EI jako-optimoinnin tuomaa vahennysta |
 | Paatason moduulien (KeyGen/Sign/Verify) LUT/FF-maara | ❌ EI mitattu - resurssirajoite tassa ymparistossa (mutta 1536x-osan oma osuus NYT tunnetaan tarkasti) |
-| ECP5/muu FPGA-kohteen resurssikaytto | ❌ EI tehty - sama avoin kysymys kuin ML-KEM:lla |
+| ECP5/muu FPGA-kohteen resurssikaytto | ❌ EI tehty - ML-KEM:n vastaava kysymys ON ratkaistu (M4-FPGA-002..004), Dilithiumille sama menetelma pitaa viela soveltaa uudelleen |
 | Fmax / kriittinen polku | ⚠️ Looginen kriittinen polku mitattu (`ltp`: 107 tasoa Barrett-mulmod:issa) - EI absoluuttista Fmax-lukua, vaatii P&R:n. Ks. SYNTH-001 jatkotyoksi. |
 | Suorituskykymittarit (syklimaara -> aika) | Katso DK6_STATUS.md: KeyGen ~87K sykli, Sign yhden-kierroksen ~242K sykli (vaihtelee hylkaysten mukaan), Verify ~115K sykli |
 
