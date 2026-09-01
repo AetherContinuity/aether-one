@@ -79,15 +79,16 @@ curl http://192.168.1.51:8080/attestation
 
 Trust Server käyttää **ML-DSA-65** (Dilithium) allekirjoituksiin `liboqs`-kirjaston kautta (`oqs.Signature("ML-DSA-65")`).
 
-`hardware/pqc-rtl/` sisältää kolme erillistä, eri kypsyystasoista osaa — ei yhtä yhtenäistä kiihdytintä:
+`hardware/pqc-rtl/` sisältää neljä erillistä, eri kypsyystasoista osaa — ei yhtä yhtenäistä kiihdytintä:
 
 | Alikansio | Algoritmi | Muoto | Tila |
 |---|---|---|---|
-| `rtl/` (M1→M4) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | Koko ML-KEM.KeyGen/Encaps/Decaps + K-PKE todennettu bittitarkasti; ECP5-synteesi + place-and-route todistettu (DP16KD-BRAM-inferointi, Fmax mitattu, Wishbone-vaylaprototyyppi). Ei Dilithiumia. |
+| `rtl/` (M1→M4) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | Koko ML-KEM.KeyGen/Encaps/Decaps + K-PKE todennettu bittitarkasti; ECP5-synteesi + place-and-route todistettu (DP16KD-BRAM-inferointi, Fmax mitattu, Wishbone-vaylaprototyyppi). |
+| `dilithium-rtl/` (M5-DILITHIUM-001) | **ML-DSA-65 / Dilithium** (32-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | KeyGen/Sign_internal/Verify_internal toiminnallisesti todennettu bittitarkasti sekä `dilithium-py`-referenssiä että NIST ACVP KAT -vektoreita vastaan (kaikki kolme operaatiota PASS). Rakennuspalikat (Barrett-mulmod, NTT-ytimet, decompose, make_hint, pack_z/h) synteesoitu yksitellen tekniikkakartoitettuun LUT-tasoon (Yosys). Päätason (KeyGen/Sign/Verify) yhtenäinen synteesi ja FPGA-kohdekohtainen (ECP5) P&R **ei vielä tehty** (resurssirajoite, ks. `SYNTHESIS_REPORT.md`) — sama vaihe jossa `rtl/`-Kyber-työ oli ennen M4-FPGA-milestonea. |
 | `rvv/` | ML-KEM/Kyber (16-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Yksi funktio (Montgomery-reduktio) todennettu |
-| `rvv-dilithium/` | **ML-DSA-65 / Dilithium** (32-bit Montgomery) | C + RVV-intrinsiicit, QEMU | **Koko API valmis**: avaingenerointi + allekirjoitus + verifiointi, bittitarkasti pq-crystals/dilithium-referenssiä vasten |
+| `rvv-dilithium/` | ML-DSA-65 / Dilithium (32-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Koko API valmis: avaingenerointi + allekirjoitus + verifiointi, bittitarkasti pq-crystals/dilithium-referenssiä vasten |
 
-`rvv-dilithium/` on ainoa osa joka käyttää samaa algoritmia (ML-DSA-65) kuin Trust Server, ja se on selvästi kypsin: koko allekirjoitussuite bittitarkasti todennettu, ei vain käyttäytymismalli. Se on kuitenkin edelleen ohjelmisto (QEMU-emulointi RISC-V-vektorilaajennuksella), ei ASIC/FPGA-rauta — `rtl/`-kansion synteesikelpoinen RTL-työ on toistaiseksi vain Kyberia varten, ei Dilithiumia. Ks. `hardware/pqc-rtl/README.md`, `rvv/README.md` ja `rvv-dilithium/README.md` täydelle rajaukselle mitä kukin osa todistaa ja ei todista.
+Trust Serverin käyttämä algoritmi (ML-DSA-65) on siis nyt todistettu kahdella, eri kypsyystason toteutuksella: `dilithium-rtl/` on synteesikelpoinen RTL, NIST ACVP -ankkuroitu kolmelle pääoperaatiolle, mutta ilman päätason synteesiä/P&R:ää; `rvv-dilithium/` on täysi, bittitarkka ohjelmistoreferenssi (QEMU), ei rautaa. `rtl/`-kansion Kyber-työ on edelleen ainoa osa jolla on todistettu FPGA-synteesi + P&R + mitattu Fmax. Ks. `hardware/pqc-rtl/README.md`, `dilithium-rtl/NIST_ACVP_STATUS.md`, `dilithium-rtl/SYNTHESIS_REPORT.md`, `rvv/README.md` ja `rvv-dilithium/README.md` täydelle rajaukselle mitä kukin osa todistaa ja ei todista.
 
 ---
 *Aether Continuity Institute · 2026*
