@@ -2,9 +2,10 @@
 
 > **Huom 2026-10-02.** Tämä on Pi-prototyypin asennus- ja rakennekuvaus. Mittaamattomat
 > latenssi- ja kuormaluvut on poistettu ja C-ydintä koskevat maininnat korjattu.
-> `install.sh` ei asenna `liboqs-python`-pakettia; ilman sitä Trust Server käynnistyy
-> ilman PQC-allekirjoitusta (KORJAUSLISTA A1). CI rakentaa liboqs:n erikseen, ks.
-> `.github/workflows/verify.yml`.
+> `install.sh` rakentaa liboqs:n (`install_liboqs.sh`, vain ML-DSA-65) ja keskeyttää
+> asennuksen, jos allekirjoituksen itsetesti ei mene läpi. Tarvitaan: `git`, `cmake`,
+> `ninja-build`, `build-essential`, `libssl-dev`. Käännös on testattu x86-Linuxilla, ei
+> Raspberry Pi:llä; Pi 2:lla se kestää useita minuutteja.
 
 Kahden Raspberry Pi:n järjestelmä joka yhdistää **trust-infrastruktuurin** ja **edge-sensorit** erillisiksi, optimoiduiksi yksiköiksi.
 
@@ -202,7 +203,8 @@ http://<pi5_ip>:8080/ui/
 | `core/trustcore/server.py` | Attestation server (FastAPI) |
 | `core/trustcore/crypto.py` | PQC-kääre: ML-DSA-65 liboqs:n kautta (`oqs.Signature("ML-DSA-65")`) |
 | `core/trustcore/tpm_wrapper.py` | TPM 2.0 support (valinnainen) |
-| `requirements.txt` | FastAPI, cbor2, pycryptodome. **Ei sisällä `liboqs-python`-pakettia, jota `crypto.py` tarvitsee** (KORJAUSLISTA A1) |
+| `requirements.txt` | FastAPI, uvicorn, pydantic, cbor2 |
+| `install_liboqs.sh` | liboqs (C) + liboqs-python, ML-DSA-65-itsetesti |
 | `install.sh` | Asennus (venv + pip) |
 | `start.sh` | Käynnistys (portti 5000) |
 | `README.md` | Pi 2 -spesifiset ohjeet |

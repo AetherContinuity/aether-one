@@ -23,6 +23,7 @@ module decaps_nist_multi_tb;
     .done(done), .K_final_out(K_final_out), .match_out(match_out)
   );
 
+  string vec_path;
   int fh, scan_ok, num_vectors;
   int tc_id, rejection_expect;
   logic [8*1632-1:0] dk_val;
@@ -34,7 +35,11 @@ module decaps_nist_multi_tb;
 
   initial begin
     clk = 0; reset = 1; start = 0;
-    fh = $fopen("fpga/tau/decaps_top_nist_vectors.txt", "r");
+    // +VEC=<polku> vaihtaa vektoritiedoston (ACVP-CI: useita vektoreita ja
+    // negatiivikontrolli samalla testipenkilla). Oletus = alkuperainen polku.
+    if (!$value$plusargs("VEC=%s", vec_path)) vec_path = "fpga/tau/decaps_top_nist_vectors.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%d\n", num_vectors);
 
     for (int i = 0; i < num_vectors; i++) begin

@@ -25,6 +25,12 @@ echo "📥 Asennetaan riippuvuudet..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# PQC: liboqs (C-kirjasto) + liboqs-python. Ilman tata crypto.py:n
+# `import oqs` epaonnistuu ja attestaatio toimii ILMAN ML-DSA-65-
+# allekirjoitusta. Asennus keskeytyy, jos itsetesti ei mene lapi.
+echo "🔑 Tarkistetaan PQC (liboqs, ML-DSA-65)..."
+bash "$(dirname "$0")/install_liboqs.sh"
+
 echo ""
 echo "✅ Asennus valmis!"
 echo ""
