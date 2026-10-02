@@ -1,94 +1,132 @@
 # Aether One™
 
-**Dual Raspberry Pi Trust Infrastructure & Edge Intelligence Platform**
+Tutkimusprototyyppi: kahden Raspberry Pi:n luottamusankkuri- ja reunalaskenta-asetelma sekä
+synteesikelpoiset RTL-ytimet NIST:n kvanttiturvallisille algoritmeille ML-KEM (FIPS 203) ja
+ML-DSA (FIPS 204).
 
-Kahden Raspberry Pi:n järjestelmä joka yhdistää trust-infrastruktuurin ja edge-sensorit erillisiksi, optimoiduiksi yksiköiksi.
+Tämä ei ole tuote eikä valmis käyttöön. Tavoite on arkkitehtuurin ja ACVP-ankkuroidun
+oikeellisuuden tutkiminen, ei suorituskyky (ks. `PROJECT_STATUS_AND_DIRECTION.md`).
+Avoimet kohdat ovat tiedostossa [`KORJAUSLISTA.md`](KORJAUSLISTA.md).
 
-## Project Context
+**Tila päivitetty:** 2026-10-02. Viimeisin muutos SystemVerilog-tiedostoihin: 2026-07-22.
+
+## Tausta
+
+Aether One on yksi toteutus DCEIN-arkkitehtuurista (Duration-Capable Edge Intelligence Node):
+päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luottamusankkuri (TAU).
+
+- [WP-006 — Continuity Computing](https://aethercontinuity.org/papers/wp-006-continuity-computing.html)
+- [WP-007 — Situational Awareness Persistence](https://aethercontinuity.org/papers/wp-007-situational-awareness-persistence.html)
+- [TN-002 — DCEIN Architecture](https://aethercontinuity.org/supplements/tn-002-dcein.html)
+
+## Tila osittain
+
+"CI" tarkoittaa, että testi ajetaan jokaisella pushilla (`.github/workflows/verify.yml`).
+"Kerta-ajo" tarkoittaa, että tulos on kirjattu statusdokumenttiin, mutta testi ei ole CI:ssä.
+
+### Pi-prototyyppi (`pi2_trust_server/`, `pi5_edge_node/`)
+
+| Osa | Tila | Todennus |
+|---|---|---|
+| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, TPM+PQC-päästä-päähän-testi ohjelmisto-TPM:llä (swtpm) |
+| Edge Node: KRI/LR-laskenta, web-käyttöliittymä, drift-näkymät | Toteutettu (Python) | Ei automaattista testiä |
+| Sensorit: MQ-9 (ADC), AetherCam, mock-varavaihtoehto | Ajurit olemassa | Ei automaattista testiä |
+| C-ydin (`libtrustcore.so`) | Ei repossa | — |
+| Ajo fyysisillä Pi-laitteilla | Ei mittauksia repossa | — |
+
+Asennusohjeiden tunnettu puute: `requirements.txt` ei asenna `liboqs-python`-pakettia
+(KORJAUSLISTA A1). Latenssi- ja kuormalukuja ei ole mitattu.
+
+### ML-KEM-512 RTL (`hardware/pqc-rtl/rtl/`, `fpga/`)
+
+| Osa | Tila | Todennus |
+|---|---|---|
+| FIPS 203:n algoritmit 3–21: primitiivit, K-PKE, ML-KEM `_internal` (KeyGen, Encaps, Decaps) | Synteesikelpoinen SystemVerilog, K=2 | CI: Icarus-simulaatiot, K-PKE-kierros, Decaps TB A/B, KeyGen 10 kertaa samassa simulaatiossa; `FIPS203_COVERAGE.md` |
+| Keccak-p[1600,24], SHA3-256/512, SHAKE128/256 | Synteesikelpoinen | Testipenkit NIST-ankkuroitua golden-mallia vasten |
+| Golden-malli (Python) | — | CI: 1000 satunnaista (d, z, m) -syötettä, jäädytettyjen vektorien tarkistus |
+| NIST ACVP: KeyGen 1 vektori, Encaps 3, Decaps 5 (sis. hylkäystapaukset) | PASS | Kerta-ajo, `M3_MLKEM_ACVP_STATUS.md` |
+| 4-pankkinen konfliktiton NTT-muisti | SAT-todistettu | `BANK_MAPPING_PROOF.md` |
+| NTT-ydin ECP5:llä: synteesi ja P&R, DP16KD = 4, Fmax 30,40 MHz (ECP5-25k) | Tehty | `fpga/timing_reports/` |
+| Koko ML-KEM-ytimen (orkestrointi) synteesi ja P&R | Ei valmistunut (resurssiraja) | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` |
+| Decaps-ajoitus: syklitasolla vakioaikainen salaisen datan suhteen | Mitattu saman avaimen vertailulla | Kerta-ajo, `M3_MLKEM_ACVP_STATUS.md` |
+| Decaps-toggle-mittaus: valinta- ja vertailulogiikka | Mitattu validoidulla työkalulla | Kerta-ajo, `toggle-proxy/` |
+| TRNG | Ei toteutettu | — |
+| Lint (Verilator `-Wall`), Yosys-synteesi NTT- ja Keccak-ytimille | — | CI |
+
+### TAU-kehys (`hardware/pqc-rtl/fpga/tau/`)
+
+| Osa | Tila | Todennus |
+|---|---|---|
+| Wishbone-väyläohjaus, ML-KEM KeyGen/Encaps/Decaps-orkestrointi, hash-ketjutettu audit-loki (SHA3-256), watchdog | Toteutettu RTL:nä | CI: 8 simulaatiotestiä (`run_m4_tau_*`) |
+| Synteesi ja P&R kokonaisuutena | Ei tehty | — |
+
+### ML-DSA-65 RTL (`hardware/pqc-rtl/dilithium-rtl/`)
+
+| Osa | Tila | Todennus |
+|---|---|---|
+| KeyGen, `Sign_internal`, `Verify_internal` | Synteesikelpoinen SystemVerilog | CI: Verify (positiivinen, negatiiviset, monisiemen), Sign-primitiivit ja -vaiheet `dilithium-py`-referenssiä vasten. KeyGen ei ole CI:ssä |
+| Koko Sign (hylkäyssilmukka ja pakkaus) | — | Vain käsin käynnistettävä `dilithium-heavy-integration.yml` |
+| NIST ACVP: KeyGen, Verify, Sign, yksi vektori kukin | PASS | Kerta-ajo (Sign: käsin käynnistettävä workflow), `dilithium-rtl/NIST_ACVP_STATUS.md` |
+| Rakennuspalikoiden synteesi (Barrett, NTT-ytimet, decompose, make_hint, pack) | Tehty yksitellen | `dilithium-rtl/SYNTHESIS_REPORT.md` |
+| Päätason synteesi, ECP5 P&R, Fmax | Ei tehty | — |
+| Viestin enimmäispituus | 136 tavua (yksi SHAKE256-lohko) | `dilithium-rtl/NIST_ACVP_STATUS.md` |
+
+### RISC-V-ohjelmistotyö (`hardware/pqc-rtl/rvv*`, `tvm-riscv/`, `oqs-rvv-provider/`)
+
+| Osa | Tila | Todennus |
+|---|---|---|
+| `rvv/`: ML-KEM:n Montgomery-reduktio RVV-intrinsiikeillä | Yksi funktio | CI: QEMU, VLEN 128 ja 256 |
+| `rvv-dilithium/`: ML-DSA-65:n avaingenerointi, allekirjoitus ja verifiointi (C + RVV) | Bittitarkka pq-crystals-referenssiin | CI: NTT-testi QEMU:ssa; koko API:n vertailu `rvv-dilithium/README.md` |
+| `tvm-riscv/` (TVM-malli RISC-V:lle), `oqs-rvv-provider/` (OpenSSL-providerin runko) | Kokeilu | CI: käännös ja ajo QEMU:ssa |
+
+### Konseptit (`concept/`)
+
+TrustCore NX (oma RISC-V-SoC), Aether OS, fyysinen laite ja muut `concept/`-kansion sisällöt
+ovat konsepteja. Niistä ei ole toteutusta tässä repossa, lukuun ottamatta
+`concept/lex-resiliens/`-kehystä, jonka kolme testisarjaa ajetaan CI:ssä.
+
+## Mitä tämä ei ole
+
+- Ei sertifioitu eikä FIPS-validoitu. ACVP-vektorien läpäisy ei ole CAVP-validointi.
+- Ei ajettu fyysisellä FPGA-laudalla.
+- Ei sivukanavasuojattu teho- tai EM-analyysiä vastaan.
+- RTL-ytimiä ei ole kytketty Pi-prototyyppiin; Pi allekirjoittaa ohjelmistolla.
+- NTT-ydin on noin 30 kertaa hitaampi kuin Pi 5:n CPU. Tämä on dokumentoitu rajaus.
+
+## Rakenne
 
 ```
-Research Program
-        │
-        ▼
-WP-006 — Continuity Computing
-        │
-        ├── WP-007 — Situational Awareness Persistence
-        │
-        ▼
-TN-002 — DCEIN Architecture
-        │
-        ▼
-Aether One
-Reference Implementation
-        │
-        ├── Pi 2 — Trust Anchor
-        ├── Pi 5 — Edge Compute
-        └── TrustCore NX (Concept / Pre-Silicon)
+pi2_trust_server/      Trust Server (Pi 2 Model B)
+pi5_edge_node/         Edge Node (Pi 5)
+hardware/pqc-rtl/      RTL, golden-mallit, testipenkit, FPGA-raportit, RVV-työ
+concept/               Konseptit
+KORJAUSLISTA.md        Avoimet kohdat
+PROJECT_STATUS_AND_DIRECTION.md   Suunta ja päätökset
+ROADMAP.md             Vaiheet
+INSTALL.md, QUICKSTART.md, NETWORK_SETUP.md   Pi-asennus
 ```
 
-Aether One on yksi konkreettinen **Reference Implementation** DCEIN-arkkitehtuurista (Duration-Capable Edge Intelligence Node), ei ainoa mahdollinen toteutus. `hardware/pqc-rtl/` sisältää RISC-V-vektorikiihdytettyä PQC-kehitystyötä kolmella eri kypsyystasolla (ks. "PQC-algoritmi" alempana) — kypsin osa (`rvv-dilithium/`, täysi ML-DSA-65-toteutus) on linjassa TrustCore NX -konseptin kanssa ja voi muodostaa sen kryptografisen perustan, mutta tätä ei ole vahvistettu piiksi asti; `concept/trustcore-nx/README.md` merkitsee sen avoimesti pre-silicon-konseptiksi.
+## Ajaminen
 
-- **WP-006** — [Continuity Computing](https://aethercontinuity.org/papers/wp-006-continuity-computing.html): teoreettinen perusta (päätöskapasiteetti järjestelmäinvarianttina)
-- **WP-007** — [Situational Awareness Persistence](https://aethercontinuity.org/papers/wp-007-situational-awareness-persistence.html): D5-komponentin (Awareness Externalization) perustelu
-- **TN-002** — [DCEIN Architecture](https://aethercontinuity.org/supplements/tn-002-dcein.html): arkkitehtoninen spesifikaatio, ECU/TAU-erottelu
-
-## Arkkitehtuuri
-
-```
-Pi 2 (Trust Server) ←── WiFi attestation ──→ Pi 5 (Edge Node)
-  PQC + SHA-256                               Sensors → KRI → UI
-  Erillinen laite                             Reaaliaikainen laskenta
-  Port 5000 · IP 192.168.1.50                Port 8080
-```
-
-## Sisältö
-
-- `pi2_trust_server/` — Trust Server (Pi 2 Model B)
-- `pi5_edge_node/` — Edge Node (Pi 5)
-- `hardware/pqc-rtl/` — RISC-V-vektorikiihdytetty PQC-kehitystyö (RTL, ks. Project Context yllä)
-- `NETWORK_SETUP.md` — Verkkokonfiguraatio
-
-## Nopea aloitus
+RTL-testit (Icarus Verilog):
 
 ```bash
-# Pi 2
-scp -r pi2_trust_server/ pi@192.168.1.50:~/
-ssh pi@192.168.1.50 "cd ~/pi2_trust_server && ./install.sh && ./start.sh"
-
-# Pi 5
-scp -r pi5_edge_node/ pi@192.168.1.51:~/
-ssh pi@192.168.1.51 "cd ~/pi5_edge_node && ./install.sh && ./start.sh"
-
-# Tarkistus
-curl http://192.168.1.50:5000/nonce
-curl http://192.168.1.51:8080/attestation
+bash hardware/pqc-rtl/run_m3_kpke_roundtrip_test.sh
+bash hardware/pqc-rtl/run_m4_tau_full_protocol_test.sh
 ```
 
-## Tekninen yhteenveto
+Pi-prototyyppi: ks. `INSTALL.md`. Huomaa KORJAUSLISTA A1 ennen asennusta.
 
-| | Pi 2 (Trust) | Pi 5 (Edge) |
-|---|---|---|
-| Tehtävä | Trust anchor | Compute + sensors |
-| Prosessori | ARM Cortex-A7, 900 MHz | ARM Cortex-A76, 2.4 GHz |
-| RAM | 1 GB | 4–8 GB |
-| Sensorit | — | MQ-9 + AetherCam |
-| Dashboard | — | Web UI + Drift Monitor |
-| Portti | 5000 | 8080 |
+## Raportointi
 
-## PQC-algoritmi
+Statusdokumentit noudattavat `hardware/pqc-rtl/REPORTING-DISCIPLINE.md`:n sääntöjä:
+tulos ilman arvottamista, ei oman työn merkityksen arviointia samassa dokumentissa,
+konvergenssia ei kutsuta vahvistukseksi. Ennen 2026-07-21 kirjoitetut dokumentit eivät
+noudata näitä (KORJAUSLISTA E1).
 
-Trust Server käyttää **ML-DSA-65** (Dilithium) allekirjoituksiin `liboqs`-kirjaston kautta (`oqs.Signature("ML-DSA-65")`).
+## Lisenssi
 
-`hardware/pqc-rtl/` sisältää neljä erillistä, eri kypsyystasoista osaa — ei yhtä yhtenäistä kiihdytintä:
-
-| Alikansio | Algoritmi | Muoto | Tila |
-|---|---|---|---|
-| `rtl/` (M1→M4) | ML-KEM/Kyber (16-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | Koko ML-KEM.KeyGen/Encaps/Decaps + K-PKE todennettu bittitarkasti; ECP5-synteesi + place-and-route todistettu (DP16KD-BRAM-inferointi, Fmax mitattu, Wishbone-vaylaprototyyppi). |
-| `dilithium-rtl/` (M5-DILITHIUM-001) | **ML-DSA-65 / Dilithium** (32-bit Montgomery) | SystemVerilog, **synteesikelpoinen** | KeyGen/Sign_internal/Verify_internal toiminnallisesti todennettu bittitarkasti sekä `dilithium-py`-referenssiä että NIST ACVP KAT -vektoreita vastaan (kaikki kolme operaatiota PASS). Rakennuspalikat (Barrett-mulmod, NTT-ytimet, decompose, make_hint, pack_z/h) synteesoitu yksitellen tekniikkakartoitettuun LUT-tasoon (Yosys). Päätason (KeyGen/Sign/Verify) yhtenäinen synteesi ja FPGA-kohdekohtainen (ECP5) P&R **ei vielä tehty** (resurssirajoite, ks. `SYNTHESIS_REPORT.md`) — sama vaihe jossa `rtl/`-Kyber-työ oli ennen M4-FPGA-milestonea. |
-| `rvv/` | ML-KEM/Kyber (16-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Yksi funktio (Montgomery-reduktio) todennettu |
-| `rvv-dilithium/` | ML-DSA-65 / Dilithium (32-bit Montgomery) | C + RVV-intrinsiicit, QEMU | Koko API valmis: avaingenerointi + allekirjoitus + verifiointi, bittitarkasti pq-crystals/dilithium-referenssiä vasten |
-
-Trust Serverin käyttämä algoritmi (ML-DSA-65) on siis nyt todistettu kahdella, eri kypsyystason toteutuksella: `dilithium-rtl/` on synteesikelpoinen RTL, NIST ACVP -ankkuroitu kolmelle pääoperaatiolle, mutta ilman päätason synteesiä/P&R:ää; `rvv-dilithium/` on täysi, bittitarkka ohjelmistoreferenssi (QEMU), ei rautaa. `rtl/`-kansion Kyber-työ on edelleen ainoa osa jolla on todistettu FPGA-synteesi + P&R + mitattu Fmax. Ks. `hardware/pqc-rtl/README.md`, `dilithium-rtl/NIST_ACVP_STATUS.md`, `dilithium-rtl/SYNTHESIS_REPORT.md`, `rvv/README.md` ja `rvv-dilithium/README.md` täydelle rajaukselle mitä kukin osa todistaa ja ei todista.
+Ks. `LICENSE`.
 
 ---
 *Aether Continuity Institute · 2026*

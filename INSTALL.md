@@ -1,5 +1,11 @@
 # Aether One™ — Dual Pi Architecture
 
+> **Huom 2026-10-02.** Tämä on Pi-prototyypin asennus- ja rakennekuvaus. Mittaamattomat
+> latenssi- ja kuormaluvut on poistettu ja C-ydintä koskevat maininnat korjattu.
+> `install.sh` ei asenna `liboqs-python`-pakettia; ilman sitä Trust Server käynnistyy
+> ilman PQC-allekirjoitusta (KORJAUSLISTA A1). CI rakentaa liboqs:n erikseen, ks.
+> `.github/workflows/verify.yml`.
+
 Kahden Raspberry Pi:n järjestelmä joka yhdistää **trust-infrastruktuurin** ja **edge-sensorit** erillisiksi, optimoiduiksi yksiköiksi.
 
 ---
@@ -65,7 +71,7 @@ aether_one_dual_pi/
     │  └──────────┬─────────────────────┘  │
     │             ▼                         │
     │  ┌────────────────────────────────┐  │
-    │  │ TrustCore v1.0 C-kernel        │  │
+    │  │ KRI/LR-laskenta (Python)       │  │
     │  │ - tc_calculate_kri()           │  │
     │  │ - tc_calculate_dissonance()    │  │
     │  └──────────┬─────────────────────┘  │
@@ -109,8 +115,8 @@ aether_one_dual_pi/
 
 ✅ **Teho tarvitaan** → uusi rauta
 - Sensorien luku (ADC, I2C, IP-stream)
-- TrustCore v1.0 C-kernel (KRI, LR-D)
-- Mahdollinen ML-päättely (32 TOPS suunnitelma)
+- KRI- ja LR-laskenta Pythonilla (`core/kri_engine.py`, `core/lr_core.py`); C-ydintä ei ole repossa
+- ML-päättely: ei toteutettu (konsepti, `concept/trustcore-nx/`)
 
 ✅ **Reaaliaikainen** → Pi 5:n parannettu I/O
 - USB 3.0 → ulkoiset kamerat
@@ -194,9 +200,9 @@ http://<pi5_ip>:8080/ui/
 | Tiedosto | Kuvaus |
 |----------|--------|
 | `core/trustcore/server.py` | Attestation server (FastAPI) |
-| `core/trustcore/crypto.py` | PQC (Dilithium3) wrapper |
+| `core/trustcore/crypto.py` | PQC-kääre: ML-DSA-65 liboqs:n kautta (`oqs.Signature("ML-DSA-65")`) |
 | `core/trustcore/tpm_wrapper.py` | TPM 2.0 support (valinnainen) |
-| `requirements.txt` | FastAPI, cbor2, pycryptodome |
+| `requirements.txt` | FastAPI, cbor2, pycryptodome. **Ei sisällä `liboqs-python`-pakettia, jota `crypto.py` tarvitsee** (KORJAUSLISTA A1) |
 | `install.sh` | Asennus (venv + pip) |
 | `start.sh` | Käynnistys (portti 5000) |
 | `README.md` | Pi 2 -spesifiset ohjeet |
@@ -212,7 +218,7 @@ http://<pi5_ip>:8080/ui/
 | Komponentti | Kuvaus |
 |-------------|--------|
 | `core/aether_relay.py` | FastAPI relay (TrustCore client + sensors) |
-| `core/kri_engine.py` | TrustCore v1.0 KRI laskenta |
+| `core/kri_engine.py` | KRI-laskenta (Python) |
 | `core/lr_core.py` | LR (Lex Resiliens) päätöslogiikka |
 | `core/trustcore/client.py` | PQC attestation client |
 | `sensor_reader/mq9_reader.py` | MQ-9 kaasusensori (Explorer HAT / ADS1115) |
@@ -225,7 +231,7 @@ http://<pi5_ip>:8080/ui/
 **Sisältää:**
 - ✅ TrustCore attestation CLIENT
 - ✅ Fyysiset sensorit (mock-fallback)
-- ✅ C-kernel support (optional build)
+- C-ydin: ei repossa (`core/trustcore_native/` puuttuu, KORJAUSLISTA A3)
 - ✅ Dual UI (web + drift monitor)
 
 ---
@@ -240,11 +246,9 @@ http://<pi5_ip>:8080/ui/
 | **Verkko** | Ethernet suositus | WiFi tai Ethernet |
 | **Portti** | 5000 | 8080 |
 | **IP** | Staattinen suositus | DHCP ok |
-| **Latenssi** | <10ms (PQC verify) | <50ms (sensor → KRI) |
-| **Kuormitus** | ~5% CPU | ~20-40% CPU (sensorit + UI) |
 | **Sensorit** | ❌ Ei | ✅ MQ-9 + AetherCam + mock |
 | **Dashboard** | ❌ Ei | ✅ Web UI + Drift Monitor |
-| **C-kernel** | ❌ Ei tarvita | ✅ TrustCore v1.0 (optional) |
+| **C-kernel** | ❌ Ei tarvita | Ei repossa (KORJAUSLISTA A3) |
 | **TPM** | ⚠️ Valinnainen | ⚠️ Valinnainen |
 
 ---
@@ -267,13 +271,8 @@ tpm2_getcap properties-fixed
 
 ### B) C-kernel build (Pi 5)
 
-```bash
-cd ~/pi5_edge_node/core/trustcore_native
-bash build.sh
-# → tuottaa libtrustcore.so
-
-# Relay käyttää automaattisesti jos .so löytyy
-```
+Ei käytettävissä: `core/trustcore_native/` ja `build.sh` eivät ole repossa
+(KORJAUSLISTA A3). Laskenta tehdään Pythonilla.
 
 ### C) Systemd autostart
 
@@ -346,4 +345,4 @@ scp -r pi5_edge_node/ pi@192.168.1.51:~/
 ✅ 15 min setup — install.sh + start.sh
 ```
 
-**Aether One™ dual-Pi arkkitehtuuri on valmis käyttöön.** 🚀
+Tila ja rajaukset: `README.md`. Avoimet kohdat: `KORJAUSLISTA.md`.

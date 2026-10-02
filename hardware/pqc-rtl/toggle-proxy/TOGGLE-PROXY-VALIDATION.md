@@ -1,5 +1,10 @@
 # Toggle-count-proxy: mittarin validointi tunnetulla vuodolla
 
+**Voimassa oleva tila (lisatty 2026-10-02):** mittari on validoitu
+(ks. taman dokumentin lopun "Johtopaatos"). Alla oleva "Tila"-kappale
+on kirjattu ennen viimeista korjauskierrosta ja kuvaa valivaihetta.
+Decaps-mittaus korjatulla tyokalulla: `../M3_MLKEM_ACVP_STATUS.md`.
+
 **Tila (paivitetty 2026-07-22, jatko):** EI VIELA VALIDOITU. Alkuperainen
 tapahtumapohjainen mittari osoittautui metodologisesti puutteelliseksi
 (mittasi vaaraa suuretta leveille signaaleille). Korjattu, bittitasoinen

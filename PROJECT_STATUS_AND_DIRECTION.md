@@ -1,5 +1,25 @@
 # PROJECT_STATUS_AND_DIRECTION.md
 
+## Tilapäivitys 2026-10-02 (lisätty; alla olevia päivättyjä osioita ei ole muutettu)
+
+Alla oleva 2026-07-19 kirjattu tila on vanhentunut seuraavilta osin. Ajantasainen
+tila on `README.md`:ssä ja avoimet kohdat `KORJAUSLISTA.md`:ssä.
+
+| Alla sanotaan | Tila 2026-10-02 |
+|---|---|
+| ML-DSA-65: "EI VIELA synteesikelpoista RTL:aa" | `dilithium-rtl/` sisältää synteesikelpoisen RTL:n (KeyGen, `Sign_internal`, `Verify_internal`), yksi NIST ACVP -vektori per operaatio. Päätason synteesi ja P&R tekemättä. |
+| M4-TAU-001 "SEURAAVA TYOVAIHE" | Tehty 2026-07-19 (`hardware/pqc-rtl/M4_TAU_001_MILESTONE.md`); issue #16 suljettu. |
+| Encaps- ja Decaps-orkestrointi | Tehty; issuet #18 ja #19 suljettu. |
+| M5-DILITHIUM-001 "SEURAAVAKSI SEURAAVA" | Aloitettu ja toiminnallisesti todennettu; issue #17 auki jäljellä olevista kohdista (KORJAUSLISTA C). |
+| ML-KEM-taulukon "taydellisesti todistettu" | ECP5-synteesi ja P&R koskee NTT-ydintä. Koko ML-KEM-orkestrointiytimen synteesi ei valmistunut (KORJAUSLISTA B4). |
+| — | ML-KEM NIST ACVP: KeyGen 1, Encaps 3, Decaps 5 vektoria, 2026-07-21. |
+| — | Decaps: syklitason ajoitusmittaus ja toggle-mittaus, 2026-07-21..22. |
+
+Suunta (tutkimusprototyyppi, ei näyteikkuna) ja avoin turvatasokysymys (K=2 vs. ML-DSA-65)
+ovat ennallaan.
+
+---
+
 ## Tarkoitus ja yleisö (lisätty 2026-07-27, täsmentää — ei korvaa — 19.7. päätöstä)
 
 Tämä on **tutkimusprototyyppi**, ajettuna Raspberry Pi 2 + Pi 5 -asetelmalla,

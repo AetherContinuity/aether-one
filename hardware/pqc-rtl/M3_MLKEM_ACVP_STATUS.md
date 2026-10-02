@@ -2,6 +2,18 @@
 
 **Paivamaara:** 2026-07-21
 
+## Nykytila (lisatty 2026-10-02; alla olevat osiot ovat aikajarjestyksessa)
+
+| Operaatio | NIST ACVP -vektoreita | Tulos |
+|---|---|---|
+| KeyGen (keyGen-FIPS203) | 1 (tcId=1) | PASS |
+| Encaps (encapDecap-FIPS203, tgId=1) | 3 (tcId=1,2,3) | PASS |
+| Decaps (encapDecap-FIPS203, tgId=4) | 5 | PASS |
+
+Alempana kohdat 2 ja 4 ("Encaps/Decaps ei viela testattu") kuvaavat
+tilaa ennen naita ajoja eivatka ole enaa voimassa. Ajot eivat ole
+`verify.yml`:ssa (juuren `KORJAUSLISTA.md` A6). Vain K=2.
+
 ## Tausta
 
 Sama menetelma kuin ML-DSA-65:lle (`dilithium-rtl/NIST_ACVP_STATUS.md`):
