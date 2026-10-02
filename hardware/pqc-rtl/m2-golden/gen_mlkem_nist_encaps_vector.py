@@ -23,9 +23,12 @@ def pack_bytes(b):
         v |= byte << (i * 8)
     return v
 
-def main(tc_id=1):
-    with open('/home/claude/acvp-server/gen-val/json-files/'
-              'ML-KEM-encapDecap-FIPS203/internalProjection.json') as f:
+DEFAULT_JSON = ('/home/claude/acvp-server/gen-val/json-files/'
+                'ML-KEM-encapDecap-FIPS203/internalProjection.json')
+DEFAULT_OUT = "fpga/tau/encaps_top_nist_vector.txt"
+
+def main(tc_id=1, json_path=DEFAULT_JSON, out_path=DEFAULT_OUT):
+    with open(json_path) as f:
         d = json.load(f)
 
     for tg in d['testGroups']:
@@ -45,7 +48,7 @@ def main(tc_id=1):
     assert len(k_expect) == K_LEN, f"k pituus {len(k_expect)} != {K_LEN} - todennakoinen kenttasekaannus"
     assert len(m) == M_LEN, f"m pituus {len(m)} != {M_LEN} - todennakoinen kenttasekaannus"
 
-    with open("fpga/tau/encaps_top_nist_vector.txt", "w") as f:
+    with open(out_path, "w") as f:
         f.write(f"{pack_bytes(ek):0{EK_LEN*2}x}\n")
         f.write(f"{pack_bytes(m):0{M_LEN*2}x}\n")
         f.write(f"{pack_bytes(k_expect):0{K_LEN*2}x}\n")
@@ -53,4 +56,7 @@ def main(tc_id=1):
     print(f"Kirjoitettu (tgId=1, tcId={tc_id}) - pituustarkistus lapaisi")
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]) if len(sys.argv) > 1 else 1)
+    # kaytto: gen_mlkem_nist_encaps_vector.py [tcId] [json-polku] [ulostulo]
+    main(int(sys.argv[1]) if len(sys.argv) > 1 else 1,
+         sys.argv[2] if len(sys.argv) > 2 else DEFAULT_JSON,
+         sys.argv[3] if len(sys.argv) > 3 else DEFAULT_OUT)

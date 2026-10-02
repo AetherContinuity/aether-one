@@ -153,6 +153,7 @@ module pqc_mlkem_keygen_tb;
   logic [8*800-1:0] ek_expect;
   logic [8*1632-1:0] dk_expect;
 
+  string vec_path;
   int fh, scan_ok, error_count;
 
   initial begin
@@ -165,7 +166,11 @@ module pqc_mlkem_keygen_tb;
     $readmemh("m2-golden/bank_rom_4banks.memh", bank_rom_tb);
     $readmemh("m2-golden/bank_local_4banks.memh", local_rom_tb);
 
-    fh = $fopen("vectors/mlkem_keygen_nist_vector.txt", "r");
+    // +VEC=<polku> vaihtaa vektoritiedoston (ACVP-CI: useita vektoreita ja
+    // negatiivikontrolli samalla testipenkilla). Oletus = alkuperainen polku.
+    if (!$value$plusargs("VEC=%s", vec_path)) vec_path = "vectors/mlkem_keygen_nist_vector.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", d_seed);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     scan_ok = $fscanf(fh, "%h\n", ek_expect);

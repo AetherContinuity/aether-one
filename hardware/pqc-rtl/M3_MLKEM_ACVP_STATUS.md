@@ -11,8 +11,16 @@
 | Decaps (encapDecap-FIPS203, tgId=4) | 5 | PASS |
 
 Alempana kohdat 2 ja 4 ("Encaps/Decaps ei viela testattu") kuvaavat
-tilaa ennen naita ajoja eivatka ole enaa voimassa. Ajot eivat ole
-`verify.yml`:ssa (juuren `KORJAUSLISTA.md` A6). Vain K=2.
+tilaa ennen naita ajoja eivatka ole enaa voimassa. Vain K=2.
+
+CI (`run_acvp_mlkem.sh`, lisatty 2026-10-02) ajaa samat testipenkit
+jokaisella pushilla. Encaps-vektorit tcId=1,2,3 on haettu uudelleen
+`usnistgov/ACVP-Server`:n commitista 975de31 (ks.
+`fpga/tau/acvp/README.md`); NIST:n esimerkkitiedosto on generoitu
+uudelleen heinakuun jalkeen, joten nama ovat eri kolme tapausta kuin
+alla 2026-07-21 kirjatut tcId=1,2,3. Tulos: PASS, 3/3. Negatiivikontrolli:
+yhden heksamerkin muutos vektorissa -> testipenkki FAIL, kaikilla kolmella
+operaatiolla.
 
 ## Tausta
 

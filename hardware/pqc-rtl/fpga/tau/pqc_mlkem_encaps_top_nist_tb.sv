@@ -23,6 +23,7 @@ module pqc_mlkem_encaps_top_tb;
     .done(done), .K_out(K_out), .c_out(c_out)
   );
 
+  string vec_path;
   int fh, scan_ok;
   logic [8*800-1:0] ek;
   logic [255:0] m_msg, K_expect;
@@ -31,7 +32,11 @@ module pqc_mlkem_encaps_top_tb;
   initial begin
     clk = 0; reset = 1; start = 0;
 
-    fh = $fopen("fpga/tau/encaps_top_nist_vector.txt", "r");
+    // +VEC=<polku> vaihtaa vektoritiedoston (ACVP-CI: useita vektoreita ja
+    // negatiivikontrolli samalla testipenkilla). Oletus = alkuperainen polku.
+    if (!$value$plusargs("VEC=%s", vec_path)) vec_path = "fpga/tau/encaps_top_nist_vector.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", ek);
     scan_ok = $fscanf(fh, "%h\n", m_msg);
     scan_ok = $fscanf(fh, "%h\n", K_expect);

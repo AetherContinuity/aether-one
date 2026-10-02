@@ -10,7 +10,7 @@ että osa olisi valmis käyttöön.
 - [x] Pi 2 Trust Server: attestaatio, ML-DSA-65 (liboqs)
 - [x] Pi 5 Edge Node: KRI/LR, web-käyttöliittymä, drift-näkymät, sensoriajurit
 - [x] TPM-attestaatio ohjelmisto-TPM:llä (swtpm) CI:ssä
-- [ ] `liboqs-python` asennusskripteihin (KORJAUSLISTA A1)
+- [x] liboqs-asennus `install.sh`:ssa (x86-testattu; Pi-ajo tekemättä)
 - [ ] C-ydin (`libtrustcore.so`) — ei repossa
 - [ ] Mittaukset fyysisillä laitteilla (latenssi, kuorma)
 
@@ -27,7 +27,7 @@ ML-KEM-512:
 - [x] NIST ACVP: KeyGen 1, Encaps 3, Decaps 5 vektoria, 2026-07-21
 - [x] Decaps: syklitason ajoitusmittaus ja toggle-mittaus, 2026-07-22
 - [ ] Koko ML-KEM-ytimen synteesi ja P&R (Keccak-instanssien jakaminen)
-- [ ] ACVP-testit CI:hin
+- [x] ACVP-testit CI:ssä (ML-KEM kaikki kolme, ML-DSA KeyGen ja Verify), 2026-10-02
 - [ ] TRNG
 - [ ] ML-KEM-768/1024
 - [ ] Ajo fyysisellä FPGA-laudalla

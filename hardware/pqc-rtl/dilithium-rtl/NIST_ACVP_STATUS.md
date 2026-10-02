@@ -113,10 +113,9 @@ testit kattavat jo triviaalin polun, mutta NIST-data ei viela.
    (`../M3_MLKEM_ACVP_STATUS.md`). Kohta ei ole enaa avoin.
    (Paivitetty 2026-10-02.)
 
-4. NIST ACVP -ajot eivat ole `verify.yml`:ssa. Sign-ACVP on kasin
-   kaynnistettavassa `dilithium-heavy-integration.yml`:ssa; KeyGen- ja
-   Verify-ACVP ovat kerta-ajoja. (Lisatty 2026-10-02, ks. juuren
-   `KORJAUSLISTA.md` A6.)
+4. CI: KeyGen- ja Verify-ACVP ajetaan `verify.yml`:ssa
+   (`run_acvp_dilithium.sh`, lisatty 2026-10-02). Sign-ACVP on kasin
+   kaynnistettavassa `dilithium-heavy-integration.yml`:ssa.
 
 ## Merkitys
 

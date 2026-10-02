@@ -23,19 +23,21 @@ päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luott
 
 "CI" tarkoittaa, että testi ajetaan jokaisella pushilla (`.github/workflows/verify.yml`).
 "Kerta-ajo" tarkoittaa, että tulos on kirjattu statusdokumenttiin, mutta testi ei ole CI:ssä.
+"Käsin käynnistettävä" tarkoittaa workflow'ta, joka ei aja itsestään.
 
 ### Pi-prototyyppi (`pi2_trust_server/`, `pi5_edge_node/`)
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, TPM+PQC-päästä-päähän-testi ohjelmisto-TPM:llä (swtpm) |
+| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, TPM+PQC-päästä-päähän-testi ohjelmisto-TPM:llä (swtpm), asennusskriptin testi |
 | Edge Node: KRI/LR-laskenta, web-käyttöliittymä, drift-näkymät | Toteutettu (Python) | Ei automaattista testiä |
 | Sensorit: MQ-9 (ADC), AetherCam, mock-varavaihtoehto | Ajurit olemassa | Ei automaattista testiä |
 | C-ydin (`libtrustcore.so`) | Ei repossa | — |
 | Ajo fyysisillä Pi-laitteilla | Ei mittauksia repossa | — |
 
-Asennusohjeiden tunnettu puute: `requirements.txt` ei asenna `liboqs-python`-pakettia
-(KORJAUSLISTA A1). Latenssi- ja kuormalukuja ei ole mitattu.
+`install.sh` rakentaa liboqs:n ja keskeyttää asennuksen, jos ML-DSA-65-itsetesti ei mene läpi
+(`install_liboqs.sh`; testattu x86-Linuxilla ja CI:ssä, ei Raspberry Pi:llä). Latenssi- ja
+kuormalukuja ei ole mitattu.
 
 ### ML-KEM-512 RTL (`hardware/pqc-rtl/rtl/`, `fpga/`)
 
@@ -44,7 +46,7 @@ Asennusohjeiden tunnettu puute: `requirements.txt` ei asenna `liboqs-python`-pak
 | FIPS 203:n algoritmit 3–21: primitiivit, K-PKE, ML-KEM `_internal` (KeyGen, Encaps, Decaps) | Synteesikelpoinen SystemVerilog, K=2 | CI: Icarus-simulaatiot, K-PKE-kierros, Decaps TB A/B, KeyGen 10 kertaa samassa simulaatiossa; `FIPS203_COVERAGE.md` |
 | Keccak-p[1600,24], SHA3-256/512, SHAKE128/256 | Synteesikelpoinen | Testipenkit NIST-ankkuroitua golden-mallia vasten |
 | Golden-malli (Python) | — | CI: 1000 satunnaista (d, z, m) -syötettä, jäädytettyjen vektorien tarkistus |
-| NIST ACVP: KeyGen 1 vektori, Encaps 3, Decaps 5 (sis. hylkäystapaukset) | PASS | Kerta-ajo, `M3_MLKEM_ACVP_STATUS.md` |
+| NIST ACVP: KeyGen 1 vektori, Encaps 3, Decaps 5 (sis. hylkäystapaukset) | PASS | CI: `run_acvp_mlkem.sh`, mukana kolme negatiivikontrollia; `M3_MLKEM_ACVP_STATUS.md` |
 | 4-pankkinen konfliktiton NTT-muisti | SAT-todistettu | `BANK_MAPPING_PROOF.md` |
 | NTT-ydin ECP5:llä: synteesi ja P&R, DP16KD = 4, Fmax 30,40 MHz (ECP5-25k) | Tehty | `fpga/timing_reports/` |
 | Koko ML-KEM-ytimen (orkestrointi) synteesi ja P&R | Ei valmistunut (resurssiraja) | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` |
@@ -64,9 +66,9 @@ Asennusohjeiden tunnettu puute: `requirements.txt` ei asenna `liboqs-python`-pak
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| KeyGen, `Sign_internal`, `Verify_internal` | Synteesikelpoinen SystemVerilog | CI: Verify (positiivinen, negatiiviset, monisiemen), Sign-primitiivit ja -vaiheet `dilithium-py`-referenssiä vasten. KeyGen ei ole CI:ssä |
+| KeyGen, `Sign_internal`, `Verify_internal` | Synteesikelpoinen SystemVerilog | CI: Verify (positiivinen, negatiiviset, monisiemen), Sign-primitiivit ja -vaiheet `dilithium-py`-referenssiä vasten; KeyGen ACVP-vektorilla |
 | Koko Sign (hylkäyssilmukka ja pakkaus) | — | Vain käsin käynnistettävä `dilithium-heavy-integration.yml` |
-| NIST ACVP: KeyGen, Verify, Sign, yksi vektori kukin | PASS | Kerta-ajo (Sign: käsin käynnistettävä workflow), `dilithium-rtl/NIST_ACVP_STATUS.md` |
+| NIST ACVP: KeyGen, Verify, Sign, yksi vektori kukin | PASS | CI: KeyGen ja Verify (`run_acvp_dilithium.sh`). Sign: käsin käynnistettävä workflow. `dilithium-rtl/NIST_ACVP_STATUS.md` |
 | Rakennuspalikoiden synteesi (Barrett, NTT-ytimet, decompose, make_hint, pack) | Tehty yksitellen | `dilithium-rtl/SYNTHESIS_REPORT.md` |
 | Päätason synteesi, ECP5 P&R, Fmax | Ei tehty | — |
 | Viestin enimmäispituus | 136 tavua (yksi SHAKE256-lohko) | `dilithium-rtl/NIST_ACVP_STATUS.md` |
@@ -115,7 +117,13 @@ bash hardware/pqc-rtl/run_m3_kpke_roundtrip_test.sh
 bash hardware/pqc-rtl/run_m4_tau_full_protocol_test.sh
 ```
 
-Pi-prototyyppi: ks. `INSTALL.md`. Huomaa KORJAUSLISTA A1 ennen asennusta.
+Pi-prototyyppi: ks. `INSTALL.md`. Asennus vaatii `git`, `cmake`, `ninja-build`, `build-essential` ja `libssl-dev`.
+
+ACVP-regressio:
+
+```bash
+bash hardware/pqc-rtl/run_acvp_mlkem.sh
+```
 
 ## Raportointi
 

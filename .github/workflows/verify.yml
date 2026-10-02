@@ -227,6 +227,60 @@ jobs:
       - name: Tarkista elavat referenssidokumentit kielletyista ilmauksista (ks. REPORTING-DISCIPLINE.md)
         run: bash hardware/pqc-rtl/check_reporting_discipline.sh
 
+  # NIST ACVP -vektorit jatkuvana regressiona (lisatty 2026-10-02).
+  # Aiemmin nama olivat kerta-ajoja: tulos kirjattiin statusdokumenttiin,
+  # mutta RTL-muutos ei olisi paljastanut rikkoutumista.
+  test-pqc-rtl-acvp-mlkem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: ML-KEM-512 vs. NIST ACVP (KeyGen 1, Encaps 3, Decaps 5) + negatiivikontrollit
+        run: bash hardware/pqc-rtl/run_acvp_mlkem.sh
+
+  test-pqc-rtl-acvp-dilithium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: ML-DSA-65 vs. NIST ACVP (KeyGen tcId=26, Verify tcId=140)
+        run: bash hardware/pqc-rtl/run_acvp_dilithium.sh
+
+  # Asennusskripti: install.sh:n taytyy tuottaa ymparisto, jossa ML-DSA-65
+  # toimii. Muut Pi-testit rakentavat liboqs:n kasin eivatka siksi
+  # paljastaneet, etta requirements.txt:sta puuttui PQC-riippuvuus.
+  test-pi-installer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build deps
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake ninja-build build-essential libssl-dev
+      - name: Run pi2_trust_server/install.sh (rakentaa liboqs:n, ajaa itsetestin)
+        run: |
+          cd pi2_trust_server
+          bash install.sh
+      - name: Asennettu venv allekirjoittaa ja verifioi ML-DSA-65:lla
+        run: |
+          cd pi2_trust_server
+          .venv/bin/python -c "
+          import oqs
+          with oqs.Signature('ML-DSA-65') as s:
+              pk = s.generate_keypair(); sig = s.sign(b'ci')
+          with oqs.Signature('ML-DSA-65') as v:
+              assert v.verify(b'ci', sig, pk)
+          print('ML-DSA-65 ok')"
+      - name: pi2- ja pi5-asennusskriptit ovat samat
+        run: cmp pi2_trust_server/install_liboqs.sh pi5_edge_node/install_liboqs.sh
+
   test-pqc-rtl-dilithium-sign-unit:
     runs-on: ubuntu-latest
     steps:
