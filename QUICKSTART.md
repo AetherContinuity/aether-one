@@ -1,5 +1,9 @@
 # Aether One™ Dual-Pi — QUICK START
 
+> **Huom 2026-10-02.** Ohje viittaa zip-paketteihin, joita ei ole tässä repossa;
+> kansiot `pi2_trust_server/` ja `pi5_edge_node/` ovat repon juuressa. `install.sh` ei asenna
+> `liboqs-python`-pakettia (KORJAUSLISTA A1, A5).
+
 **Lataa tämä paketti ja käynnistä molemmat Pi:t 15 minuutissa.**
 
 ---
@@ -182,4 +186,4 @@ pip install explorerhat
 
 ---
 
-**Onnea! 15 minuutissa sinulla on toimiva dual-Pi trust + sensor -järjestelmä.** 🚀
+Tila ja rajaukset: `README.md`.

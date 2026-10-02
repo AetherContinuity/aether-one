@@ -17,8 +17,8 @@
 ## Polku silikoniin
 
 1. ✅ Ohjelmistoprototyyppi (Pi stack)
-2. 🔲 FPGA-prototyyppi (Xilinx Versal / Intel Agilex)
-3. 🔲 RTL (SystemVerilog, RVV 1.0 + PQC cores)
+2. 🔲 FPGA-prototyyppi (Xilinx Versal / Intel Agilex) — ei aloitettu; tähänastinen FPGA-työ on NTT-ytimen synteesi ja P&R Lattice ECP5:lle
+3. Osittain: PQC-ytimien RTL (ML-KEM-512, ML-DSA-65) `hardware/pqc-rtl/`:ssä; RISC-V-ytimiä ja SoC-integraatiota ei ole
 4. 🔲 Gate-level (Synopsys / Cadence)
 5. 🔲 Engineering sample 7nm
 

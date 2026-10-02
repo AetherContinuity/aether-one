@@ -107,15 +107,16 @@ testit kattavat jo triviaalin polun, mutta NIST-data ei viela.
    MOLEMMAT aukot YHDELLA muutoksella - suositellaan omana,
    erillisena committina JA regressioajolla ENNEN lisa-ACVP-tyota.
 
-3. **ML-KEM (FIPS 203) ei viela testattu NIST:n omia ACVP-vektoreita
-   vastaan** - `ML-KEM-keyGen-FIPS203` ja `ML-KEM-encapDecap-FIPS203`
-   ovat saatavilla samasta lahteesta. TAMA ON NYT AINOA jaljella oleva
-   ML-KEM/ML-DSA-epasymmetria taman dokumentin omassa metodologiassa:
-   ML-DSA-65:n KAIKKI KOLME paaoperaatiota (KeyGen, Verify, Sign) ovat
-   nyt suoraan NIST-ACVP-todennettuja, mutta ML-KEM ei viela ollenkaan -
-   oman metodologian (dilithium-py-vertailu != NIST-ACVP-vertailu,
-   ks. taman dokumentin oma "Tausta"-osio) mukaan tama on
-   epajohdonmukaisuus joka ansaitsisi korjauksen.
+3. ML-KEM (FIPS 203): tama kohta kirjattiin 2026-07-19, jolloin ML-KEM:aa
+   ei ollut testattu NIST ACVP -vektoreita vastaan. Tilanne muuttui
+   2026-07-21: KeyGen 1 vektori, Encaps 3, Decaps 5, kaikki PASS
+   (`../M3_MLKEM_ACVP_STATUS.md`). Kohta ei ole enaa avoin.
+   (Paivitetty 2026-10-02.)
+
+4. NIST ACVP -ajot eivat ole `verify.yml`:ssa. Sign-ACVP on kasin
+   kaynnistettavassa `dilithium-heavy-integration.yml`:ssa; KeyGen- ja
+   Verify-ACVP ovat kerta-ajoja. (Lisatty 2026-10-02, ks. juuren
+   `KORJAUSLISTA.md` A6.)
 
 ## Merkitys
 
