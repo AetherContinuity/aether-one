@@ -22,8 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MALLI = "kimi-k3.1-pro"
-EFFORT = "max"
-KATTO = 32000          # tulostekatto: enintään 0,32 $ / kutsu (10 $ / Mtok)
+# Tulostekatto sisältää päättelytokenit (reasoning_tokens). 32k max-effortilla
+# riitti aether-onessa 61k tokenin pyynnöllä vain ~300 tokenin vastaukseen
+# (finish_reason=length). Ylikirjoitettavissa: KATSELMOINTI_KATTO, KATSELMOINTI_EFFORT.
+KATTO = int(os.environ.get("KATSELMOINTI_KATTO") or 32000)   # 10 $ / Mtok
+EFFORT = os.environ.get("KATSELMOINTI_EFFORT") or "max"
 SYSTEM = ("Olet huolellinen ja kriittinen menetelmä- ja koodikatselmoija. "
           "Vastaa suomeksi. Viittaa rivinumeroihin. Älä arvaa: jos jokin ei "
           "käy ilmi aineistosta, sano se.")
@@ -37,20 +40,39 @@ def main() -> int:
     key = os.environ.get("MOONSHOT_API_KEY", "").strip()
     if not key:
         raise SystemExit("MOONSHOT_API_KEY puuttuu")
+    # Striimaus: ilman sita yhteys katkesi vastauksetta ~17,5 min kohdalla
+    # (aether-one ajo 43760816142, ~55k tokenin pyynto, max-effort).
+    # Striimissa paattelyn delta-paloja tulee koko ajan, joten yhteys ei ole joutilas.
     body = {"model": MALLI, "reasoning_effort": EFFORT, "max_completion_tokens": KATTO,
+            "stream": True, "stream_options": {"include_usage": True},
             "messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": pyynto}]}
     req = urllib.request.Request(
         "https://api.moonshot.ai/v1/chat/completions", data=json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
                  "User-Agent": "aether-one/0.1 katselmointi"}, method="POST")
+    sisalto, finish, u, response_model = [], None, {}, None
     try:
-        with urllib.request.urlopen(req, timeout=1800) as r:
-            j = json.loads(r.read().decode())
+        # timeout koskee yksittaista lukua, ei koko vastausta
+        with urllib.request.urlopen(req, timeout=600) as r:
+            for raw in r:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                c = json.loads(data)
+                response_model = c.get("model") or response_model
+                u = c.get("usage") or u
+                for chc in c.get("choices") or []:
+                    sisalto.append((chc.get("delta") or {}).get("content") or "")
+                    finish = chc.get("finish_reason") or finish
+                    u = chc.get("usage") or u   # Moonshot: usage voi tulla choicen sisalla
     except urllib.error.HTTPError as e:
         raise SystemExit(f"HTTP {e.code}: {e.read().decode(errors='replace')[:500]}")
-    ch = j["choices"][0]
-    u = j.get("usage") or {}
+    ch = {"finish_reason": finish, "message": {"content": "".join(sisalto)}}
+    j = {"model": response_model}
     hinta = u.get("prompt_tokens", 0) * 2 / 1e6 + u.get("completion_tokens", 0) * 10 / 1e6
     nyt = datetime.now(timezone.utc)
     nimi = p.stem.replace("-pyynto", "")
