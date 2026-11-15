@@ -10,8 +10,8 @@
 // generoidulla datalla) - EI mitaan aiemmin kaytettya, jaadytettya
 // testivektoria.
 //
-// K-parametri (2026-11-15): oletus K=2; K=3 (ML-KEM-768) ajetaan
-// kaantamalla -P pqc_tau_full_protocol_tb.K=3.
+// K-parametri: oletus K=3 (ML-KEM-768, 2026-11-16); K=2 ajetaan
+// kaantamalla -P pqc_tau_full_protocol_tb.K=2.
 
 `timescale 1ns/1ps
 
@@ -19,7 +19,7 @@ module pqc_tau_full_protocol_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
-  parameter int K = 2;
+  parameter int K = 3;
   localparam int EK_BYTES = 384*K + 32;
   localparam int DK_BYTES = 768*K + 96;
   localparam int C_BYTES  = 32*(10*K + 4);

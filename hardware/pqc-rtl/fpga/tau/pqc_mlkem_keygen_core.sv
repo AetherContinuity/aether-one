@@ -38,7 +38,7 @@
 module pqc_mlkem_keygen_core #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
-    parameter int K = 2,
+    parameter int K = 3,
     parameter int ETA1 = (K == 2) ? 3 : 2,
     parameter int DKPKE_BYTES = 384*K,
     parameter int EK_BYTES = 384*K + 32,

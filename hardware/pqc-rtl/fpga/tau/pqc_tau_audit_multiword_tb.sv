@@ -19,6 +19,12 @@ module pqc_tau_audit_multiword_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  // ML-KEM-parametrisarja (2026-11-16): oletus K=3 (ML-KEM-768),
+  // K=2 ajetaan -P <moduuli>.K=2. Vektorit valitaan K:n mukaan.
+  parameter int K = 3;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -27,7 +33,7 @@ module pqc_tau_audit_multiword_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)

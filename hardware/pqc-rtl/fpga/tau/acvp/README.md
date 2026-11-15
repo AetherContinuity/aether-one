@@ -43,3 +43,11 @@ toistaa generoinnin kiinnitetysta lahteesta ja vertaa tiedostoihin.
 - encaps: `tcId`, ek, m, K, c
 - decaps: `tcId hylkays`, dk, c, K (hylkays = 1, jos NIST:n reason on
   "modified ciphertext")
+
+## TAU-testipenkkien K=3-vektorit (lisatty 2026-11-16)
+
+`m2-golden/gen_tau_k3_vectors.py` poimii yhden tapauksen kustakin
+`*_768.txt`-tiedostosta vanhojen K=2-tiedostojen muotoon:
+`vectors/mlkem_keygen_vectors_768.txt` (keyGen tcId=26),
+`fpga/tau/encaps_top_e2e_vectors_768.txt` (encaps tcId=26),
+`fpga/tau/decaps_top_e2e_vectors_768.txt` (decaps tcId=86, valid).

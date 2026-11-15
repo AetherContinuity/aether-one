@@ -61,7 +61,7 @@ module mlkem_acvp_tb;
   end
 
   string vec_path, opname;
-  int fh, n, tc, rej, fails, cyc;
+  int fh, n, tc, rej, fails, cyc, nread, nexp;
   logic [8*EK_BYTES-1:0] x_ek;
   logic [8*DK_BYTES-1:0] x_dk;
   logic [8*C_BYTES-1:0]  x_c;
@@ -83,20 +83,30 @@ module mlkem_acvp_tb;
 
     for (int i = 0; i < n; i++) begin
       rej = 0;
-      if (OP == 2) void'($fscanf(fh, "%d %d\n", tc, rej));
-      else         void'($fscanf(fh, "%d\n", tc));
+      // Jokaisen $fscanf-kutsun taytyy lukea tasan yksi kentta. Muuten
+      // vajaa tiedosto jattaisi edellisen tapauksen arvot voimaan ja
+      // sama tulos "tasmaisi" uudelleen (havaittu 2026-11-16).
+      nread = 0; nexp = 0;
+      if (OP == 2) begin nread += $fscanf(fh, "%d %d\n", tc, rej); nexp += 2; end
+      else         begin nread += $fscanf(fh, "%d\n", tc);          nexp += 1; end
       if (OP == 0) begin
-        void'($fscanf(fh, "%h\n", x_d)); void'($fscanf(fh, "%h\n", x_z));
-        void'($fscanf(fh, "%h\n", x_ek)); void'($fscanf(fh, "%h\n", x_dk));
+        nread += $fscanf(fh, "%h\n", x_d);  nread += $fscanf(fh, "%h\n", x_z);
+        nread += $fscanf(fh, "%h\n", x_ek); nread += $fscanf(fh, "%h\n", x_dk);
+        nexp += 4;
         kg_d = x_d; kg_z = x_z;
       end else if (OP == 1) begin
-        void'($fscanf(fh, "%h\n", x_ek)); void'($fscanf(fh, "%h\n", x_m));
-        void'($fscanf(fh, "%h\n", x_K)); void'($fscanf(fh, "%h\n", x_c));
+        nread += $fscanf(fh, "%h\n", x_ek); nread += $fscanf(fh, "%h\n", x_m);
+        nread += $fscanf(fh, "%h\n", x_K);  nread += $fscanf(fh, "%h\n", x_c);
+        nexp += 4;
         en_ek = x_ek; en_m = x_m;
       end else begin
-        void'($fscanf(fh, "%h\n", x_dk)); void'($fscanf(fh, "%h\n", x_c));
-        void'($fscanf(fh, "%h\n", x_K));
+        nread += $fscanf(fh, "%h\n", x_dk); nread += $fscanf(fh, "%h\n", x_c);
+        nread += $fscanf(fh, "%h\n", x_K);
+        nexp += 3;
         de_dk = x_dk; de_c = x_c;
+      end
+      if (nread != nexp) begin
+        $display("FAIL: tapaus %0d: luettiin %0d/%0d kenttaa", i, nread, nexp); $fatal(1);
       end
 
       reset = 1;

@@ -3,6 +3,19 @@
 Merkinnät uusin ensin. Jokainen kohta viittaa lähdedokumenttiin; tila- ja
 rajaustiedot ovat niissä ja juuren `KORJAUSLISTA.md`:ssä.
 
+## 2026-11-16: oletus K=3
+
+- `pqc_tau_integrated_wrapper` ja ML-KEM-ytimet: `parameter int K = 3`.
+- TAU-testipenkit (`pqc_tau_*_tb.sv`) K-parametrisia; `run_m4_tau_*.sh` ajaa
+  jokaisen K=3:lla (oletus) ja K=2:lla. K=3-vektorit poimitaan NIST ACVP
+  -tiedostoista (`m2-golden/gen_tau_k3_vectors.py`).
+- Testipenkkikorjaus: Icarus täydentää `?:`-lausekkeen lyhyemmän
+  merkkijonon NUL-tavuilla, jolloin `$fopen` epäonnistuu ja odotusarvot
+  jäävät X:iksi; X === X läpäisi ek-vertailun. Tiedostonimi nyt if/else,
+  `fh == 0` ja X-arvot ovat virheitä. `mlkem_acvp_tb.sv`: `$fscanf`-paluuarvot
+  tarkistetaan (vajaa tiedosto toisti edellisen tapauksen ja läpäisi).
+- Lähde: juuren `KORJAUSLISTA.md` (B1, D1, A12).
+
 ## 2026-11-15: ML-KEM-768 (K=3)
 
 - Orkestrointiytimet (`pqc_mlkem_keygen_core`, `pqc_mlkem_decaps_a_core`,

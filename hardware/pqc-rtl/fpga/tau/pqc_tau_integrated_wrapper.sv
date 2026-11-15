@@ -30,8 +30,8 @@ module pqc_tau_integrated_wrapper #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter int LOG_DEPTH = 64,
-    // ML-KEM-parametrisarja: K=2 (512) tai K=3 (768). Muut johdettuja.
-    parameter int K = 2,
+    // ML-KEM-parametrisarja: oletus K=3 (768, 2026-11-16), K=2 (512) tuettu. Muut johdettuja.
+    parameter int K = 3,
     parameter int EK_BYTES = 384*K + 32,
     parameter int DK_BYTES = 768*K + 96,
     parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))

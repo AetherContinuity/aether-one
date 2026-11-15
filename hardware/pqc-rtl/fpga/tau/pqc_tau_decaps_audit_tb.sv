@@ -8,6 +8,12 @@ module pqc_tau_decaps_audit_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  // ML-KEM-parametrisarja (2026-11-16): oletus K=3 (ML-KEM-768),
+  // K=2 ajetaan -P <moduuli>.K=2. Vektorit valitaan K:n mukaan.
+  parameter int K = 3;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -16,7 +22,7 @@ module pqc_tau_decaps_audit_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)
@@ -44,8 +50,8 @@ module pqc_tau_decaps_audit_tb;
   endtask
 
   int fh, scan_ok, error_count;
-  logic [8*1632-1:0] dk;
-  logic [8*768-1:0] c;
+  logic [8*DK_BYTES-1:0] dk;
+  logic [8*C_BYTES-1:0] c;
   logic [255:0] K_expect;
 
   localparam logic [255:0] DECAPS_STARTED_HASH =
@@ -53,25 +59,36 @@ module pqc_tau_decaps_audit_tb;
   localparam logic [255:0] DECAPS_COMPLETED_HASH =
     256'hc8e62f26f38dfe54ea7377f2d1f9e095416dab0e7283e492f31549c78b3563c8;
 
+  string vec_path;
+
   initial begin
     error_count = 0;
     clk = 0; rst = 1; wb_adr = 0; wb_dat_i = 0; wb_we = 0; wb_stb = 0; wb_cyc = 0;
 
-    fh = $fopen("fpga/tau/decaps_top_e2e_vectors.txt", "r");
+    // Tiedostonimi if/else-rakenteella: ?:-lausekkeessa Icarus taydentaa
+    // lyhyemman merkkijonon NUL-tavuilla, jolloin $fopen epaonnistuu
+    // ja kaikki odotusarvot jaavat X:iksi (X === X lapaisisi vertailun).
+    if (K == 2) vec_path = "fpga/tau/decaps_top_e2e_vectors.txt";
+    else        vec_path = "fpga/tau/decaps_top_e2e_vectors_768.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", dk);
     scan_ok = $fscanf(fh, "%h\n", c);
     scan_ok = $fscanf(fh, "%h\n", K_expect);
     $fclose(fh);
+    if ($isunknown({dk, c, K_expect})) begin
+      $display("FAIL: vektoritiedosto %0s luettiin vajaana (X-arvoja)", vec_path); $fatal(1);
+    end
 
     repeat (3) @(posedge clk);
     rst = 0;
     @(posedge clk);
 
-    for (int w = 0; w < 384; w++) begin
+    for (int w = 0; w < C_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);
       wb_write(11'h131, c[w*16+:16]);
     end
-    for (int w = 0; w < 816; w++) begin
+    for (int w = 0; w < DK_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);
       wb_write(11'h132, dk[w*16+:16]);
     end
@@ -81,7 +98,7 @@ module pqc_tau_decaps_audit_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 40000) begin
+      while (!status[1] && wait_cycles < 80000) begin
         wb_read(11'h134, status);
         wait_cycles++;
       end

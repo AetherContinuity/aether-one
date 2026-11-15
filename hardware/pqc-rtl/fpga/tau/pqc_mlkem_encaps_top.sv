@@ -22,7 +22,7 @@
 
 module pqc_mlkem_encaps_top #(
     parameter int COEFF_W = 16,
-    parameter int K = 2,
+    parameter int K = 3,
     parameter int EK_BYTES = 384*K + 32,                    // johdettu
     parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4)),  // johdettu
     parameter int H_BLOCKS = EK_BYTES/136 + 1                // johdettu

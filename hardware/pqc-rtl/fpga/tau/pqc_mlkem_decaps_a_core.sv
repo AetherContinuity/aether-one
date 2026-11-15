@@ -28,7 +28,7 @@
 module pqc_mlkem_decaps_a_core #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
-    parameter int K = 2,
+    parameter int K = 3,
     parameter int DU = (K == 4) ? 11 : 10,
     parameter int DV = (K == 4) ? 5 : 4,
     parameter int C_BYTES = 32*(DU*K + DV),
