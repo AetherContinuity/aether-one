@@ -97,7 +97,8 @@ jobs:
           python3 test_client_e2e.py
 
   test-rvv-montgomery:
-    runs-on: ubuntu-latest
+    # ubuntu-26.04:ssa qemu-user-static on virtuaalipaketti (2026-11-15).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
@@ -108,7 +109,8 @@ jobs:
           bash run_rvv_test.sh
 
   test-tvm-riscv:
-    runs-on: ubuntu-latest
+    # ubuntu-26.04:ssa qemu-user-static on virtuaalipaketti (2026-11-15).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -125,7 +127,8 @@ jobs:
           bash run_tvm_test.sh
 
   test-oqs-rvv-provider-skeleton:
-    runs-on: ubuntu-latest
+    # ubuntu-26.04:ssa qemu-user-static on virtuaalipaketti (2026-11-15).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
@@ -136,7 +139,8 @@ jobs:
           bash run_provider_test.sh
 
   test-rvv-dilithium-ntt:
-    runs-on: ubuntu-latest
+    # ubuntu-26.04:ssa qemu-user-static on virtuaalipaketti (2026-11-15).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
