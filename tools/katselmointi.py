@@ -22,8 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MALLI = "kimi-k3.1-pro"
-EFFORT = "max"
-KATTO = 32000          # tulostekatto: enintään 0,32 $ / kutsu (10 $ / Mtok)
+# Tulostekatto sisältää päättelytokenit (reasoning_tokens). 32k max-effortilla
+# riitti aether-onessa 61k tokenin pyynnöllä vain ~300 tokenin vastaukseen
+# (finish_reason=length). Ylikirjoitettavissa: KATSELMOINTI_KATTO, KATSELMOINTI_EFFORT.
+KATTO = int(os.environ.get("KATSELMOINTI_KATTO") or 32000)   # 10 $ / Mtok
+EFFORT = os.environ.get("KATSELMOINTI_EFFORT") or "max"
 SYSTEM = ("Olet huolellinen ja kriittinen menetelmä- ja koodikatselmoija. "
           "Vastaa suomeksi. Viittaa rivinumeroihin. Älä arvaa: jos jokin ei "
           "käy ilmi aineistosta, sano se.")
