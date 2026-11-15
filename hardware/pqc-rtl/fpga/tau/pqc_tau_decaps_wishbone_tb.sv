@@ -9,6 +9,12 @@ module pqc_tau_decaps_wishbone_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  // ML-KEM-parametrisarja (2026-11-16): oletus K=3 (ML-KEM-768),
+  // K=2 ajetaan -P <moduuli>.K=2. Vektorit valitaan K:n mukaan.
+  parameter int K = 3;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -17,7 +23,7 @@ module pqc_tau_decaps_wishbone_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)
@@ -45,37 +51,48 @@ module pqc_tau_decaps_wishbone_tb;
   endtask
 
   int fh, scan_ok, error_count;
-  logic [8*1632-1:0] dk;
-  logic [8*768-1:0] c;
+  logic [8*DK_BYTES-1:0] dk;
+  logic [8*C_BYTES-1:0] c;
   logic [255:0] K_expect;
+
+  string vec_path;
 
   initial begin
     error_count = 0;
     clk = 0; rst = 1; wb_adr = 0; wb_dat_i = 0; wb_we = 0; wb_stb = 0; wb_cyc = 0;
 
-    fh = $fopen("fpga/tau/decaps_top_e2e_vectors.txt", "r");
+    // Tiedostonimi if/else-rakenteella: ?:-lausekkeessa Icarus taydentaa
+    // lyhyemman merkkijonon NUL-tavuilla, jolloin $fopen epaonnistuu
+    // ja kaikki odotusarvot jaavat X:iksi (X === X lapaisisi vertailun).
+    if (K == 2) vec_path = "fpga/tau/decaps_top_e2e_vectors.txt";
+    else        vec_path = "fpga/tau/decaps_top_e2e_vectors_768.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", dk);
     scan_ok = $fscanf(fh, "%h\n", c);
     scan_ok = $fscanf(fh, "%h\n", K_expect);
     $fclose(fh);
+    if ($isunknown({dk, c, K_expect})) begin
+      $display("FAIL: vektoritiedosto %0s luettiin vajaana (X-arvoja)", vec_path); $fatal(1);
+    end
 
     repeat (3) @(posedge clk);
     rst = 0;
     @(posedge clk);
 
-    // --- ECU: kirjoita c (384 sanaa) ---
-    for (int w = 0; w < 384; w++) begin
+    // --- ECU: kirjoita c (C_BYTES/2 sanaa) ---
+    for (int w = 0; w < C_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);           // DECAPS_WORD_SEL
       wb_write(11'h131, c[w*16+:16]);        // DECAPS_C_IN
     end
-    $display("ECU: c kirjoitettu Wishbone-vaylan kautta (384 sanaa)");
+    $display("ECU: c kirjoitettu Wishbone-vaylan kautta (%0d sanaa)", C_BYTES/2);
 
-    // --- ECU: kirjoita dk (816 sanaa) ---
-    for (int w = 0; w < 816; w++) begin
+    // --- ECU: kirjoita dk (DK_BYTES/2 sanaa) ---
+    for (int w = 0; w < DK_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);
       wb_write(11'h132, dk[w*16+:16]);       // DECAPS_DK_IN
     end
-    $display("ECU: dk kirjoitettu Wishbone-vaylan kautta (816 sanaa)");
+    $display("ECU: dk kirjoitettu Wishbone-vaylan kautta (%0d sanaa)", DK_BYTES/2);
 
     // --- ECU: laukaise Decaps ---
     wb_write(11'h133, 16'd1);  // DECAPS_START
@@ -86,7 +103,7 @@ module pqc_tau_decaps_wishbone_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 40000) begin
+      while (!status[1] && wait_cycles < 80000) begin
         wb_read(11'h134, status);  // DECAPS_STATUS
         wait_cycles++;
       end

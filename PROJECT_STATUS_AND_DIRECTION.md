@@ -5,7 +5,7 @@
 Avoin kysymys K=2 vs. ML-DSA-65 on ratkaistu: kohdejärjestelmä on
 ML-KEM-768 + ML-DSA-65 (molemmat NIST-kategoria 3). ML-KEM-ytimet ovat
 K-parametrisia, ja K=3 on todennettu kaikilla NIST ACVP -tapauksilla.
-Jäljellä olevat kohdat: `KORJAUSLISTA.md` B1 ja D1.
+RTL:n oletus vaihdettu K=3:ksi 2026-11-16 (`KORJAUSLISTA.md` B1, D1).
 
 ## Tilapäivitys 2026-10-02 (lisätty; alla olevia päivättyjä osioita ei ole muutettu)
 

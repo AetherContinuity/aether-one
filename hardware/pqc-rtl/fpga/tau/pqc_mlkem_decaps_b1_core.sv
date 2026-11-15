@@ -27,7 +27,7 @@
 
 module pqc_mlkem_decaps_b1_core #(
     parameter int COEFF_W = 16,
-    parameter int K = 2,
+    parameter int K = 3,
     parameter int ETA1 = (K == 2) ? 3 : 2,
     parameter int ETA2 = 2,
     parameter int DU = (K == 4) ? 11 : 10,

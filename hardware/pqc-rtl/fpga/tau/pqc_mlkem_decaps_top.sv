@@ -15,7 +15,7 @@
 module pqc_mlkem_decaps_top #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
-    parameter int K = 2,
+    parameter int K = 3,
     parameter int DKPKE_BYTES = 384*K,                       // johdettu
     parameter int EK_BYTES = 384*K + 32,                     // johdettu
     parameter int DK_BYTES = 768*K + 96,                     // johdettu

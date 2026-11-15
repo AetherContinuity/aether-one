@@ -1,6 +1,6 @@
 # Korjauslista
 
-**Päivitetty:** 2026-11-15
+**Päivitetty:** 2026-11-16
 
 Avoimet kohdat yhdessä paikassa. Jokaisella rivillä on lähde, josta kohta
 on peräisin; tämä tiedosto ei lisää uusia havaintoja niiden päälle, paitsi
@@ -22,13 +22,14 @@ Järjestys osion sisällä ei ole prioriteetti.
 | A8 | `CHANGELOG.md` päättyy M3 RC1:een (2026-07-14). M4-FPGA, M4-TAU, orkestrointi, ACVP ja ML-DSA-RTL eivät ole siinä. | Korjattu 2026-11-15: tiivis merkintä per vaihe lähdedokumentteineen. |
 | A9 | Issue #17 (M5-DILITHIUM-001) on auki. Toiminnallinen RTL ja ACVP-ankkurointi on tehty; issuen jäljellä oleva sisältö on osion C kohdat. | Avoin |
 | A11 | Kaksi kehitysvaiheen testipenkkiä (`fpga/tau/pqc_mlkem_decaps_b1_core_tb.sv`: 10 virhettä, `pqc_mlkem_decaps_b4_allcases_tb.sv`: 3 virhettä) epäonnistuu myös `main`:ssa (a21a7a6). Ne eivät ole CI:ssä. Syytä ei ole selvitetty; todennäköisesti vanhentuneet vektorit. | Avoin (havaittu 2026-11-15) |
+| A12 | `fpga/tau/decaps_nist_multi_tb.sv` (käytössä `run_acvp_mlkem.sh`:ssa) ei tarkista `$fscanf`-paluuarvoja: vajaa vektoritiedosto jättäisi edellisen tapauksen arvot voimaan ja sama tulos täsmäisi uudelleen. Sama vika löytyi ja korjattiin `mlkem_acvp_tb.sv`:stä ja TAU-testipenkeistä 2026-11-16. | Avoin |
 | A10 | Ennen 2026-10-02 tallennettujen ML-KEM Encaps- (1 kpl) ja Decaps-vektorien (5 kpl) lähdecommitia `usnistgov/ACVP-Server`:ssä ei ole kirjattu. NIST:n `encapDecap`-esimerkkitiedosto on sittemmin generoitu uudelleen: vektoreita ei löydy nykyisestä tiedostosta. KeyGen-vektori vastaa commitin 975de31 tcId=1:tä. Uudet Encaps-vektorit (tcId 1–3) on sidottu commitiin, ks. `hardware/pqc-rtl/fpga/tau/acvp/README.md`. | Avoin |
 
 ## B. ML-KEM-512 RTL (`hardware/pqc-rtl/rtl/`, `fpga/`)
 
 | # | Kohta | Lähde |
 |---|---|---|
-| B1 | ~~Vain K=2.~~ 2026-11-15: ytimet K-parametrisia; K=2 ja K=3 (ML-KEM-768) todennettu kaikilla NIST ACVP -tapauksilla, K=3 myös TAU-kehyksen Wishbone-ketjussa. K=4 (ML-KEM-1024) kääntyy, ei todennettu. `pqc_tau_integrated_wrapper`:n ja ytimien oletusparametri on yhä K=2, koska 8 TAU-testipenkkiä ja niiden vektorit ovat K=2:lle. | `M3_MLKEM_ACVP_STATUS.md` |
+| B1 | ~~Vain K=2.~~ Korjattu: ytimet ja `pqc_tau_integrated_wrapper` K-parametrisia, **oletus K=3 (ML-KEM-768) 2026-11-16**. K=2 ja K=3: kaikki NIST ACVP -tapaukset; 8 TAU-testiä (`run_m4_tau_*`) ajetaan molemmilla. K=4 (ML-KEM-1024) kääntyy, ei todennettu. | `M3_MLKEM_ACVP_STATUS.md` |
 | B2 | TRNG puuttuu. Testataan vain `_internal`-versioita, joissa satunnaisuus annetaan testivektorina. | `FIPS203_COVERAGE.md` |
 | B3 | ~~KeyGen 1, Encaps 3, Decaps 5.~~ 2026-11-15: kaikki KeyGen- (25), Encaps- (25) ja Decaps-tapaukset (10) sekä K=2:lle että K=3:lle, synteesikelpoisia ytimiä vasten, CI:ssä. Avaintarkistusryhmiä (`encapsulationKeyCheck`, `decapsulationKeyCheck`) ei ajeta: RTL ei toteuta FIPS 203:n 7.2/7.3-syötetarkistuksia. | `M3_MLKEM_ACVP_STATUS.md` |
 | B4 | ECP5-synteesi ja P&R on tehty NTT-ytimelle (ja Wishbone-kääreelle synteesi). KeyGen-, Encaps- ja Decaps-orkestrointiytimien synteesi ei valmistunut työympäristön resurssirajoissa. Keccak-instanssien jakamista ei ole toteutettu. | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` (jatko 11), `M4_TAU_001_MILESTONE.md` |
@@ -52,7 +53,7 @@ Järjestys osion sisällä ei ole prioriteetti.
 
 | # | Kohta | Lähde |
 |---|---|---|
-| D1 | Turvatasojen epäsuhta ML-KEM-512 (kat. 1) / ML-DSA-65 (kat. 3). **Päätetty 2026-11-15: ML-KEM-768 + ML-DSA-65 (molemmat kat. 3).** RTL-tuki ja todennus tehty (B1, B3). Jäljellä: oletusparametrin vaihto K=3:ksi ja K=2-sidottujen TAU-testipenkkien parametrisointi (B1). | `PROJECT_STATUS_AND_DIRECTION.md` |
+| D1 | ~~Turvatasojen epäsuhta ML-KEM-512 / ML-DSA-65.~~ **Ratkaistu 2026-11-16:** ML-KEM-768 + ML-DSA-65 (molemmat kat. 3), RTL:n oletus K=3. | `PROJECT_STATUS_AND_DIRECTION.md` |
 | D2 | NTT-ydin on noin 30 kertaa hitaampi kuin Pi 5:n CPU. Dokumentoitu rajaus; arvioitava uudelleen ensimmäisenä, jos suunta muuttuu kohti laitepolkua. | `PROJECT_STATUS_AND_DIRECTION.md` |
 | D3 | Pi-prototyyppi allekirjoittaa ohjelmistolla (liboqs). RTL-ytimiä ei ole kytketty Pi-pinoon. | `README.md` |
 

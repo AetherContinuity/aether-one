@@ -10,6 +10,12 @@ module pqc_tau_watchdog_interrupt_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  // ML-KEM-parametrisarja (2026-11-16): oletus K=3 (ML-KEM-768),
+  // K=2 ajetaan -P <moduuli>.K=2. Vektorit valitaan K:n mukaan.
+  parameter int K = 3;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -18,7 +24,7 @@ module pqc_tau_watchdog_interrupt_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)
@@ -47,20 +53,31 @@ module pqc_tau_watchdog_interrupt_tb;
 
   int fh, scan_ok;
   logic [255:0] d_seed, z_seed;
-  logic [8*800-1:0] ek_expect;
-  logic [8*1632-1:0] dk_expect;
+  logic [8*EK_BYTES-1:0] ek_expect;
+  logic [8*DK_BYTES-1:0] dk_expect;
   int error_count;
+
+  string vec_path;
 
   initial begin
     error_count = 0;
     clk = 0; rst = 1; wb_adr = 0; wb_dat_i = 0; wb_we = 0; wb_stb = 0; wb_cyc = 0;
 
-    fh = $fopen("vectors/mlkem_keygen_vectors.txt", "r");
+    // Tiedostonimi if/else-rakenteella: ?:-lausekkeessa Icarus taydentaa
+    // lyhyemman merkkijonon NUL-tavuilla, jolloin $fopen epaonnistuu
+    // ja kaikki odotusarvot jaavat X:iksi (X === X lapaisisi vertailun).
+    if (K == 2) vec_path = "vectors/mlkem_keygen_vectors.txt";
+    else        vec_path = "vectors/mlkem_keygen_vectors_768.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", d_seed);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     scan_ok = $fscanf(fh, "%h\n", ek_expect);
     scan_ok = $fscanf(fh, "%h\n", dk_expect);
     $fclose(fh);
+    if ($isunknown({d_seed, z_seed, ek_expect, dk_expect})) begin
+      $display("FAIL: vektoritiedosto %0s luettiin vajaana (X-arvoja)", vec_path); $fatal(1);
+    end
 
     repeat (3) @(posedge clk);
     rst = 0;

@@ -10,6 +10,12 @@ module pqc_tau_integrated_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  // ML-KEM-parametrisarja (2026-11-16): oletus K=3 (ML-KEM-768),
+  // K=2 ajetaan -P <moduuli>.K=2. Vektorit valitaan K:n mukaan.
+  parameter int K = 3;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -18,7 +24,7 @@ module pqc_tau_integrated_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)
@@ -47,20 +53,31 @@ module pqc_tau_integrated_tb;
 
   int fh, scan_ok;
   logic [255:0] d_seed, z_seed;
-  logic [8*800-1:0] ek_expect;
-  logic [8*1632-1:0] dk_expect;
+  logic [8*EK_BYTES-1:0] ek_expect;
+  logic [8*DK_BYTES-1:0] dk_expect;
   int error_count;
+
+  string vec_path;
 
   initial begin
     error_count = 0;
     clk = 0; rst = 1; wb_adr = 0; wb_dat_i = 0; wb_we = 0; wb_stb = 0; wb_cyc = 0;
 
-    fh = $fopen("vectors/mlkem_keygen_vectors.txt", "r");
+    // Tiedostonimi if/else-rakenteella: ?:-lausekkeessa Icarus taydentaa
+    // lyhyemman merkkijonon NUL-tavuilla, jolloin $fopen epaonnistuu
+    // ja kaikki odotusarvot jaavat X:iksi (X === X lapaisisi vertailun).
+    if (K == 2) vec_path = "vectors/mlkem_keygen_vectors.txt";
+    else        vec_path = "vectors/mlkem_keygen_vectors_768.txt";
+    fh = $fopen(vec_path, "r");
+    if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", d_seed);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     scan_ok = $fscanf(fh, "%h\n", ek_expect);
     scan_ok = $fscanf(fh, "%h\n", dk_expect);
     $fclose(fh);
+    if ($isunknown({d_seed, z_seed, ek_expect, dk_expect})) begin
+      $display("FAIL: vektoritiedosto %0s luettiin vajaana (X-arvoja)", vec_path); $fatal(1);
+    end
 
     repeat (3) @(posedge clk);
     rst = 0;
@@ -87,7 +104,7 @@ module pqc_tau_integrated_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 20000) begin  // bit[1] = done sticky
+      while (!status[1] && wait_cycles < 80000) begin  // bit[1] = done sticky
         wb_read(11'h124, status);
         wait_cycles++;
       end
@@ -97,40 +114,40 @@ module pqc_tau_integrated_tb;
       end else $display("OK: KeyGen valmis %0d Wishbone-syklin jalkeen", wait_cycles);
     end
 
-    // --- ECU: lue ek takaisin (400 sanaa), vertaa golden-referenssiin ---
+    // --- ECU: lue ek takaisin (EK_BYTES/2 sanaa), vertaa golden-referenssiin ---
     begin
-      logic [8*800-1:0] ek_readback;
+      logic [8*EK_BYTES-1:0] ek_readback;
       logic [COEFF_W-1:0] word;
       int diffs;
       diffs = 0;
-      for (int w = 0; w < 400; w++) begin
+      for (int w = 0; w < EK_BYTES/2; w++) begin
         wb_write(11'h120, w[10:0]);
         wb_read(11'h125, word);
         ek_readback[w*16+:16] = word;
       end
       if (ek_readback === ek_expect) $display("PASS: ek tasmaa taydellisesti Wishbone-vaylan kautta luettuna");
       else begin
-        for (int i = 0; i < 800; i++) if (ek_readback[i*8+:8] !== ek_expect[i*8+:8]) diffs++;
-        $display("FAIL: ek EI tasmaa - %0d/800 tavua eroaa", diffs);
+        for (int i = 0; i < EK_BYTES; i++) if (ek_readback[i*8+:8] !== ek_expect[i*8+:8]) diffs++;
+        $display("FAIL: ek EI tasmaa - %0d/%0d tavua eroaa", diffs, EK_BYTES);
         error_count++;
       end
     end
 
-    // --- ECU: lue dk takaisin (816 sanaa), vertaa golden-referenssiin ---
+    // --- ECU: lue dk takaisin (DK_BYTES/2 sanaa), vertaa golden-referenssiin ---
     begin
-      logic [8*1632-1:0] dk_readback;
+      logic [8*DK_BYTES-1:0] dk_readback;
       logic [COEFF_W-1:0] word;
       int diffs;
       diffs = 0;
-      for (int w = 0; w < 816; w++) begin
+      for (int w = 0; w < DK_BYTES/2; w++) begin
         wb_write(11'h120, w[10:0]);
         wb_read(11'h126, word);
         dk_readback[w*16+:16] = word;
       end
       if (dk_readback === dk_expect) $display("PASS: dk tasmaa taydellisesti Wishbone-vaylan kautta luettuna");
       else begin
-        for (int i = 0; i < 1632; i++) if (dk_readback[i*8+:8] !== dk_expect[i*8+:8]) diffs++;
-        $display("FAIL: dk EI tasmaa - %0d/1632 tavua eroaa", diffs);
+        for (int i = 0; i < DK_BYTES; i++) if (dk_readback[i*8+:8] !== dk_expect[i*8+:8]) diffs++;
+        $display("FAIL: dk EI tasmaa - %0d/%0d tavua eroaa", diffs, DK_BYTES);
         error_count++;
       end
     end
