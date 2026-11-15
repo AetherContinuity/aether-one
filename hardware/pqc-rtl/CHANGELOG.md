@@ -1,4 +1,47 @@
-# CHANGELOG — hardware/pqc-rtl (M3: ML-KEM-512, FIPS 203)
+# CHANGELOG — hardware/pqc-rtl (ML-KEM, FIPS 203; TAU-kehys; ML-DSA-65)
+
+Merkinnät uusin ensin. Jokainen kohta viittaa lähdedokumenttiin; tila- ja
+rajaustiedot ovat niissä ja juuren `KORJAUSLISTA.md`:ssä.
+
+## 2026-11-15: ML-KEM-768 (K=3)
+
+- Orkestrointiytimet (`pqc_mlkem_keygen_core`, `pqc_mlkem_decaps_a_core`,
+  `pqc_mlkem_decaps_b1_core`, `pqc_mlkem_encaps_top`, `pqc_mlkem_decaps_top`)
+  ja `pqc_tau_integrated_wrapper` parametrisoitu K:n mukaan. Oletus K=2.
+- NIST ACVP: kaikki KeyGen- (25), Encaps- (25) ja Decaps-tapaukset (10),
+  ML-KEM-512 ja ML-KEM-768, synteesikelpoisia ytimiä vasten
+  (`run_acvp_mlkem_full.sh`, `fpga/tau/mlkem_acvp_tb.sv`). CI:ssä.
+- Koko protokollaketju Wishbonen kautta K=3:lla
+  (`pqc_tau_full_protocol_tb.sv`, `-P ...K=3`).
+- Verilator-lint orkestrointiytimille (aiemmin kaksi `BLKLOOPINIT`-virhettä).
+- Lähde: `M3_MLKEM_ACVP_STATUS.md`, juuren `KORJAUSLISTA.md` (B1, B3, D1).
+
+## 2026-10-02: ACVP CI:hin
+
+- `run_acvp_mlkem.sh` (KeyGen 1, Encaps 3, Decaps 5, negatiivikontrollit)
+  ja `run_acvp_dilithium.sh` jokaisella pushilla. Lähde: `M3_MLKEM_ACVP_STATUS.md`.
+
+## 2026-07-21..22: ML-KEM NIST ACVP ja Decaps-mittaukset
+
+- ACVP KeyGen 1, Encaps 3, Decaps 5 vektoria. Decaps-syklimittaus saman
+  avaimen vertailulla, toggle-mittaus (`toggle-proxy/`).
+  Lähde: `M3_MLKEM_ACVP_STATUS.md`.
+
+## 2026-07-19: M4-TAU-001, orkestrointi, ML-DSA-65 RTL
+
+- TAU-kehys: Wishbone, audit-loki, watchdog (`M4_TAU_001_MILESTONE.md`,
+  `fpga/tau/M4_TAU_001_STATUS.md`).
+- Synteesikelpoinen KeyGen/Encaps/Decaps-orkestrointi
+  (`fpga/tau/M4_MLKEM_ORCH_001_STATUS.md`, `M4_ENCAPS_ORCH_001_STATUS.md`,
+  `M4_DECAPS_ORCH_001_STATUS.md`, `M4_TAU_FULL_PROTOCOL_MILESTONE.md`).
+- ML-DSA-65 RTL: KeyGen, `Sign_internal`, `Verify_internal`
+  (`dilithium-rtl/M5_DILITHIUM_KEYGEN_COMPLETE.md`, `dilithium-rtl/NIST_ACVP_STATUS.md`).
+
+## 2026-07 (M4-FPGA-001..008)
+
+- BRAM-inferointi (DP16KD = 4), ECP5-synteesi ja P&R NTT-ytimelle,
+  Fmax 30,40 MHz (ECP5-25k). Lähde: `M4_FPGA_003_RC.md`,
+  `fpga/timing_reports/M4_FPGA_006_ANALYSIS.md`.
 
 ## M3 Release Candidate 1 (2026-07-14)
 

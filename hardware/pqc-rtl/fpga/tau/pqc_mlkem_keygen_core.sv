@@ -13,7 +13,13 @@
 // mutta synteesikelpoisena RTL:na (ei testipenkin omana proseduraalisena
 // koodina).
 //
-// SEKVENSSI (K=2, ML-KEM-512):
+// K-yleistys (2026-11-15): K=2 (ML-KEM-512) ja K=3 (ML-KEM-768)
+// todennettu NIST ACVP -vektoreilla. K=4 (ML-KEM-1024) kaantyy, ei
+// todennettu. Johdetut leveydet (EK_BYTES, DK_BYTES, H_BLOCKS) ovat
+// parametreja vain siksi, etta niita voi kayttaa porttileveyksissa:
+// niita EI ole tarkoitus ylikirjoittaa.
+//
+// SEKVENSSI (yleinen K):
 // 1. SHA3-512(d||K) -> rho, sigma
 // 2. SampleNTT(rho,i,j) x4 (KxK) -> A[i][j]
 // 3. PRF+SamplePolyCBD(sigma,N) x4 (2K) -> s_vec[i], e_vec[i]
@@ -33,7 +39,11 @@ module pqc_mlkem_keygen_core #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter int K = 2,
-    parameter int ETA1 = 3
+    parameter int ETA1 = (K == 2) ? 3 : 2,
+    parameter int DKPKE_BYTES = 384*K,
+    parameter int EK_BYTES = 384*K + 32,
+    parameter int DK_BYTES = 768*K + 96,
+    parameter int H_BLOCKS = EK_BYTES/136 + 1
 )(
     input  logic clk,
     input  logic reset,
@@ -43,8 +53,8 @@ module pqc_mlkem_keygen_core #(
     input  logic [255:0] z_seed,
 
     output logic done,
-    output logic [8*800-1:0] ek_out,
-    output logic [8*1632-1:0] dk_out,
+    output logic [8*EK_BYTES-1:0] ek_out,
+    output logic [8*DK_BYTES-1:0] dk_out,
 
     // TILAPAINEN debug-ulostulo taman osittaisen version testausta
     // varten - poistetaan kun koko sekvenssi on valmis.
@@ -92,11 +102,11 @@ module pqc_mlkem_keygen_core #(
   );
 
   logic sha256_start, sha256_done;
-  logic [8*136*6-1:0] sha256_msg_in;
+  logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
   logic [255:0] sha256_out;
-  pqc_sha3_256 #(.MAX_BLOCKS(6)) sha256_dut (
+  pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
     .clk(clk), .reset(reset), .start(sha256_start),
-    .msg_in(sha256_msg_in), .msg_len_bytes(16'd800),
+    .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
     .digest_out(sha256_out), .done(sha256_done)
   );
 
@@ -127,10 +137,11 @@ module pqc_mlkem_keygen_core #(
   logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
   pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
 
-  logic [256*12-1:0] benc12_in [0:1];
-  logic [8*384-1:0] benc12_out [0:1];
-  pqc_byteencode_dparam #(.D(12)) benc12_0 (.f_in(benc12_in[0]), .b_out(benc12_out[0]));
-  pqc_byteencode_dparam #(.D(12)) benc12_1 (.f_in(benc12_in[1]), .b_out(benc12_out[1]));
+  logic [256*12-1:0] benc12_in [0:K-1];
+  logic [8*384-1:0] benc12_out [0:K-1];
+  for (genvar g = 0; g < K; g++) begin : g_benc12
+    pqc_byteencode_dparam #(.D(12)) benc12 (.f_in(benc12_in[g]), .b_out(benc12_out[g]));
+  end
 
   // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): pqc_byteencode_dparam
   // odottaa kertoimet TIIVIISTI pakattuina 12 bittiin/kerroin (256*12
@@ -145,14 +156,14 @@ module pqc_mlkem_keygen_core #(
     end
   endfunction
 
-  // --- Tallennusrekisterit (K=2-kokoiset taulukot) ---
+  // --- Tallennusrekisterit ---
   logic [255:0] rho, sigma;
   logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
   logic [256*COEFF_W-1:0] s_vec [0:K-1], e_vec [0:K-1];
   logic [256*COEFF_W-1:0] s_hat [0:K-1], e_hat [0:K-1], t_hat [0:K-1];
   logic [255:0] H_ek;
-  logic [8*800-1:0] ek_reg;
-  logic [8*1632-1:0] dk_reg;
+  logic [8*EK_BYTES-1:0] ek_reg;
+  logic [8*DK_BYTES-1:0] dk_reg;
 
   // --- Paatilakone: askellaskuri, joka kayy lapi tasmalleen saman
   // sekvenssin kuin testipenkin oma initial-lohko. ---
@@ -169,10 +180,10 @@ module pqc_mlkem_keygen_core #(
   } state_e;
   state_e state, return_state;
 
-  logic [1:0] i_ctr, j_ctr;
-  logic [1:0] n_ctr;
-  logic [1:0] fwd_ctr;
-  logic [1:0] mm_i, mm_j;
+  logic [3:0] i_ctr, j_ctr;
+  logic [3:0] n_ctr;
+  logic [3:0] fwd_ctr;
+  logic [3:0] mm_i, mm_j;
   logic [256*COEFF_W-1:0] mm_acc;
   logic [7:0] load_idx, read_idx;
   logic [5:0] sched_idx;
@@ -188,7 +199,7 @@ module pqc_mlkem_keygen_core #(
 
     if (reset) begin
       state <= S_IDLE;
-      i_ctr <= 2'd0; j_ctr <= 2'd0; n_ctr <= 2'd0;
+      i_ctr <= 4'd0; j_ctr <= 4'd0; n_ctr <= 4'd0;
     end else begin
       case (state)
         S_IDLE: begin
@@ -208,14 +219,14 @@ module pqc_mlkem_keygen_core #(
           if (sha512_done) begin
             rho   <= sha512_out[255:0];
             sigma <= sha512_out[511:256];
-            i_ctr <= 2'd0; j_ctr <= 2'd0;
+            i_ctr <= 4'd0; j_ctr <= 4'd0;
             state <= S_START_SNTT;
           end
         end
 
         // --- SampleNTT KxK kertaa ---
         S_START_SNTT: begin
-          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
+          samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
           samplentt_start <= 1'b1;
           state <= S_WAIT_SNTT;
         end
@@ -227,47 +238,49 @@ module pqc_mlkem_keygen_core #(
         end
         S_SNTT_NEXT: begin
           if (j_ctr == K-1) begin
-            j_ctr <= 2'd0;
+            j_ctr <= 4'd0;
             if (i_ctr == K-1) begin
-              i_ctr <= 2'd0; n_ctr <= 2'd0;
+              i_ctr <= 4'd0; n_ctr <= 4'd0;
               state <= S_START_CBD;
             end else begin
-              i_ctr <= i_ctr + 2'd1;
+              i_ctr <= i_ctr + 4'd1;
               state <= S_START_SNTT;
             end
           end else begin
-            j_ctr <= j_ctr + 2'd1;
+            j_ctr <= j_ctr + 4'd1;
             state <= S_START_SNTT;
           end
         end
 
         // --- PRF+SamplePolyCBD 2K kertaa: ensin K s_vec, sitten K e_vec ---
         S_START_CBD: begin
-          cbd1_seed <= sigma; cbd1_n <= {6'b0,n_ctr};
+          cbd1_seed <= sigma; cbd1_n <= {4'b0,n_ctr};
           cbd1_start <= 1'b1;
           state <= S_WAIT_CBD;
         end
         S_WAIT_CBD: begin
           if (cbd1_done) begin
-            if (n_ctr < K) s_vec[n_ctr[0]] <= cbd1_out;
-            else e_vec[n_ctr[0]] <= cbd1_out;
+            for (int q = 0; q < K; q++) begin
+              if (n_ctr == q)     s_vec[q] <= cbd1_out;
+              if (n_ctr == K + q) e_vec[q] <= cbd1_out;
+            end
             state <= S_CBD_NEXT;
           end
         end
         S_CBD_NEXT: begin
           if (n_ctr == 2*K-1) begin
-            fwd_ctr <= 2'd0;
+            fwd_ctr <= 4'd0;
             load_idx <= 8'd0;
             fwd_poly_in <= s_vec[0];
             state <= S_NTT_FWD_LOAD;
           end else begin
-            n_ctr <= n_ctr + 2'd1;
+            n_ctr <= n_ctr + 4'd1;
             state <= S_START_CBD;
           end
         end
 
-        // --- NTT-forward: 4 kertaa (s_vec[0], s_vec[1], e_vec[0],
-        // e_vec[1]) -> s_hat[0], s_hat[1], e_hat[0], e_hat[1].
+        // --- NTT-forward: 2K kertaa (s_vec[0..K-1], e_vec[0..K-1])
+        // -> s_hat[0..K-1], e_hat[0..K-1].
         // Kayttaa ytimen omaa FPGA_BRINGUP-rajapintaa (load_valid/
         // load_addr/load_data, read_en/read_addr/read_valid/
         // read_data) - EI hierarkkista suoraa kirjoitusta (joka EI
@@ -333,12 +346,10 @@ module pqc_mlkem_keygen_core #(
 
         S_NTT_FWD_READ_WAIT: begin
           if (ntt_read_valid) begin
-            case (fwd_ctr)
-              2'd0: s_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd1: s_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
-              2'd2: e_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
-              default: e_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
-            endcase
+            for (int q = 0; q < K; q++) begin
+              if (fwd_ctr == q)     s_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+              if (fwd_ctr == K + q) e_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+            end
             if (read_idx == 8'd255) begin
               state <= S_NTT_FWD_NEXT;
             end else begin
@@ -349,18 +360,17 @@ module pqc_mlkem_keygen_core #(
         end
 
         S_NTT_FWD_NEXT: begin
-          if (fwd_ctr == 2'd3) begin
-            mm_i <= 2'd0; mm_j <= 2'd0;
+          if (fwd_ctr == 2*K-1) begin
+            mm_i <= 4'd0; mm_j <= 4'd0;
             mm_acc <= '0;
             state <= S_MATMUL;
           end else begin
-            fwd_ctr <= fwd_ctr + 2'd1;
+            fwd_ctr <= fwd_ctr + 4'd1;
             load_idx <= 8'd0;
-            case (fwd_ctr + 2'd1)
-              2'd1: fwd_poly_in <= s_vec[1];
-              2'd2: fwd_poly_in <= e_vec[0];
-              default: fwd_poly_in <= e_vec[1];
-            endcase
+            for (int q = 0; q < K; q++) begin
+              if (fwd_ctr + 4'd1 == q)     fwd_poly_in <= s_vec[q];
+              if (fwd_ctr + 4'd1 == K + q) fwd_poly_in <= e_vec[q];
+            end
             state <= S_NTT_FWD_LOAD;
           end
         end
@@ -372,10 +382,10 @@ module pqc_mlkem_keygen_core #(
         S_MATMUL: begin
           mm_acc <= padd_sum;  // mm_acc + mntt_h (ks. combinational wiring alla)
           if (mm_j == K-1) begin
-            mm_j <= 2'd0;
+            mm_j <= 4'd0;
             state <= S_MATMUL_NEXT;
           end else begin
-            mm_j <= mm_j + 2'd1;
+            mm_j <= mm_j + 4'd1;
           end
         end
 
@@ -386,7 +396,7 @@ module pqc_mlkem_keygen_core #(
           if (mm_i == K-1) begin
             state <= S_ENCODE_T;
           end else begin
-            mm_i <= mm_i + 2'd1;
+            mm_i <= mm_i + 4'd1;
             mm_acc <= '0;
             state <= S_MATMUL;
           end
@@ -394,14 +404,15 @@ module pqc_mlkem_keygen_core #(
 
         // --- ByteEncode12(t_hat) + rho -> ek, ByteEncode12(s_hat) -> dkPKE ---
         S_ENCODE_T: begin
-          ek_reg <= {rho, benc12_out[1], benc12_out[0]};
+          for (int q = 0; q < K; q++) ek_reg[q*8*384 +: 8*384] <= benc12_out[q];
+          ek_reg[8*DKPKE_BYTES +: 256] <= rho;
           state <= S_ENCODE_S;
         end
 
         S_ENCODE_S: begin
-          dk_reg[8*768-1:0] <= {benc12_out[1], benc12_out[0]};  // dkPKE (K=2*384 tavua)
+          for (int q = 0; q < K; q++) dk_reg[q*8*384 +: 8*384] <= benc12_out[q];  // dkPKE (K*384 tavua)
           sha256_msg_in <= '0;
-          sha256_msg_in[8*800-1:0] <= ek_reg;
+          sha256_msg_in[8*EK_BYTES-1:0] <= ek_reg;
           state <= S_START_SHA256;
         end
 
@@ -419,9 +430,9 @@ module pqc_mlkem_keygen_core #(
 
         S_ASSEMBLE: begin
           // dk = dkPKE || ek || H(ek) || z (FIPS 203:n kiintea rakenne)
-          dk_reg[8*(768+800)-1:8*768]      <= ek_reg;
-          dk_reg[8*(768+800+32)-1:8*(768+800)] <= H_ek;
-          dk_reg[8*1632-1:8*(768+800+32)]  <= z_seed;
+          dk_reg[8*DKPKE_BYTES +: 8*EK_BYTES]     <= ek_reg;
+          dk_reg[8*(DKPKE_BYTES+EK_BYTES) +: 256]    <= H_ek;
+          dk_reg[8*(DKPKE_BYTES+EK_BYTES+32) +: 256] <= z_seed;
           state <= S_DONE;
         end
 
@@ -458,8 +469,9 @@ module pqc_mlkem_keygen_core #(
 
   // ByteEncode12: S_ENCODE_T kayttaa t_hat:ia, S_ENCODE_S kayttaa s_hat:ia -
   // yhteiskaytto SAMOJEN kombinatoristen instanssien kanssa eri aikoina.
-  assign benc12_in[0] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[0]) : repack16_to_12(t_hat[0]);
-  assign benc12_in[1] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[1]) : repack16_to_12(t_hat[1]);
+  for (genvar g = 0; g < K; g++) begin : g_benc12_in
+    assign benc12_in[g] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[g]) : repack16_to_12(t_hat[g]);
+  end
 
   assign ek_out = ek_reg;
   assign dk_out = dk_reg;

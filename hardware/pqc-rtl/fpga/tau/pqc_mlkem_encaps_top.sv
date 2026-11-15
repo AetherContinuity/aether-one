@@ -3,7 +3,7 @@
 // M4-ENCAPS-ORCH-001: ML-KEM.Encaps_internal (FIPS 203 Algoritmi 17).
 //
 // SEKVENSSI:
-// 1. H(ek) = SHA3-256(ek, 800 tavua)
+// 1. H(ek) = SHA3-256(ek, 384K+32 tavua)
 // 2. (K,r) = G(m||H(ek)) = SHA3-512
 // 3. c = K-PKE.Encrypt(ek, m, r) - UUDELLEENKAYTTAA SUORAAN
 //    pqc_mlkem_decaps_b1_core.sv:n jo todistetun K-PKE.Encrypt-
@@ -22,26 +22,29 @@
 
 module pqc_mlkem_encaps_top #(
     parameter int COEFF_W = 16,
-    parameter int K = 2
+    parameter int K = 2,
+    parameter int EK_BYTES = 384*K + 32,                    // johdettu
+    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4)),  // johdettu
+    parameter int H_BLOCKS = EK_BYTES/136 + 1                // johdettu
 )(
     input  logic clk,
     input  logic reset,
 
     input  logic start,
-    input  logic [8*800-1:0] ek_in,
+    input  logic [8*EK_BYTES-1:0] ek_in,
     input  logic [255:0] m_in,
 
     output logic done,
     output logic [255:0] K_out,
-    output logic [8*768-1:0] c_out
+    output logic [8*C_BYTES-1:0] c_out
 );
 
   logic sha256_start, sha256_done;
-  logic [8*136*6-1:0] sha256_msg_in;
+  logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
   logic [255:0] sha256_out;
-  pqc_sha3_256 #(.MAX_BLOCKS(6)) sha256_dut (
+  pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
     .clk(clk), .reset(reset), .start(sha256_start),
-    .msg_in(sha256_msg_in), .msg_len_bytes(16'd800),
+    .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
     .digest_out(sha256_out), .done(sha256_done)
   );
 
@@ -59,10 +62,10 @@ module pqc_mlkem_encaps_top #(
   // NAMA EIVAT vaikuta c_prime_out:n omaan laskentaan. ---
   logic encrypt_start, encrypt_done;
   logic [255:0] r_val, K_val;
-  logic [8*768-1:0] c_prime;
+  logic [8*C_BYTES-1:0] c_prime;
   logic unused_match;
   logic [255:0] unused_K_final;
-  logic [4*256*COEFF_W-1:0] unused_A;
+  logic [K*K*256*COEFF_W-1:0] unused_A;
   logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
   logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
 
@@ -96,7 +99,7 @@ module pqc_mlkem_encaps_top #(
       case (state)
         S_IDLE: if (start) begin
           sha256_msg_in <= '0;
-          sha256_msg_in[8*800-1:0] <= ek_in;
+          sha256_msg_in[8*EK_BYTES-1:0] <= ek_in;
           state <= S_START_H;
         end
 

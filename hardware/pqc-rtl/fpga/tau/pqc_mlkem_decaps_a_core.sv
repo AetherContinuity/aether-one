@@ -5,7 +5,10 @@
 //
 // SEKVENSSI (vastaa tb/pqc_mlkem_decaps_a_tb.sv:n proseduraalista
 // orkestrointia, nyt synteesikelpoisena tilakoneena):
-// 1. Pura c -> c1[0], c1[1] (DU=10-bittinen), c2 (DV=4-bittinen)
+// K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
+// C_BYTES ja DKPKE_BYTES ovat johdettuja; niita ei ylikirjoiteta.
+//
+// 1. Pura c -> c1[0..K-1] (DU-bittinen), c2 (DV-bittinen)
 // 2. ByteDecode(DU) + Decompress(DU) c1[i]:sta -> u'[i]
 // 3. ByteDecode(DV) + Decompress(DV) c2:sta -> v'
 // 4. ByteDecode(12) dkPKE:sta -> s_hat[i]
@@ -26,15 +29,17 @@ module pqc_mlkem_decaps_a_core #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
     parameter int K = 2,
-    parameter int DU = 10,
-    parameter int DV = 4
+    parameter int DU = (K == 4) ? 11 : 10,
+    parameter int DV = (K == 4) ? 5 : 4,
+    parameter int C_BYTES = 32*(DU*K + DV),
+    parameter int DKPKE_BYTES = 384*K
 )(
     input  logic clk,
     input  logic reset,
 
     input  logic start,
-    input  logic [8*768-1:0] c_in,      // tiiviisti pakattu siffertext (768 tavua)
-    input  logic [8*768-1:0] dkPKE_in,  // dkPKE (768 tavua, K*384)
+    input  logic [8*C_BYTES-1:0] c_in,         // tiiviisti pakattu siffertext
+    input  logic [8*DKPKE_BYTES-1:0] dkPKE_in, // dkPKE (K*384 tavua)
     input  logic [255:0] h_in,          // H(ek), G-vaiheen syote
 
     output logic done,
@@ -73,15 +78,17 @@ module pqc_mlkem_decaps_a_core #(
   end
 
   // --- Kombinatoriset alimoduulit ---
-  logic [256*DU-1:0] bdecU_in [0:1];
-  logic [256*DU-1:0] bdecU_out [0:1];
-  pqc_bytedecode_dparam #(.D(DU)) bdecU0 (.b_in(bdecU_in[0]), .f_out(bdecU_out[0]));
-  pqc_bytedecode_dparam #(.D(DU)) bdecU1 (.b_in(bdecU_in[1]), .f_out(bdecU_out[1]));
-
-  logic [256*DU-1:0] decompU_in [0:1];
-  logic [256*COEFF_W-1:0] decompU_out [0:1];
-  pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU0 (.y_packed(decompU_in[0]), .x_packed(decompU_out[0]));
-  pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU1 (.y_packed(decompU_in[1]), .x_packed(decompU_out[1]));
+  logic [256*DU-1:0] bdecU_in [0:K-1];
+  logic [256*DU-1:0] bdecU_out [0:K-1];
+  logic [256*DU-1:0] decompU_in [0:K-1];
+  logic [256*COEFF_W-1:0] decompU_out [0:K-1];
+  logic [256*12-1:0] bdec12_in [0:K-1];
+  logic [256*12-1:0] bdec12_out_raw [0:K-1];
+  for (genvar g = 0; g < K; g++) begin : g_dec
+    pqc_bytedecode_dparam #(.D(DU)) bdecU (.b_in(bdecU_in[g]), .f_out(bdecU_out[g]));
+    pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU (.y_packed(decompU_in[g]), .x_packed(decompU_out[g]));
+    pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
+  end
 
   logic [256*DV-1:0] bdecV_in;
   logic [256*DV-1:0] bdecV_out;
@@ -91,10 +98,6 @@ module pqc_mlkem_decaps_a_core #(
   logic [256*COEFF_W-1:0] decompV_out;
   pqc_batch_decompress #(.D(DV), .COEFF_W(COEFF_W)) decompV (.y_packed(decompV_in), .x_packed(decompV_out));
 
-  logic [256*12-1:0] bdec12_in [0:1];
-  logic [256*12-1:0] bdec12_out_raw [0:1];
-  pqc_bytedecode_dparam #(.D(12)) bdec12_0 (.b_in(bdec12_in[0]), .f_out(bdec12_out_raw[0]));
-  pqc_bytedecode_dparam #(.D(12)) bdec12_1 (.b_in(bdec12_in[1]), .f_out(bdec12_out_raw[1]));
 
   logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
   pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
@@ -128,6 +131,13 @@ module pqc_mlkem_decaps_a_core #(
     .digest_out(sha512_out), .done(sha512_done)
   );
 
+  // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
+  // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
+  function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
+    widen12 = '0;
+    for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
+  endfunction
+
   // --- Tallennusrekisterit ---
   logic [256*COEFF_W-1:0] u_prime [0:K-1], v_prime;
   logic [256*COEFF_W-1:0] s_hat [0:K-1];
@@ -146,10 +156,10 @@ module pqc_mlkem_decaps_a_core #(
   } state_e;
   state_e state;
 
-  logic [1:0] fwd_ctr;
+  logic [3:0] fwd_ctr;
   logic [5:0] sched_idx;
   logic [7:0] load_idx, read_idx;
-  logic [1:0] mm_i;
+  logic [3:0] mm_i;
   logic [7:0] m_bit_idx;
 
   always_ff @(posedge clk) begin
@@ -165,41 +175,36 @@ module pqc_mlkem_decaps_a_core #(
         S_IDLE: begin
           if (start) begin
             // --- ByteDecode+Decompress: kombinatorinen, yksi sykli riittaa ---
-            bdecU_in[0] <= c_in[(0*DU*32)*8 +: DU*32*8];
-            bdecU_in[1] <= c_in[(1*DU*32)*8 +: DU*32*8];
-            bdecV_in    <= c_in[(2*DU*32)*8 +: DV*32*8];
-            bdec12_in[0] <= dkPKE_in[(0*384)*8 +: 384*8];
-            bdec12_in[1] <= dkPKE_in[(1*384)*8 +: 384*8];
+            for (int q = 0; q < K; q++) begin
+              bdecU_in[q]  <= c_in[(q*DU*32)*8 +: DU*32*8];
+              bdec12_in[q] <= dkPKE_in[(q*384)*8 +: 384*8];
+            end
+            bdecV_in    <= c_in[(K*DU*32)*8 +: DV*32*8];
             state <= S_DECODE_U_V;
           end
         end
 
         S_DECODE_U_V: begin
-          decompU_in[0] <= bdecU_out[0];
-          decompU_in[1] <= bdecU_out[1];
+          for (int q = 0; q < K; q++) decompU_in[q] <= bdecU_out[q];
           decompV_in    <= bdecV_out;
           state <= S_DECODE_S;
         end
 
         S_DECODE_S: begin
-          u_prime[0] <= decompU_out[0];
-          u_prime[1] <= decompU_out[1];
+          for (int q = 0; q < K; q++) u_prime[q] <= decompU_out[q];
           v_prime    <= decompV_out;
-          for (int cc = 0; cc < 256; cc++) begin
-            s_hat[0][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[0][cc*12 +: 12]};
-            s_hat[1][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[1][cc*12 +: 12]};
-          end
-          fwd_ctr <= 2'd0;
+          for (int q = 0; q < K; q++) s_hat[q] <= widen12(bdec12_out_raw[q]);
+          fwd_ctr <= 4'd0;
           load_idx <= 8'd0;
           state <= S_FWD_LOAD;
         end
 
-        // --- NTT-forward u'[0], u'[1] -> u_hat[0], u_hat[1] ---
+        // --- NTT-forward u'[0..K-1] -> u_hat[0..K-1] ---
         S_FWD_LOAD: begin
           ntt_load_valid <= 1'b1;
           ntt_load_addr  <= load_idx;
-          ntt_load_data  <= (fwd_ctr == 0) ? u_prime[0][load_idx*COEFF_W +: COEFF_W]
-                                            : u_prime[1][load_idx*COEFF_W +: COEFF_W];
+          for (int q = 0; q < K; q++)
+            if (fwd_ctr == q) ntt_load_data <= u_prime[q][load_idx*COEFF_W +: COEFF_W];
           if (load_idx == 8'd255) begin
             sched_idx <= 6'd0;
             state <= S_FWD_SCHED_SETUP;
@@ -243,8 +248,8 @@ module pqc_mlkem_decaps_a_core #(
 
         S_FWD_READ_WAIT: begin
           if (ntt_read_valid) begin
-            if (fwd_ctr == 0) u_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
-            else u_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+            for (int q = 0; q < K; q++)
+              if (fwd_ctr == q) u_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
             if (read_idx == 8'd255) state <= S_FWD_NEXT;
             else begin
               read_idx <= read_idx + 8'd1;
@@ -255,11 +260,11 @@ module pqc_mlkem_decaps_a_core #(
 
         S_FWD_NEXT: begin
           if (fwd_ctr == K-1) begin
-            mm_i <= 2'd0;
+            mm_i <= 4'd0;
             mm_acc <= '0;
             state <= S_MATMUL;
           end else begin
-            fwd_ctr <= fwd_ctr + 2'd1;
+            fwd_ctr <= fwd_ctr + 4'd1;
             load_idx <= 8'd0;
             state <= S_FWD_LOAD;
           end
@@ -271,7 +276,7 @@ module pqc_mlkem_decaps_a_core #(
           if (mm_i == K-1) begin
             load_idx <= 8'd0;
             state <= S_INV_LOAD;
-          end else mm_i <= mm_i + 2'd1;
+          end else mm_i <= mm_i + 4'd1;
         end
 
         // --- NTT-inverse mm_acc:lle -> inner_raw ---

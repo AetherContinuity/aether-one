@@ -15,14 +15,18 @@
 module pqc_mlkem_decaps_top #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
-    parameter int K = 2
+    parameter int K = 2,
+    parameter int DKPKE_BYTES = 384*K,                       // johdettu
+    parameter int EK_BYTES = 384*K + 32,                     // johdettu
+    parameter int DK_BYTES = 768*K + 96,                     // johdettu
+    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))  // johdettu
 )(
     input  logic clk,
     input  logic reset,
 
     input  logic start,
-    input  logic [8*768-1:0] c_in,     // alkuperainen siffertext
-    input  logic [8*1632-1:0] dk_in,   // dk = dkPKE(768B)||ek(800B)||h(32B)||z(32B)
+    input  logic [8*C_BYTES-1:0] c_in,   // alkuperainen siffertext
+    input  logic [8*DK_BYTES-1:0] dk_in, // dk = dkPKE(384K)||ek(384K+32)||h(32)||z(32)
 
     output logic done,
     output logic [255:0] K_final_out,
@@ -30,10 +34,10 @@ module pqc_mlkem_decaps_top #(
 );
 
   // --- dk:n oma purku FIPS 203:n rakenteen mukaisesti ---
-  wire [8*768-1:0] dkPKE = dk_in[8*768-1:0];
-  wire [8*800-1:0] ek    = dk_in[8*(768+800)-1:8*768];
-  wire [255:0] h_val     = dk_in[8*(768+800+32)-1:8*(768+800)];
-  wire [255:0] z_val     = dk_in[8*1632-1:8*(768+800+32)];
+  wire [8*DKPKE_BYTES-1:0] dkPKE = dk_in[0 +: 8*DKPKE_BYTES];
+  wire [8*EK_BYTES-1:0] ek       = dk_in[8*DKPKE_BYTES +: 8*EK_BYTES];
+  wire [255:0] h_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES) +: 256];
+  wire [255:0] z_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES+32) +: 256];
 
   // --- Phase A+G ---
   logic phaseA_start, phaseA_done;
@@ -48,10 +52,10 @@ module pqc_mlkem_decaps_top #(
 
   // --- Phase B1-B4 ---
   logic phaseB_start, phaseB_done;
-  logic [4*256*COEFF_W-1:0] unused_A;
+  logic [K*K*256*COEFF_W-1:0] unused_A;
   logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
   logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
-  logic [8*768-1:0] unused_cprime;
+  logic [8*C_BYTES-1:0] unused_cprime;
 
   pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) decaps_b (
     .clk(clk), .reset(reset), .start(phaseB_start),

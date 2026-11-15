@@ -2,7 +2,40 @@
 
 **Paivamaara:** 2026-07-21
 
-## Nykytila (lisatty 2026-10-02; alla olevat osiot ovat aikajarjestyksessa)
+## Nykytila (paivitetty 2026-11-15)
+
+Synteesikelpoiset ytimet (`pqc_mlkem_keygen_core`, `pqc_mlkem_encaps_top`,
+`pqc_mlkem_decaps_top`) ovat K-parametrisia. Testipenkki
+`fpga/tau/mlkem_acvp_tb.sv`, ajo `run_acvp_mlkem_full.sh 512|768`.
+
+| Sarja | KeyGen | Encaps (tgId 1/2) | Decaps (tgId 4/5) | Tulos |
+|---|---|---|---|---|
+| ML-KEM-512 (K=2) | 25 | 25 | 10 (5 hylkaysta) | PASS, kaikki tapaukset |
+| ML-KEM-768 (K=3) | 25 | 25 | 10 (5 hylkaysta) | PASS, kaikki tapaukset |
+
+Lahde: `usnistgov/ACVP-Server` commit 975de31, `internalProjection.json`
+(sha256 kirjattu skriptiin). Vektoritiedostot generoi
+`m2-golden/gen_mlkem_acvp_vectors.py`, joka vertaa jokaisen tapauksen
+myos `mlkem_golden.py`:hin; golden-malli = NIST kaikissa 120 tapauksessa.
+CI generoi vektorit uudelleen NIST-lahteesta ja vaatii tavutason
+yhtasuuruuden repon tiedostojen kanssa. Negatiivikontrolli (yksi
+heksamerkki muutettu) -> FAIL kaikilla kuudella yhdistelmalla.
+
+Muutos aiempaan: vuoden 2026-10-02 KeyGen-ACVP-ajo (`tb/pqc_mlkem_keygen_nist_tb.sv`)
+testasi testipenkin omaa proseduraalista orkestrointia, ei
+`pqc_mlkem_keygen_core`:a. Nyt KeyGen-ACVP kohdistuu synteesikelpoiseen
+ytimeen.
+
+Ei ajettu: `encapsulationKeyCheck`- ja `decapsulationKeyCheck`-ryhmat
+(FIPS 203 7.2/7.3 syotetarkistukset; RTL ei toteuta niita). ML-KEM-1024
+(K=4) kaantyy, ei todennettu.
+
+Decaps-syklimaarat vaihtelevat avaimesta toiseen (K=3: 30775..30827).
+Ero tulee julkisesta rho:sta riippuvasta SampleNTT-hylkayksesta, joten
+taman ajon perusteella ei voi sanoa mitaan salaisen datan vaikutuksesta;
+saman avaimen vertailu (alla, K=2) on ainoa ajoitusmittaus.
+
+## Tila 2026-10-02 (alla olevat osiot ovat aikajarjestyksessa)
 
 | Operaatio | NIST ACVP -vektoreita | Tulos |
 |---|---|---|

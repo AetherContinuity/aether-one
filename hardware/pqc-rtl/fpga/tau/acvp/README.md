@@ -23,3 +23,23 @@ commitin tiedostosta. Niiden lahdecommitia ei ole kirjattu (juuren
 `KORJAUSLISTA.md` A10). KeyGen-vektori
 (`../../../vectors/mlkem_keygen_nist_vector.txt`) vastaa saman commitin
 `ML-KEM-keyGen-FIPS203`-tiedoston tcId=1:ta.
+
+## Taydet vektorisarjat (lisatty 2026-11-15)
+
+`{keygen,encaps,decaps}_{512,768}.txt`: kaikki NIST:n ML-KEM-512- ja
+ML-KEM-768-tapaukset samasta commitista (975de31): keyGen tgId 1/2
+(25 + 25), encapsulation tgId 1/2 (25 + 25), decapsulation tgId 4/5
+(10 + 10).
+
+**Generointi:**
+`python3 m2-golden/gen_mlkem_acvp_vectors.py ML-KEM-768 <keyGen.json> <encapDecap.json> fpga/tau/acvp`
+
+Generaattori ajaa jokaisen tapauksen golden-mallin lapi ja keskeytyy, jos
+tulos poikkeaa NIST:sta. `run_acvp_mlkem_full.sh <sarja> --verify-source`
+toistaa generoinnin kiinnitetysta lahteesta ja vertaa tiedostoihin.
+
+**Muoto:** ensimmainen rivi = tapausmaara. Per tapaus:
+- keygen: `tcId`, d, z, ek, dk
+- encaps: `tcId`, ek, m, K, c
+- decaps: `tcId hylkays`, dk, c, K (hylkays = 1, jos NIST:n reason on
+  "modified ciphertext")

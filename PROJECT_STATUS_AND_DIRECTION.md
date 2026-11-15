@@ -1,5 +1,12 @@
 # PROJECT_STATUS_AND_DIRECTION.md
 
+## Päätös 2026-11-15: turvataso
+
+Avoin kysymys K=2 vs. ML-DSA-65 on ratkaistu: kohdejärjestelmä on
+ML-KEM-768 + ML-DSA-65 (molemmat NIST-kategoria 3). ML-KEM-ytimet ovat
+K-parametrisia, ja K=3 on todennettu kaikilla NIST ACVP -tapauksilla.
+Jäljellä olevat kohdat: `KORJAUSLISTA.md` B1 ja D1.
+
 ## Tilapäivitys 2026-10-02 (lisätty; alla olevia päivättyjä osioita ei ole muutettu)
 
 Alla oleva 2026-07-19 kirjattu tila on vanhentunut seuraavilta osin. Ajantasainen
