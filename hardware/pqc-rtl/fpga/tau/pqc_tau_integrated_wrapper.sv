@@ -21,15 +21,20 @@
 //   0x122: KEYGEN_Z_SEED_IN  (kirjoitus: 16-bittinen sana z_seed-puskuriin[WORD_SEL])
 //   0x123: KEYGEN_START      (kirjoitus, mika tahansa arvo: laukaisee KeyGenin)
 //   0x124: KEYGEN_STATUS     (luku): [0]=busy [1]=done (sticky)
-//   0x125: KEYGEN_EK_OUT     (luku): ek:n sana WORD_SEL (0-399)
-//   0x126: KEYGEN_DK_OUT     (luku): dk:n sana WORD_SEL (0-815)
+//   0x125: KEYGEN_EK_OUT     (luku): ek:n sana WORD_SEL (0..EK_BYTES/2-1; K=2: 399, K=3: 591)
+//   0x126: KEYGEN_DK_OUT     (luku): dk:n sana WORD_SEL (0..DK_BYTES/2-1; K=2: 815, K=3: 1199)
 
 `timescale 1ns/1ps
 
 module pqc_tau_integrated_wrapper #(
     parameter int COEFF_W = 16,
     parameter int SPAD_AW = 9,
-    parameter int LOG_DEPTH = 64
+    parameter int LOG_DEPTH = 64,
+    // ML-KEM-parametrisarja: K=2 (512) tai K=3 (768). Muut johdettuja.
+    parameter int K = 2,
+    parameter int EK_BYTES = 384*K + 32,
+    parameter int DK_BYTES = 768*K + 96,
+    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))
 )(
     input  logic clk,
     input  logic rst,
@@ -102,12 +107,12 @@ module pqc_tau_integrated_wrapper #(
 
   // --- Decaps (M4-DECAPS-ORCH-001) ---
   logic decaps_start, decaps_done;
-  logic [8*768-1:0] decaps_c_buf;
-  logic [8*1632-1:0] decaps_dk_buf;
+  logic [8*C_BYTES-1:0] decaps_c_buf;
+  logic [8*DK_BYTES-1:0] decaps_dk_buf;
   logic [255:0] decaps_K_final;
   logic decaps_match;
 
-  pqc_mlkem_decaps_top #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(2)) decaps (
+  pqc_mlkem_decaps_top #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) decaps (
     .clk(clk), .reset(rst), .start(decaps_start),
     .c_in(decaps_c_buf), .dk_in(decaps_dk_buf),
     .done(decaps_done), .K_final_out(decaps_K_final), .match_out(decaps_match)
@@ -115,12 +120,12 @@ module pqc_tau_integrated_wrapper #(
 
   // --- Encaps (M4-ENCAPS-ORCH-001) ---
   logic encaps_start, encaps_done;
-  logic [8*800-1:0] encaps_ek_buf;
+  logic [8*EK_BYTES-1:0] encaps_ek_buf;
   logic [255:0] encaps_m_buf;
   logic [255:0] encaps_K;
-  logic [8*768-1:0] encaps_c;
+  logic [8*C_BYTES-1:0] encaps_c;
 
-  pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(2)) encaps (
+  pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(K)) encaps (
     .clk(clk), .reset(rst), .start(encaps_start),
     .ek_in(encaps_ek_buf), .m_in(encaps_m_buf),
     .done(encaps_done), .K_out(encaps_K), .c_out(encaps_c)
@@ -129,13 +134,13 @@ module pqc_tau_integrated_wrapper #(
   // --- KeyGen-orkestraattori ---
   logic keygen_start, keygen_done;
   logic [255:0] d_seed_buf, z_seed_buf;
-  logic [8*800-1:0] ek_out;
-  logic [8*1632-1:0] dk_out;
+  logic [8*EK_BYTES-1:0] ek_out;
+  logic [8*DK_BYTES-1:0] dk_out;
   logic [255:0] dbg_rho, dbg_sigma;
   logic [256*COEFF_W-1:0] dbg_A00;
   logic [4:0] dbg_state;
 
-  pqc_mlkem_keygen_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) keygen (
+  pqc_mlkem_keygen_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) keygen (
     .clk(clk), .reset(rst), .start(keygen_start),
     .d_seed(d_seed_buf), .z_seed(z_seed_buf),
     .done(keygen_done), .ek_out(ek_out), .dk_out(dk_out),
@@ -366,15 +371,15 @@ module pqc_tau_integrated_wrapper #(
         end else if (is_decaps_range) begin
           case (wb_adr_i[7:0])
             8'h30: word_sel <= wb_dat_i[10:0];  // DECAPS_WORD_SEL
-            8'h31: if (word_sel < 384) decaps_c_buf[word_sel*16 +: 16] <= wb_dat_i;   // DECAPS_C_IN
-            8'h32: if (word_sel < 816) decaps_dk_buf[word_sel*16 +: 16] <= wb_dat_i;  // DECAPS_DK_IN
+            8'h31: if (word_sel < C_BYTES/2) decaps_c_buf[word_sel*16 +: 16] <= wb_dat_i;   // DECAPS_C_IN
+            8'h32: if (word_sel < DK_BYTES/2) decaps_dk_buf[word_sel*16 +: 16] <= wb_dat_i;  // DECAPS_DK_IN
             8'h33: begin decaps_start <= 1'b1; decaps_done_sticky <= 1'b0; end        // DECAPS_START
             default: ;
           endcase
         end else if (is_encaps_range) begin
           case (wb_adr_i[7:0])
             8'h40: word_sel <= wb_dat_i[10:0];  // ENCAPS_WORD_SEL
-            8'h41: if (word_sel < 400) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
+            8'h41: if (word_sel < EK_BYTES/2) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
             8'h42: if (word_sel < 16) encaps_m_buf[word_sel*16 +: 16] <= wb_dat_i;    // ENCAPS_M_IN
             8'h43: begin encaps_start <= 1'b1; encaps_done_sticky <= 1'b0; end        // ENCAPS_START
             default: ;
@@ -416,8 +421,8 @@ module pqc_tau_integrated_wrapper #(
     else keygen_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_keygen_range;
     case (wb_adr_i[7:0])
       8'h24: keygen_read_data <= {14'b0, keygen_done_sticky, keygen_busy};
-      8'h25: keygen_read_data <= (word_sel < 400) ? ek_out[word_sel*16 +: 16] : 16'd0;
-      8'h26: keygen_read_data <= (word_sel < 816) ? dk_out[word_sel*16 +: 16] : 16'd0;
+      8'h25: keygen_read_data <= (word_sel < EK_BYTES/2) ? ek_out[word_sel*16 +: 16] : 16'd0;
+      8'h26: keygen_read_data <= (word_sel < DK_BYTES/2) ? dk_out[word_sel*16 +: 16] : 16'd0;
       8'h29: keygen_read_data <= {14'b0, pending_watchdog_interrupt, ecu_alive};  // WATCHDOG_STATUS
       default: keygen_read_data <= '0;
     endcase
@@ -440,7 +445,7 @@ module pqc_tau_integrated_wrapper #(
     case (wb_adr_i[7:0])
       8'h44: encaps_read_data <= {14'b0, encaps_done_sticky, encaps_busy};       // ENCAPS_STATUS
       8'h45: encaps_read_data <= (word_sel < 16) ? encaps_K[word_sel*16 +: 16] : 16'd0;    // ENCAPS_K_OUT
-      8'h46: encaps_read_data <= (word_sel < 384) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
+      8'h46: encaps_read_data <= (word_sel < C_BYTES/2) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
       default: encaps_read_data <= '0;
     endcase
   end

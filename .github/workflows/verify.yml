@@ -240,6 +240,50 @@ jobs:
       - name: ML-KEM-512 vs. NIST ACVP (KeyGen 1, Encaps 3, Decaps 5) + negatiivikontrollit
         run: bash hardware/pqc-rtl/run_acvp_mlkem.sh
 
+  # Synteesikelpoiset ML-KEM-ytimet (keygen_core, encaps_top, decaps_top)
+  # vs. kaikki NIST ACVP -tapaukset, K=2 ja K=3 (lisatty 2026-11-15).
+  # --verify-source: vektorit generoidaan uudelleen kiinnitetysta
+  # NIST-commitista ja verrataan repossa oleviin.
+  test-pqc-rtl-acvp-mlkem-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        pset: ["512", "768"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: ML-KEM-${{ matrix.pset }} vs. NIST ACVP (KeyGen 25, Encaps 25, Decaps 10) + negatiivikontrollit
+        run: bash hardware/pqc-rtl/run_acvp_mlkem_full.sh ${{ matrix.pset }} --verify-source
+      - name: TAU-kehys Wishbonen kautta, K=${{ matrix.pset == '512' && '2' || '3' }} (KeyGen->Encaps->Decaps)
+        run: |
+          cd hardware/pqc-rtl
+          source tau_common_files.sh
+          K=${{ matrix.pset == '512' && '2' || '3' }}
+          compile_tau sim/fp_k$K fpga/tau/pqc_tau_full_protocol_tb.sv -P pqc_tau_full_protocol_tb.K=$K
+          out=$(vvp sim/fp_k$K); echo "$out" | tail -3
+          echo "$out" | grep -q "^PASS: KOKO ML-KEM-PROTOKOLLA"
+
+  # Orkestrointiytimien Verilator-lint (virheet, ei varoitukset), K=2 ja K=3.
+  test-pqc-rtl-verilator-lint-tau:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Verilator
+        run: sudo apt-get update -qq && sudo apt-get install -y verilator
+      - name: Lint pqc_tau_integrated_wrapper (K=2, K=3)
+        run: |
+          cd hardware/pqc-rtl
+          source tau_common_files.sh
+          for K in 2 3; do
+            verilator --lint-only -Wno-fatal --top-module pqc_tau_integrated_wrapper -GK=$K $TAU_RTL_FILES
+          done
+
   test-pqc-rtl-acvp-dilithium:
     runs-on: ubuntu-latest
     timeout-minutes: 45

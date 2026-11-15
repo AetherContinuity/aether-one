@@ -1,37 +1,26 @@
 # Aether One™ Dual-Pi — QUICK START
 
-> **Huom 2026-10-02.** Ohje viittaa zip-paketteihin, joita ei ole tässä repossa;
-> kansiot `pi2_trust_server/` ja `pi5_edge_node/` ovat repon juuressa (KORJAUSLISTA A5).
-> Ennen `install.sh`:ta: `sudo apt install -y git cmake ninja-build build-essential libssl-dev`.
-
-**Lataa tämä paketti ja käynnistä molemmat Pi:t 15 minuutissa.**
+Ennen `install.sh`:ta: `sudo apt install -y git cmake ninja-build build-essential libssl-dev`.
+`install.sh` rakentaa liboqs:n (ML-DSA-65) ja ajaa itsetestin; ARM-laitteella (Pi) asennusta ei ole testattu.
 
 ---
 
-## Paketit
-
-Sinulla on nyt kolme zip-tiedostoa:
-
-1. **aether_one_dual_pi_complete.zip** — Kaikki (suositus)
-2. **pi2_trust_server_only.zip** — Vain Pi 2
-3. **pi5_edge_node_only.zip** — Vain Pi 5
-
----
-
-## Vaihe 1: Pura paketit
+## Vaihe 1: Hae repo
 
 ```bash
-unzip aether_one_dual_pi_complete.zip
-cd aether_one_dual_pi_complete/
+git clone https://github.com/AetherContinuity/aether-one.git
+cd aether-one
 ```
 
-Sisältää:
+Pi-ohjelmistot ovat repon juuressa:
 ```
 pi2_trust_server/       ← Kopioi Pi 2:lle
 pi5_edge_node/          ← Kopioi Pi 5:lle
-README.md               ← Täysi dokumentaatio
+README.md               ← Tila ja rajaukset
 NETWORK_SETUP.md        ← Verkko-ohjeet
 ```
+
+Vaihtoehtoisesti kloonaa repo suoraan kummallekin Pi:lle ja ohita vaihe 2.
 
 ---
 

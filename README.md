@@ -43,10 +43,10 @@ kuormalukuja ei ole mitattu.
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| FIPS 203:n algoritmit 3–21: primitiivit, K-PKE, ML-KEM `_internal` (KeyGen, Encaps, Decaps) | Synteesikelpoinen SystemVerilog, K=2 | CI: Icarus-simulaatiot, K-PKE-kierros, Decaps TB A/B, KeyGen 10 kertaa samassa simulaatiossa; `FIPS203_COVERAGE.md` |
+| FIPS 203:n algoritmit 3–21: primitiivit, K-PKE, ML-KEM `_internal` (KeyGen, Encaps, Decaps) | Synteesikelpoinen SystemVerilog, K-parametrinen; K=2 (ML-KEM-512) ja K=3 (ML-KEM-768) todennettu, oletus K=2 | CI: Icarus-simulaatiot, K-PKE-kierros, Decaps TB A/B, KeyGen 10 kertaa samassa simulaatiossa; `FIPS203_COVERAGE.md` |
 | Keccak-p[1600,24], SHA3-256/512, SHAKE128/256 | Synteesikelpoinen | Testipenkit NIST-ankkuroitua golden-mallia vasten |
 | Golden-malli (Python) | — | CI: 1000 satunnaista (d, z, m) -syötettä, jäädytettyjen vektorien tarkistus |
-| NIST ACVP: KeyGen 1 vektori, Encaps 3, Decaps 5 (sis. hylkäystapaukset) | PASS | CI: `run_acvp_mlkem.sh`, mukana kolme negatiivikontrollia; `M3_MLKEM_ACVP_STATUS.md` |
+| NIST ACVP, synteesikelpoiset ytimet: KeyGen 25, Encaps 25, Decaps 10 (5 hylkäystä), sekä ML-KEM-512 että ML-KEM-768 | PASS | CI: `run_acvp_mlkem_full.sh` (vektorit generoidaan uudelleen NIST-lähteestä, negatiivikontrollit); `M3_MLKEM_ACVP_STATUS.md` |
 | 4-pankkinen konfliktiton NTT-muisti | SAT-todistettu | `BANK_MAPPING_PROOF.md` |
 | NTT-ydin ECP5:llä: synteesi ja P&R, DP16KD = 4, Fmax 30,40 MHz (ECP5-25k) | Tehty | `fpga/timing_reports/` |
 | Koko ML-KEM-ytimen (orkestrointi) synteesi ja P&R | Ei valmistunut (resurssiraja) | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` |
@@ -59,7 +59,7 @@ kuormalukuja ei ole mitattu.
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| Wishbone-väyläohjaus, ML-KEM KeyGen/Encaps/Decaps-orkestrointi, hash-ketjutettu audit-loki (SHA3-256), watchdog | Toteutettu RTL:nä | CI: 8 simulaatiotestiä (`run_m4_tau_*`) |
+| Wishbone-väyläohjaus, ML-KEM KeyGen/Encaps/Decaps-orkestrointi, hash-ketjutettu audit-loki (SHA3-256), watchdog | Toteutettu RTL:nä, K-parametrinen | CI: 8 simulaatiotestiä (`run_m4_tau_*`, K=2); koko protokollaketju myös K=3:lla; Verilator-lint K=2 ja K=3 |
 | Synteesi ja P&R kokonaisuutena | Ei tehty | — |
 
 ### ML-DSA-65 RTL (`hardware/pqc-rtl/dilithium-rtl/`)

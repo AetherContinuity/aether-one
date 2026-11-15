@@ -16,6 +16,9 @@
 // 5. PRF+SamplePolyCBD(r',N) ETA2:lla, N=2,3 -> e1_vec[0], e1_vec[1]
 // 6. PRF+SamplePolyCBD(r',N) ETA2:lla, N=4 -> e2_poly
 //
+// K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
+// EK_BYTES, C_BYTES ja J_BLOCKS ovat johdettuja; niita ei ylikirjoiteta.
+//
 // TAMA ON TUTKIMUSPROTOTYYPPI, OSA 1/4 Phase B:sta (kayttajan oma
 // B1-B4-jako). Uudelleenkayttaa M4-MLKEM-ORCH-001:n (KeyGen)
 // todistettua SampleNTT+CBD-silmukkarakennetta.
@@ -25,22 +28,27 @@
 module pqc_mlkem_decaps_b1_core #(
     parameter int COEFF_W = 16,
     parameter int K = 2,
-    parameter int ETA1 = 3,
-    parameter int ETA2 = 2
+    parameter int ETA1 = (K == 2) ? 3 : 2,
+    parameter int ETA2 = 2,
+    parameter int DU = (K == 4) ? 11 : 10,
+    parameter int DV = (K == 4) ? 5 : 4,
+    parameter int EK_BYTES = 384*K + 32,
+    parameter int C_BYTES = 32*(DU*K + DV),
+    parameter int J_BLOCKS = (32 + C_BYTES)/136 + 1
 )(
     input  logic clk,
     input  logic reset,
 
     input  logic start,
-    input  logic [8*800-1:0] ek_in,   // ek (800 tavua: K*384 t_hat + 32 rho)
+    input  logic [8*EK_BYTES-1:0] ek_in,   // ek (K*384 t_hat + 32 rho)
     input  logic [255:0] r_prime_in,
     input  logic [255:0] m_prime_in,   // Phase A:n oma m'
-    input  logic [8*768-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
+    input  logic [8*C_BYTES-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
     input  logic [255:0] z_in,           // z-siemen (dk:n oma osa)
     input  logic [255:0] K_prime_in,     // Phase G:n oma K'
 
     output logic done,
-    output logic [4*256*COEFF_W-1:0] A_out_flat,        // A[0][0],A[0][1],A[1][0],A[1][1] jarjestyksessa
+    output logic [K*K*256*COEFF_W-1:0] A_out_flat,      // A[i][j] indeksissa i*K+j
     output logic [K*256*COEFF_W-1:0] y_vec_out_flat,
     output logic [K*256*COEFF_W-1:0] y_hat_out_flat,     // B2a: NTT-forward(y_vec)
     output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
@@ -49,7 +57,7 @@ module pqc_mlkem_decaps_b1_core #(
     output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
     output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
     output logic [256*COEFF_W-1:0] v_poly_out,           // B2b-2: normaalialueen v
-    output logic [8*768-1:0] c_prime_out,                  // B3: siffertext c'
+    output logic [8*C_BYTES-1:0] c_prime_out,              // B3: siffertext c'
     output logic match_out,                                 // B4: c == c'
     output logic [255:0] K_final_out                       // B4: lopullinen istuntoavain
 );
@@ -86,33 +94,35 @@ module pqc_mlkem_decaps_b1_core #(
   logic [255:0] bdec1_in, bdec1_out;
 
   // --- Phase B3: Compress(DU/DV) + ByteEncode(DU/DV) -> c' ---
-  localparam int DU = 10;
-  localparam int DV = 4;
-  logic [256*COEFF_W-1:0] bcompu_in [0:1];
-  logic [256*DU-1:0] bcompu_out [0:1];
-  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu0 (.x_packed(bcompu_in[0]), .y_packed(bcompu_out[0]));
-  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu1 (.x_packed(bcompu_in[1]), .y_packed(bcompu_out[1]));
+  logic [256*COEFF_W-1:0] bcompu_in [0:K-1];
+  logic [256*DU-1:0] bcompu_out [0:K-1];
+  logic [256*DU-1:0] bencu_in [0:K-1];
+  logic [256*DU-1:0] bencu_out [0:K-1];
+  logic [256*12-1:0] bdec12_in [0:K-1];
+  logic [256*12-1:0] bdec12_out_raw [0:K-1];
+  for (genvar g = 0; g < K; g++) begin : g_codec
+    pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu (.x_packed(bcompu_in[g]), .y_packed(bcompu_out[g]));
+    pqc_byteencode_dparam #(.D(DU)) bencu (.f_in(bencu_in[g]), .b_out(bencu_out[g]));
+    pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
+  end
 
   logic [256*COEFF_W-1:0] bcompv_in;
   logic [256*DV-1:0] bcompv_out;
   pqc_batch_compress #(.D(DV), .COEFF_W(COEFF_W)) bcompv (.x_packed(bcompv_in), .y_packed(bcompv_out));
 
-  logic [256*DU-1:0] bencu_in [0:1];
-  logic [256*DU-1:0] bencu_out [0:1];
-  pqc_byteencode_dparam #(.D(DU)) bencu0 (.f_in(bencu_in[0]), .b_out(bencu_out[0]));
-  pqc_byteencode_dparam #(.D(DU)) bencu1 (.f_in(bencu_in[1]), .b_out(bencu_out[1]));
 
   logic [256*DV-1:0] bencv_in, bencv_out;
   pqc_byteencode_dparam #(.D(DV)) bencv (.f_in(bencv_in), .b_out(bencv_out));
 
-  logic [8*768-1:0] c_prime;
+  logic [8*C_BYTES-1:0] c_prime;
 
+  localparam int J_LEN = 32 + C_BYTES;
   logic shake256_start, shake256_done;
-  logic [8*136*6-1:0] shake256_msg_in;
+  logic [8*136*J_BLOCKS-1:0] shake256_msg_in;
   logic [8*32-1:0] shake256_out;
-  pqc_shake256 #(.MAX_BLOCKS(6), .MAX_OUT_BYTES(32)) shake256_dut (
+  pqc_shake256 #(.MAX_BLOCKS(J_BLOCKS), .MAX_OUT_BYTES(32)) shake256_dut (
     .clk(clk), .reset(reset), .start(shake256_start),
-    .msg_in(shake256_msg_in), .msg_len_bytes(16'd800), .out_len_bytes(16'd32),
+    .msg_in(shake256_msg_in), .msg_len_bytes(J_LEN[15:0]), .out_len_bytes(16'd32),
     .out_data(shake256_out), .done(shake256_done)
   );
   pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
@@ -125,7 +135,7 @@ module pqc_mlkem_decaps_b1_core #(
   );
 
   logic [256*COEFF_W-1:0] y_hat [0:K-1];
-  logic [1:0] fwd_ctr;
+  logic [3:0] fwd_ctr;
   logic [5:0] sched_idx;
   logic [7:0] load_idx, read_idx;
 
@@ -159,15 +169,18 @@ module pqc_mlkem_decaps_b1_core #(
     .seed_s(cbd2_seed), .counter_n(cbd2_n), .f_out(cbd2_out), .done(cbd2_done)
   );
 
-  logic [256*12-1:0] bdec12_in [0:1];
-  logic [256*12-1:0] bdec12_out_raw [0:1];
-  pqc_bytedecode_dparam #(.D(12)) bdec12_0 (.b_in(bdec12_in[0]), .f_out(bdec12_out_raw[0]));
-  pqc_bytedecode_dparam #(.D(12)) bdec12_1 (.b_in(bdec12_in[1]), .f_out(bdec12_out_raw[1]));
+
+  // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
+  // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
+  function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
+    widen12 = '0;
+    for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
+  endfunction
 
   logic [256*COEFF_W-1:0] t_hat [0:K-1];
   logic [255:0] rho;
-  logic [1:0] i_ctr, j_ctr;
-  logic [2:0] n_ctr;  // 0..2K (K=2: 0,1=y_vec; 2,3=e1_vec; 4=e2_poly)
+  logic [3:0] i_ctr, j_ctr;
+  logic [3:0] n_ctr;  // 0..2K (0..K-1 = y_vec; K..2K-1 = e1_vec; 2K = e2_poly)
 
   // Sisaiset (unpacked, EI portteja - turvallinen Icarus Verilogissa)
   logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
@@ -182,7 +195,7 @@ module pqc_mlkem_decaps_b1_core #(
 
   logic [256*COEFF_W-1:0] u_acc [0:K-1];  // A^T*y_hat akkumulaattori, per sarake
   logic [256*COEFF_W-1:0] v_acc;          // t_hat*y_hat akkumulaattori
-  logic [1:0] mm_col, mm_j;
+  logic [3:0] mm_col, mm_j;
 
   typedef enum logic [5:0] {
     S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
@@ -205,7 +218,7 @@ module pqc_mlkem_decaps_b1_core #(
 
   logic [7:0] inv_load_idx, inv_read_idx;
   logic [5:0] inv_sched_idx;
-  logic [1:0] inv_col;
+  logic [3:0] inv_col;
   logic [256*COEFF_W-1:0] raw_u, raw_v, scaled_v, mu_poly;
   logic [256*COEFF_W-1:0] u_vec [0:K-1];
   logic [256*COEFF_W-1:0] v_poly;
@@ -226,19 +239,15 @@ module pqc_mlkem_decaps_b1_core #(
       case (state)
         S_IDLE: begin
           if (start) begin
-            bdec12_in[0] <= ek_in[(0*384)*8 +: 384*8];
-            bdec12_in[1] <= ek_in[(1*384)*8 +: 384*8];
+            for (int q = 0; q < K; q++) bdec12_in[q] <= ek_in[(q*384)*8 +: 384*8];
             rho <= ek_in[(384*K)*8 +: 32*8];
             state <= S_DECODE_T;
           end
         end
 
         S_DECODE_T: begin
-          for (int cc = 0; cc < 256; cc++) begin
-            t_hat[0][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[0][cc*12 +: 12]};
-            t_hat[1][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[1][cc*12 +: 12]};
-          end
-          i_ctr <= 2'd0; j_ctr <= 2'd0;
+          for (int q = 0; q < K; q++) t_hat[q] <= widen12(bdec12_out_raw[q]);
+          i_ctr <= 4'd0; j_ctr <= 4'd0;
           state <= S_START_SNTT;
         end
 
@@ -251,7 +260,7 @@ module pqc_mlkem_decaps_b1_core #(
           // generointi KeyGenin omaan, EI-transponoituun konventioon -
           // transpoosi toteutetaan sen sijaan matriisikertolaskun omassa
           // indeksoinnissa (S_MATMUL_U).
-          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
+          samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
           samplentt_start <= 1'b1;
           state <= S_WAIT_SNTT;
         end
@@ -265,35 +274,35 @@ module pqc_mlkem_decaps_b1_core #(
 
         S_SNTT_NEXT: begin
           if (j_ctr == K-1) begin
-            j_ctr <= 2'd0;
+            j_ctr <= 4'd0;
             if (i_ctr == K-1) begin
-              i_ctr <= 2'd0; n_ctr <= 3'd0;
+              i_ctr <= 4'd0; n_ctr <= 4'd0;
               state <= S_START_CBD1;
             end else begin
-              i_ctr <= i_ctr + 2'd1;
+              i_ctr <= i_ctr + 4'd1;
               state <= S_START_SNTT;
             end
           end else begin
-            j_ctr <= j_ctr + 2'd1;
+            j_ctr <= j_ctr + 4'd1;
             state <= S_START_SNTT;
           end
         end
 
         // --- y_vec: PRF+CBD(ETA1), N=0..K-1 ---
         S_START_CBD1: begin
-          cbd1_seed <= r_prime_in; cbd1_n <= {5'b0,n_ctr};
+          cbd1_seed <= r_prime_in; cbd1_n <= {4'b0,n_ctr};
           cbd1_start <= 1'b1;
           state <= S_WAIT_CBD1;
         end
 
         S_WAIT_CBD1: begin
           if (cbd1_done) begin
-            y_vec[n_ctr[0]] <= cbd1_out;
+            y_vec[n_ctr] <= cbd1_out;
             if (n_ctr == K-1) begin
-              n_ctr <= n_ctr + 3'd1;
+              n_ctr <= n_ctr + 4'd1;
               state <= S_START_CBD2;
             end else begin
-              n_ctr <= n_ctr + 3'd1;
+              n_ctr <= n_ctr + 4'd1;
               state <= S_START_CBD1;
             end
           end
@@ -301,7 +310,7 @@ module pqc_mlkem_decaps_b1_core #(
 
         // --- e1_vec (N=K..2K-1) ja e2_poly (N=2K): PRF+CBD(ETA2) ---
         S_START_CBD2: begin
-          cbd2_seed <= r_prime_in; cbd2_n <= {5'b0,n_ctr};
+          cbd2_seed <= r_prime_in; cbd2_n <= {4'b0,n_ctr};
           cbd2_start <= 1'b1;
           state <= S_WAIT_CBD2;
         end
@@ -310,11 +319,11 @@ module pqc_mlkem_decaps_b1_core #(
           if (cbd2_done) begin
             if (n_ctr == 2*K) begin
               e2_poly_out <= cbd2_out;
-              fwd_ctr <= 2'd0; load_idx <= 8'd0;
+              fwd_ctr <= 4'd0; load_idx <= 8'd0;
               state <= S_FWD_LOAD;
             end else begin
               e1_vec[n_ctr - K] <= cbd2_out;
-              n_ctr <= n_ctr + 3'd1;
+              n_ctr <= n_ctr + 4'd1;
               state <= S_START_CBD2;
             end
           end
@@ -381,12 +390,12 @@ module pqc_mlkem_decaps_b1_core #(
 
         S_FWD_NEXT: begin
           if (fwd_ctr == K-1) begin
-            mm_col <= 2'd0; mm_j <= 2'd0;
+            mm_col <= 4'd0; mm_j <= 4'd0;
             for (int cc = 0; cc < K; cc++) u_acc[cc] <= '0;
             v_acc <= '0;
             state <= S_MATMUL_U;
           end else begin
-            fwd_ctr <= fwd_ctr + 2'd1;
+            fwd_ctr <= fwd_ctr + 4'd1;
             load_idx <= 8'd0;
             state <= S_FWD_LOAD;
           end
@@ -412,10 +421,10 @@ module pqc_mlkem_decaps_b1_core #(
         S_MATMUL_U_CAPTURE: begin
           u_acc[mm_col] <= padd_sum;
           if (mm_j == K-1) begin
-            mm_j <= 2'd0;
+            mm_j <= 4'd0;
             state <= S_MATMUL_U_NEXT;
           end else begin
-            mm_j <= mm_j + 2'd1;
+            mm_j <= mm_j + 4'd1;
             state <= S_MATMUL_U;
           end
         end
@@ -423,7 +432,7 @@ module pqc_mlkem_decaps_b1_core #(
         S_MATMUL_U_NEXT: begin
           if (mm_col == K-1) state <= S_MATMUL_V;
           else begin
-            mm_col <= mm_col + 2'd1;
+            mm_col <= mm_col + 4'd1;
             state <= S_MATMUL_U;
           end
         end
@@ -438,10 +447,10 @@ module pqc_mlkem_decaps_b1_core #(
         S_MATMUL_V_CAPTURE: begin
           v_acc <= padd_sum;
           if (mm_j == K-1) begin
-            inv_col <= 2'd0; inv_load_idx <= 8'd0;
+            inv_col <= 4'd0; inv_load_idx <= 8'd0;
             state <= S_INV_U_LOAD;
           end else begin
-            mm_j <= mm_j + 2'd1;
+            mm_j <= mm_j + 4'd1;
             state <= S_MATMUL_V;
           end
         end
@@ -520,7 +529,7 @@ module pqc_mlkem_decaps_b1_core #(
             inv_load_idx <= 8'd0;
             state <= S_INV_V_LOAD;
           end else begin
-            inv_col <= inv_col + 2'd1;
+            inv_col <= inv_col + 4'd1;
             inv_load_idx <= 8'd0;
             state <= S_INV_U_LOAD;
           end
@@ -628,20 +637,17 @@ module pqc_mlkem_decaps_b1_core #(
         // setup/capture-malli (sama periaate kuin kaikkialla muualla). ---
         S_COMPRESS_U_SETUP: begin
           v_poly <= padd_sum;  // viimeistellaan v_poly:n oma laskenta tassa
-          bcompu_in[0] <= u_vec[0];
-          bcompu_in[1] <= u_vec[1];
+          for (int q = 0; q < K; q++) bcompu_in[q] <= u_vec[q];
           state <= S_COMPRESS_U;
         end
 
         S_COMPRESS_U: begin
-          bencu_in[0] <= bcompu_out[0];
-          bencu_in[1] <= bcompu_out[1];
+          for (int q = 0; q < K; q++) bencu_in[q] <= bcompu_out[q];
           state <= S_ENCODE_U;
         end
 
         S_ENCODE_U: begin
-          c_prime[(0*DU*32)*8 +: DU*32*8] <= bencu_out[0];
-          c_prime[(1*DU*32)*8 +: DU*32*8] <= bencu_out[1];
+          for (int q = 0; q < K; q++) c_prime[(q*DU*32)*8 +: DU*32*8] <= bencu_out[q];
           bcompv_in <= v_poly;
           state <= S_COMPRESS_V_SETUP;
         end
@@ -656,7 +662,7 @@ module pqc_mlkem_decaps_b1_core #(
         end
 
         S_ENCODE_V: begin
-          c_prime[(2*DU*32)*8 +: DV*32*8] <= bencv_out;
+          c_prime[(K*DU*32)*8 +: DV*32*8] <= bencv_out;
           shake256_msg_in <= '0;
           state <= S_START_SHAKE256;
         end
@@ -665,7 +671,7 @@ module pqc_mlkem_decaps_b1_core #(
         // SHAKE256(z||c,32), K_final = match ? K' : K_bar ---
         S_START_SHAKE256: begin
           shake256_msg_in[255:0] <= z_in;
-          shake256_msg_in[8*768+255:256] <= c_in;
+          shake256_msg_in[256 +: 8*C_BYTES] <= c_in;
           shake256_start <= 1'b1;
           state <= S_WAIT_SHAKE256;
         end
@@ -689,10 +695,16 @@ module pqc_mlkem_decaps_b1_core #(
   end
 
   // --- Litistys: sisaiset unpacked-taulukot -> paketoidut ulostuloportit ---
-  assign A_out_flat = {A[1][1], A[1][0], A[0][1], A[0][0]};
-  assign y_vec_out_flat = {y_vec[1], y_vec[0]};
-  assign y_hat_out_flat = {y_hat[1], y_hat[0]};
-  assign e1_vec_out_flat = {e1_vec[1], e1_vec[0]};
+  for (genvar gi = 0; gi < K; gi++) begin : g_flat
+    for (genvar gj = 0; gj < K; gj++) begin : g_flat_a
+      assign A_out_flat[(gi*K+gj)*256*COEFF_W +: 256*COEFF_W] = A[gi][gj];
+    end
+    assign y_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_vec[gi];
+    assign y_hat_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_hat[gi];
+    assign e1_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W] = e1_vec[gi];
+    assign u_acc_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_acc[gi];
+    assign u_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_vec[gi];
+  end
 
   assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT) ||
                           (state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
@@ -707,9 +719,7 @@ module pqc_mlkem_decaps_b1_core #(
   assign mntt_f = (state == S_MATMUL_V) ? t_hat[mm_j] : A[mm_j][mm_col];
   assign mntt_g = y_hat[mm_j];
 
-  assign u_acc_out_flat = {u_acc[1], u_acc[0]};
   assign v_acc_out = v_acc;
-  assign u_vec_out_flat = {u_vec[1], u_vec[0]};
   assign v_poly_out = v_poly;
   assign c_prime_out = c_prime;
 

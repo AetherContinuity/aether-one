@@ -9,6 +9,9 @@
 // (d_seed/z_seed/viesti simuloitu ECU:n omalla, ohjelmiston puolella
 // generoidulla datalla) - EI mitaan aiemmin kaytettya, jaadytettya
 // testivektoria.
+//
+// K-parametri (2026-11-15): oletus K=2; K=3 (ML-KEM-768) ajetaan
+// kaantamalla -P pqc_tau_full_protocol_tb.K=3.
 
 `timescale 1ns/1ps
 
@@ -16,6 +19,10 @@ module pqc_tau_full_protocol_tb;
 
   localparam int COEFF_W = 16;
   localparam int SPAD_AW = 9;
+  parameter int K = 2;
+  localparam int EK_BYTES = 384*K + 32;
+  localparam int DK_BYTES = 768*K + 96;
+  localparam int C_BYTES  = 32*(10*K + 4);
 
   logic clk, rst;
   logic [10:0] wb_adr;
@@ -24,7 +31,7 @@ module pqc_tau_full_protocol_tb;
 
   always #5 clk = ~clk;
 
-  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) dut (
+  pqc_tau_integrated_wrapper #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) dut (
     .clk(clk), .rst(rst),
     .wb_adr_i(wb_adr), .wb_dat_i(wb_dat_i), .wb_dat_o(wb_dat_o),
     .wb_we_i(wb_we), .wb_stb_i(wb_stb), .wb_cyc_i(wb_cyc), .wb_ack_o(wb_ack)
@@ -52,10 +59,10 @@ module pqc_tau_full_protocol_tb;
   endtask
 
   logic [255:0] d_seed, z_seed, m_msg;
-  logic [8*800-1:0] ek_readback;
-  logic [8*1632-1:0] dk_readback;
+  logic [8*EK_BYTES-1:0] ek_readback;
+  logic [8*DK_BYTES-1:0] dk_readback;
   logic [255:0] K_encaps_readback;
-  logic [8*768-1:0] c_readback;
+  logic [8*C_BYTES-1:0] c_readback;
   logic [255:0] K_decaps_readback;
   int error_count;
 
@@ -88,7 +95,7 @@ module pqc_tau_full_protocol_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 20000) begin
+      while (!status[1] && wait_cycles < 80000) begin
         wb_read(11'h124, status);
         wait_cycles++;
       end
@@ -97,13 +104,13 @@ module pqc_tau_full_protocol_tb;
       end else $display("OK: KeyGen valmis %0d syklin jalkeen", wait_cycles);
     end
 
-    for (int w = 0; w < 400; w++) begin
+    for (int w = 0; w < EK_BYTES/2; w++) begin
       logic [COEFF_W-1:0] word;
       wb_write(11'h120, w[10:0]);
       wb_read(11'h125, word);
       ek_readback[w*16+:16] = word;
     end
-    for (int w = 0; w < 816; w++) begin
+    for (int w = 0; w < DK_BYTES/2; w++) begin
       logic [COEFF_W-1:0] word;
       wb_write(11'h120, w[10:0]);
       wb_read(11'h126, word);
@@ -115,7 +122,7 @@ module pqc_tau_full_protocol_tb;
 
     // === Vaihe 2: Encaps (kayttaen KeyGenin OMAA ek:ta) ===
     $display("=== Vaihe 2: Encaps ===");
-    for (int w = 0; w < 400; w++) begin
+    for (int w = 0; w < EK_BYTES/2; w++) begin
       wb_write(11'h140, w[10:0]);
       wb_write(11'h141, ek_readback[w*16+:16]);
     end
@@ -129,7 +136,7 @@ module pqc_tau_full_protocol_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 20000) begin
+      while (!status[1] && wait_cycles < 80000) begin
         wb_read(11'h144, status);
         wait_cycles++;
       end
@@ -144,7 +151,7 @@ module pqc_tau_full_protocol_tb;
       wb_read(11'h145, word);
       K_encaps_readback[w*16+:16] = word;
     end
-    for (int w = 0; w < 384; w++) begin
+    for (int w = 0; w < C_BYTES/2; w++) begin
       logic [COEFF_W-1:0] word;
       wb_write(11'h140, w[10:0]);
       wb_read(11'h146, word);
@@ -156,11 +163,11 @@ module pqc_tau_full_protocol_tb;
 
     // === Vaihe 3: Decaps (kayttaen KeyGenin OMAA dk:ta JA Encapsin OMAA c:ta) ===
     $display("=== Vaihe 3: Decaps ===");
-    for (int w = 0; w < 384; w++) begin
+    for (int w = 0; w < C_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);
       wb_write(11'h131, c_readback[w*16+:16]);
     end
-    for (int w = 0; w < 816; w++) begin
+    for (int w = 0; w < DK_BYTES/2; w++) begin
       wb_write(11'h130, w[10:0]);
       wb_write(11'h132, dk_readback[w*16+:16]);
     end
@@ -170,7 +177,7 @@ module pqc_tau_full_protocol_tb;
       logic [COEFF_W-1:0] status;
       int wait_cycles;
       wait_cycles = 0; status = 0;
-      while (!status[1] && wait_cycles < 40000) begin
+      while (!status[1] && wait_cycles < 80000) begin
         wb_read(11'h134, status);
         wait_cycles++;
       end

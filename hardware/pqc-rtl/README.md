@@ -1,12 +1,15 @@
-# PQC RTL — NTT256 Kiihdytin (TrustCore NX -polku)
+# PQC RTL — ML-KEM, ML-DSA-65 ja TAU-kehys (SystemVerilog)
 
-SystemVerilog RTL-prototyyppi NTT256-kiihdyttimelle.
-Pi 5 toimii simulointiympäristönä ennen FPGA-siirtymää.
+Kansion sisältö:
 
-**HUOM (2026-07-19):** taman kansion paaosa (`rtl/`, `fpga/`) on
-ML-KEM/Kyber-tyota. `dilithium-rtl/` sisaltaa UUDEN, ERILLISEN
-ML-DSA-65 (Dilithium) -RTL-tyon (M5-DILITHIUM-001) - ks. oma osio
-alempana ("Yhteys TrustCore NX:ään ja Dilithium-tyohon").
+- `rtl/`: ML-KEM-primitiivit (NTT/NTT⁻¹, Keccak/SHA-3, näytteistys, pakkaus, koodaus).
+- `fpga/tau/`: ML-KEM KeyGen/Encaps/Decaps -orkestrointiytimet, Wishbone-kääre,
+  audit-loki ja watchdog (TAU, Trust Anchor Unit).
+- `dilithium-rtl/`: ML-DSA-65 (KeyGen, `Sign_internal`, `Verify_internal`).
+- `m2-golden/`, `dilithium-golden/`: Python-referenssimallit ja vektorigeneraattorit.
+
+Ajantasainen tila: repon juuren `README.md`. Avoimet kohdat: `KORJAUSLISTA.md`.
+Alla oleva milestone-taulukko on historiallinen loki (M1–M3), ei nykytilan kuvaus.
 
 ## Tila
 
