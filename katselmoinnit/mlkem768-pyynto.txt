@@ -1,0 +1,3943 @@
+# Katselmointipyyntö: ML-KEM-ytimien K-yleistys (aether-one PR #24)
+
+## Tausta
+aether-one on SystemVerilog-oppimisprototyyppi: ML-KEM (FIPS 203) ja ML-DSA-65
+RTL:nä, TAU-kehys (Wishbone, audit-loki, watchdog). Päätös 2026-11-15: ML-KEM-512
+(K=2) → ML-KEM-768 (K=3), jotta ML-KEM ja ML-DSA-65 ovat samassa NIST-kategoriassa 3.
+
+Tässä muutoksessa viisi orkestrointiydintä ja Wishbone-kääre muutettiin
+K-parametrisiksi. Aiemmin niissä oli K=2-kovakoodauksia (esim. `s_vec[n_ctr[0]]`,
+kiinteät 768/800/1632-tavuiset leveydet, kaksi kiinteää alimoduuli-instanssia).
+Oletus pysyy K=2:na.
+
+Simulaattori: Icarus Verilog (iverilog -g2012). Primitiivimoduulit (Keccak, NTT,
+SampleNTT, CBD, Compress, ByteEncode/Decode) ovat ennallaan eivätkä ole mukana;
+niiden portit näkyvät instansseista. pqc_sha3_256/pqc_shake256: MAX_BLOCKS
+136-tavuista lohkoa, msg_in leveys 8*136*MAX_BLOCKS, padding sisäinen.
+
+## Mitä on jo todennettu (älä toista, käytä lähtökohtana)
+- NIST ACVP (usnistgov/ACVP-Server 975de31), synteesikelpoisia ytimiä vasten:
+  ML-KEM-512 ja ML-KEM-768, KeyGen 25/25, Encaps 25/25, Decaps 10/10 (5 hylkäystä).
+  Negatiivikontrolli: yksi heksamerkki muutettu tiedoston viimeisessä rivissä → FAIL.
+- Koko ketju KeyGen→Encaps→Decaps Wishbonen kautta, K=2 ja K=3, satunnaissyötteet.
+- 8 olemassa olevaa K=2-TAU-testiä ennallaan PASS.
+- Verilator --lint-only ilman virheitä K=2 ja K=3 (varoituksia: leveydet, int-vertailut).
+
+## Viite: FIPS 203 taulukko 2 ja johdetut koot
+| sarja | k | η1 | η2 | du | dv | ek | dk | c |
+|---|---|---|---|---|---|---|---|---|
+| ML-KEM-512 | 2 | 3 | 2 | 10 | 4 | 800 | 1632 | 768 |
+| ML-KEM-768 | 3 | 2 | 2 | 10 | 4 | 1184 | 2400 | 1088 |
+| ML-KEM-1024 | 4 | 2 | 2 | 11 | 5 | 1568 | 3168 | 1568 |
+ek = 384k+32, dk = 768k+96, c = 32(du·k+dv).
+
+## Mitä pyydän
+Testit menevät läpi K=2 ja K=3. Etsi siksi asioita, joita ne EIVÄT paljasta:
+1. Virheet, jotka näkyisivät vain K=4:llä (ML-KEM-1024 kääntyy, ei todennettu):
+   laskurien leveydet, lohkomäärät (H_BLOCKS, J_BLOCKS), du=11/dv=5-polut, word_sel (11 bittiä) kääreessä.
+2. Parametrien johtaminen: onko jokainen oletusarvo FIPS 203:n mukainen kaikilla k? Voiko johdetun
+   parametrin (EK_BYTES ym.) ylikirjoitus hiljaa rikkoa jotain?
+3. Synteesiin liittyvät ongelmat, jotka simulaatio ohittaa: muuttuja-indeksit taulukkoihin, for-silmukat
+   always_ff:ssä, kombinatoriset polut, generate-if testipenkissä.
+4. Testien heikkoudet: kattaako negatiivikontrolli oikeasti kaikki tapaukset? Voiko testipenkki (mlkem_acvp_tb.sv)
+   raportoida PASS väärin (esim. $fscanf-virhe, X-arvot, `===`-vertailut, decaps match_out-tarkistus)?
+   Tarkistaako gen_mlkem_acvp_vectors.py oikeat asiat?
+5. Muu, mikä on mielestäsi virhe. Erottele selvästi: (a) varma virhe rivinumeroineen,
+   (b) epäily, jonka tarkistaminen vaatii lisätietoa, (c) tyylihuomio.
+
+Älä ehdota testien heikentämistä tai NIST-vektorien muuttamista. Älä keksi tuloksia: sinulla ei ole
+simulaattoria eikä repoa, vain tämä aineisto.
+
+## Diff main → PR (muutetut tiedostot)
+
+```diff
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_a_core.sv b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_a_core.sv
+index f972abf..98d5ed3 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_a_core.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_a_core.sv
+@@ -5,7 +5,10 @@
+ //
+ // SEKVENSSI (vastaa tb/pqc_mlkem_decaps_a_tb.sv:n proseduraalista
+ // orkestrointia, nyt synteesikelpoisena tilakoneena):
+-// 1. Pura c -> c1[0], c1[1] (DU=10-bittinen), c2 (DV=4-bittinen)
++// K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
++// C_BYTES ja DKPKE_BYTES ovat johdettuja; niita ei ylikirjoiteta.
++//
++// 1. Pura c -> c1[0..K-1] (DU-bittinen), c2 (DV-bittinen)
+ // 2. ByteDecode(DU) + Decompress(DU) c1[i]:sta -> u'[i]
+ // 3. ByteDecode(DV) + Decompress(DV) c2:sta -> v'
+ // 4. ByteDecode(12) dkPKE:sta -> s_hat[i]
+@@ -26,15 +29,17 @@ module pqc_mlkem_decaps_a_core #(
+     parameter int COEFF_W = 16,
+     parameter int SPAD_AW = 9,
+     parameter int K = 2,
+-    parameter int DU = 10,
+-    parameter int DV = 4
++    parameter int DU = (K == 4) ? 11 : 10,
++    parameter int DV = (K == 4) ? 5 : 4,
++    parameter int C_BYTES = 32*(DU*K + DV),
++    parameter int DKPKE_BYTES = 384*K
+ )(
+     input  logic clk,
+     input  logic reset,
+ 
+     input  logic start,
+-    input  logic [8*768-1:0] c_in,      // tiiviisti pakattu siffertext (768 tavua)
+-    input  logic [8*768-1:0] dkPKE_in,  // dkPKE (768 tavua, K*384)
++    input  logic [8*C_BYTES-1:0] c_in,         // tiiviisti pakattu siffertext
++    input  logic [8*DKPKE_BYTES-1:0] dkPKE_in, // dkPKE (K*384 tavua)
+     input  logic [255:0] h_in,          // H(ek), G-vaiheen syote
+ 
+     output logic done,
+@@ -73,15 +78,17 @@ module pqc_mlkem_decaps_a_core #(
+   end
+ 
+   // --- Kombinatoriset alimoduulit ---
+-  logic [256*DU-1:0] bdecU_in [0:1];
+-  logic [256*DU-1:0] bdecU_out [0:1];
+-  pqc_bytedecode_dparam #(.D(DU)) bdecU0 (.b_in(bdecU_in[0]), .f_out(bdecU_out[0]));
+-  pqc_bytedecode_dparam #(.D(DU)) bdecU1 (.b_in(bdecU_in[1]), .f_out(bdecU_out[1]));
+-
+-  logic [256*DU-1:0] decompU_in [0:1];
+-  logic [256*COEFF_W-1:0] decompU_out [0:1];
+-  pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU0 (.y_packed(decompU_in[0]), .x_packed(decompU_out[0]));
+-  pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU1 (.y_packed(decompU_in[1]), .x_packed(decompU_out[1]));
++  logic [256*DU-1:0] bdecU_in [0:K-1];
++  logic [256*DU-1:0] bdecU_out [0:K-1];
++  logic [256*DU-1:0] decompU_in [0:K-1];
++  logic [256*COEFF_W-1:0] decompU_out [0:K-1];
++  logic [256*12-1:0] bdec12_in [0:K-1];
++  logic [256*12-1:0] bdec12_out_raw [0:K-1];
++  for (genvar g = 0; g < K; g++) begin : g_dec
++    pqc_bytedecode_dparam #(.D(DU)) bdecU (.b_in(bdecU_in[g]), .f_out(bdecU_out[g]));
++    pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU (.y_packed(decompU_in[g]), .x_packed(decompU_out[g]));
++    pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
++  end
+ 
+   logic [256*DV-1:0] bdecV_in;
+   logic [256*DV-1:0] bdecV_out;
+@@ -91,10 +98,6 @@ module pqc_mlkem_decaps_a_core #(
+   logic [256*COEFF_W-1:0] decompV_out;
+   pqc_batch_decompress #(.D(DV), .COEFF_W(COEFF_W)) decompV (.y_packed(decompV_in), .x_packed(decompV_out));
+ 
+-  logic [256*12-1:0] bdec12_in [0:1];
+-  logic [256*12-1:0] bdec12_out_raw [0:1];
+-  pqc_bytedecode_dparam #(.D(12)) bdec12_0 (.b_in(bdec12_in[0]), .f_out(bdec12_out_raw[0]));
+-  pqc_bytedecode_dparam #(.D(12)) bdec12_1 (.b_in(bdec12_in[1]), .f_out(bdec12_out_raw[1]));
+ 
+   logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+   pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+@@ -128,6 +131,13 @@ module pqc_mlkem_decaps_a_core #(
+     .digest_out(sha512_out), .done(sha512_done)
+   );
+ 
++  // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
++  // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
++  function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
++    widen12 = '0;
++    for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
++  endfunction
++
+   // --- Tallennusrekisterit ---
+   logic [256*COEFF_W-1:0] u_prime [0:K-1], v_prime;
+   logic [256*COEFF_W-1:0] s_hat [0:K-1];
+@@ -146,10 +156,10 @@ module pqc_mlkem_decaps_a_core #(
+   } state_e;
+   state_e state;
+ 
+-  logic [1:0] fwd_ctr;
++  logic [3:0] fwd_ctr;
+   logic [5:0] sched_idx;
+   logic [7:0] load_idx, read_idx;
+-  logic [1:0] mm_i;
++  logic [3:0] mm_i;
+   logic [7:0] m_bit_idx;
+ 
+   always_ff @(posedge clk) begin
+@@ -165,41 +175,36 @@ module pqc_mlkem_decaps_a_core #(
+         S_IDLE: begin
+           if (start) begin
+             // --- ByteDecode+Decompress: kombinatorinen, yksi sykli riittaa ---
+-            bdecU_in[0] <= c_in[(0*DU*32)*8 +: DU*32*8];
+-            bdecU_in[1] <= c_in[(1*DU*32)*8 +: DU*32*8];
+-            bdecV_in    <= c_in[(2*DU*32)*8 +: DV*32*8];
+-            bdec12_in[0] <= dkPKE_in[(0*384)*8 +: 384*8];
+-            bdec12_in[1] <= dkPKE_in[(1*384)*8 +: 384*8];
++            for (int q = 0; q < K; q++) begin
++              bdecU_in[q]  <= c_in[(q*DU*32)*8 +: DU*32*8];
++              bdec12_in[q] <= dkPKE_in[(q*384)*8 +: 384*8];
++            end
++            bdecV_in    <= c_in[(K*DU*32)*8 +: DV*32*8];
+             state <= S_DECODE_U_V;
+           end
+         end
+ 
+         S_DECODE_U_V: begin
+-          decompU_in[0] <= bdecU_out[0];
+-          decompU_in[1] <= bdecU_out[1];
++          for (int q = 0; q < K; q++) decompU_in[q] <= bdecU_out[q];
+           decompV_in    <= bdecV_out;
+           state <= S_DECODE_S;
+         end
+ 
+         S_DECODE_S: begin
+-          u_prime[0] <= decompU_out[0];
+-          u_prime[1] <= decompU_out[1];
++          for (int q = 0; q < K; q++) u_prime[q] <= decompU_out[q];
+           v_prime    <= decompV_out;
+-          for (int cc = 0; cc < 256; cc++) begin
+-            s_hat[0][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[0][cc*12 +: 12]};
+-            s_hat[1][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[1][cc*12 +: 12]};
+-          end
+-          fwd_ctr <= 2'd0;
++          for (int q = 0; q < K; q++) s_hat[q] <= widen12(bdec12_out_raw[q]);
++          fwd_ctr <= 4'd0;
+           load_idx <= 8'd0;
+           state <= S_FWD_LOAD;
+         end
+ 
+-        // --- NTT-forward u'[0], u'[1] -> u_hat[0], u_hat[1] ---
++        // --- NTT-forward u'[0..K-1] -> u_hat[0..K-1] ---
+         S_FWD_LOAD: begin
+           ntt_load_valid <= 1'b1;
+           ntt_load_addr  <= load_idx;
+-          ntt_load_data  <= (fwd_ctr == 0) ? u_prime[0][load_idx*COEFF_W +: COEFF_W]
+-                                            : u_prime[1][load_idx*COEFF_W +: COEFF_W];
++          for (int q = 0; q < K; q++)
++            if (fwd_ctr == q) ntt_load_data <= u_prime[q][load_idx*COEFF_W +: COEFF_W];
+           if (load_idx == 8'd255) begin
+             sched_idx <= 6'd0;
+             state <= S_FWD_SCHED_SETUP;
+@@ -243,8 +248,8 @@ module pqc_mlkem_decaps_a_core #(
+ 
+         S_FWD_READ_WAIT: begin
+           if (ntt_read_valid) begin
+-            if (fwd_ctr == 0) u_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+-            else u_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
++            for (int q = 0; q < K; q++)
++              if (fwd_ctr == q) u_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+             if (read_idx == 8'd255) state <= S_FWD_NEXT;
+             else begin
+               read_idx <= read_idx + 8'd1;
+@@ -255,11 +260,11 @@ module pqc_mlkem_decaps_a_core #(
+ 
+         S_FWD_NEXT: begin
+           if (fwd_ctr == K-1) begin
+-            mm_i <= 2'd0;
++            mm_i <= 4'd0;
+             mm_acc <= '0;
+             state <= S_MATMUL;
+           end else begin
+-            fwd_ctr <= fwd_ctr + 2'd1;
++            fwd_ctr <= fwd_ctr + 4'd1;
+             load_idx <= 8'd0;
+             state <= S_FWD_LOAD;
+           end
+@@ -271,7 +276,7 @@ module pqc_mlkem_decaps_a_core #(
+           if (mm_i == K-1) begin
+             load_idx <= 8'd0;
+             state <= S_INV_LOAD;
+-          end else mm_i <= mm_i + 2'd1;
++          end else mm_i <= mm_i + 4'd1;
+         end
+ 
+         // --- NTT-inverse mm_acc:lle -> inner_raw ---
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_b1_core.sv b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_b1_core.sv
+index 5e74267..32a7e8f 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_b1_core.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_b1_core.sv
+@@ -16,6 +16,9 @@
+ // 5. PRF+SamplePolyCBD(r',N) ETA2:lla, N=2,3 -> e1_vec[0], e1_vec[1]
+ // 6. PRF+SamplePolyCBD(r',N) ETA2:lla, N=4 -> e2_poly
+ //
++// K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
++// EK_BYTES, C_BYTES ja J_BLOCKS ovat johdettuja; niita ei ylikirjoiteta.
++//
+ // TAMA ON TUTKIMUSPROTOTYYPPI, OSA 1/4 Phase B:sta (kayttajan oma
+ // B1-B4-jako). Uudelleenkayttaa M4-MLKEM-ORCH-001:n (KeyGen)
+ // todistettua SampleNTT+CBD-silmukkarakennetta.
+@@ -25,22 +28,27 @@
+ module pqc_mlkem_decaps_b1_core #(
+     parameter int COEFF_W = 16,
+     parameter int K = 2,
+-    parameter int ETA1 = 3,
+-    parameter int ETA2 = 2
++    parameter int ETA1 = (K == 2) ? 3 : 2,
++    parameter int ETA2 = 2,
++    parameter int DU = (K == 4) ? 11 : 10,
++    parameter int DV = (K == 4) ? 5 : 4,
++    parameter int EK_BYTES = 384*K + 32,
++    parameter int C_BYTES = 32*(DU*K + DV),
++    parameter int J_BLOCKS = (32 + C_BYTES)/136 + 1
+ )(
+     input  logic clk,
+     input  logic reset,
+ 
+     input  logic start,
+-    input  logic [8*800-1:0] ek_in,   // ek (800 tavua: K*384 t_hat + 32 rho)
++    input  logic [8*EK_BYTES-1:0] ek_in,   // ek (K*384 t_hat + 32 rho)
+     input  logic [255:0] r_prime_in,
+     input  logic [255:0] m_prime_in,   // Phase A:n oma m'
+-    input  logic [8*768-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
++    input  logic [8*C_BYTES-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
+     input  logic [255:0] z_in,           // z-siemen (dk:n oma osa)
+     input  logic [255:0] K_prime_in,     // Phase G:n oma K'
+ 
+     output logic done,
+-    output logic [4*256*COEFF_W-1:0] A_out_flat,        // A[0][0],A[0][1],A[1][0],A[1][1] jarjestyksessa
++    output logic [K*K*256*COEFF_W-1:0] A_out_flat,      // A[i][j] indeksissa i*K+j
+     output logic [K*256*COEFF_W-1:0] y_vec_out_flat,
+     output logic [K*256*COEFF_W-1:0] y_hat_out_flat,     // B2a: NTT-forward(y_vec)
+     output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
+@@ -49,7 +57,7 @@ module pqc_mlkem_decaps_b1_core #(
+     output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
+     output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
+     output logic [256*COEFF_W-1:0] v_poly_out,           // B2b-2: normaalialueen v
+-    output logic [8*768-1:0] c_prime_out,                  // B3: siffertext c'
++    output logic [8*C_BYTES-1:0] c_prime_out,              // B3: siffertext c'
+     output logic match_out,                                 // B4: c == c'
+     output logic [255:0] K_final_out                       // B4: lopullinen istuntoavain
+ );
+@@ -86,33 +94,35 @@ module pqc_mlkem_decaps_b1_core #(
+   logic [255:0] bdec1_in, bdec1_out;
+ 
+   // --- Phase B3: Compress(DU/DV) + ByteEncode(DU/DV) -> c' ---
+-  localparam int DU = 10;
+-  localparam int DV = 4;
+-  logic [256*COEFF_W-1:0] bcompu_in [0:1];
+-  logic [256*DU-1:0] bcompu_out [0:1];
+-  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu0 (.x_packed(bcompu_in[0]), .y_packed(bcompu_out[0]));
+-  pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu1 (.x_packed(bcompu_in[1]), .y_packed(bcompu_out[1]));
++  logic [256*COEFF_W-1:0] bcompu_in [0:K-1];
++  logic [256*DU-1:0] bcompu_out [0:K-1];
++  logic [256*DU-1:0] bencu_in [0:K-1];
++  logic [256*DU-1:0] bencu_out [0:K-1];
++  logic [256*12-1:0] bdec12_in [0:K-1];
++  logic [256*12-1:0] bdec12_out_raw [0:K-1];
++  for (genvar g = 0; g < K; g++) begin : g_codec
++    pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu (.x_packed(bcompu_in[g]), .y_packed(bcompu_out[g]));
++    pqc_byteencode_dparam #(.D(DU)) bencu (.f_in(bencu_in[g]), .b_out(bencu_out[g]));
++    pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
++  end
+ 
+   logic [256*COEFF_W-1:0] bcompv_in;
+   logic [256*DV-1:0] bcompv_out;
+   pqc_batch_compress #(.D(DV), .COEFF_W(COEFF_W)) bcompv (.x_packed(bcompv_in), .y_packed(bcompv_out));
+ 
+-  logic [256*DU-1:0] bencu_in [0:1];
+-  logic [256*DU-1:0] bencu_out [0:1];
+-  pqc_byteencode_dparam #(.D(DU)) bencu0 (.f_in(bencu_in[0]), .b_out(bencu_out[0]));
+-  pqc_byteencode_dparam #(.D(DU)) bencu1 (.f_in(bencu_in[1]), .b_out(bencu_out[1]));
+ 
+   logic [256*DV-1:0] bencv_in, bencv_out;
+   pqc_byteencode_dparam #(.D(DV)) bencv (.f_in(bencv_in), .b_out(bencv_out));
+ 
+-  logic [8*768-1:0] c_prime;
++  logic [8*C_BYTES-1:0] c_prime;
+ 
++  localparam int J_LEN = 32 + C_BYTES;
+   logic shake256_start, shake256_done;
+-  logic [8*136*6-1:0] shake256_msg_in;
++  logic [8*136*J_BLOCKS-1:0] shake256_msg_in;
+   logic [8*32-1:0] shake256_out;
+-  pqc_shake256 #(.MAX_BLOCKS(6), .MAX_OUT_BYTES(32)) shake256_dut (
++  pqc_shake256 #(.MAX_BLOCKS(J_BLOCKS), .MAX_OUT_BYTES(32)) shake256_dut (
+     .clk(clk), .reset(reset), .start(shake256_start),
+-    .msg_in(shake256_msg_in), .msg_len_bytes(16'd800), .out_len_bytes(16'd32),
++    .msg_in(shake256_msg_in), .msg_len_bytes(J_LEN[15:0]), .out_len_bytes(16'd32),
+     .out_data(shake256_out), .done(shake256_done)
+   );
+   pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
+@@ -125,7 +135,7 @@ module pqc_mlkem_decaps_b1_core #(
+   );
+ 
+   logic [256*COEFF_W-1:0] y_hat [0:K-1];
+-  logic [1:0] fwd_ctr;
++  logic [3:0] fwd_ctr;
+   logic [5:0] sched_idx;
+   logic [7:0] load_idx, read_idx;
+ 
+@@ -159,15 +169,18 @@ module pqc_mlkem_decaps_b1_core #(
+     .seed_s(cbd2_seed), .counter_n(cbd2_n), .f_out(cbd2_out), .done(cbd2_done)
+   );
+ 
+-  logic [256*12-1:0] bdec12_in [0:1];
+-  logic [256*12-1:0] bdec12_out_raw [0:1];
+-  pqc_bytedecode_dparam #(.D(12)) bdec12_0 (.b_in(bdec12_in[0]), .f_out(bdec12_out_raw[0]));
+-  pqc_bytedecode_dparam #(.D(12)) bdec12_1 (.b_in(bdec12_in[1]), .f_out(bdec12_out_raw[1]));
++
++  // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
++  // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
++  function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
++    widen12 = '0;
++    for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
++  endfunction
+ 
+   logic [256*COEFF_W-1:0] t_hat [0:K-1];
+   logic [255:0] rho;
+-  logic [1:0] i_ctr, j_ctr;
+-  logic [2:0] n_ctr;  // 0..2K (K=2: 0,1=y_vec; 2,3=e1_vec; 4=e2_poly)
++  logic [3:0] i_ctr, j_ctr;
++  logic [3:0] n_ctr;  // 0..2K (0..K-1 = y_vec; K..2K-1 = e1_vec; 2K = e2_poly)
+ 
+   // Sisaiset (unpacked, EI portteja - turvallinen Icarus Verilogissa)
+   logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
+@@ -182,7 +195,7 @@ module pqc_mlkem_decaps_b1_core #(
+ 
+   logic [256*COEFF_W-1:0] u_acc [0:K-1];  // A^T*y_hat akkumulaattori, per sarake
+   logic [256*COEFF_W-1:0] v_acc;          // t_hat*y_hat akkumulaattori
+-  logic [1:0] mm_col, mm_j;
++  logic [3:0] mm_col, mm_j;
+ 
+   typedef enum logic [5:0] {
+     S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
+@@ -205,7 +218,7 @@ module pqc_mlkem_decaps_b1_core #(
+ 
+   logic [7:0] inv_load_idx, inv_read_idx;
+   logic [5:0] inv_sched_idx;
+-  logic [1:0] inv_col;
++  logic [3:0] inv_col;
+   logic [256*COEFF_W-1:0] raw_u, raw_v, scaled_v, mu_poly;
+   logic [256*COEFF_W-1:0] u_vec [0:K-1];
+   logic [256*COEFF_W-1:0] v_poly;
+@@ -226,19 +239,15 @@ module pqc_mlkem_decaps_b1_core #(
+       case (state)
+         S_IDLE: begin
+           if (start) begin
+-            bdec12_in[0] <= ek_in[(0*384)*8 +: 384*8];
+-            bdec12_in[1] <= ek_in[(1*384)*8 +: 384*8];
++            for (int q = 0; q < K; q++) bdec12_in[q] <= ek_in[(q*384)*8 +: 384*8];
+             rho <= ek_in[(384*K)*8 +: 32*8];
+             state <= S_DECODE_T;
+           end
+         end
+ 
+         S_DECODE_T: begin
+-          for (int cc = 0; cc < 256; cc++) begin
+-            t_hat[0][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[0][cc*12 +: 12]};
+-            t_hat[1][cc*COEFF_W +: COEFF_W] <= {4'b0, bdec12_out_raw[1][cc*12 +: 12]};
+-          end
+-          i_ctr <= 2'd0; j_ctr <= 2'd0;
++          for (int q = 0; q < K; q++) t_hat[q] <= widen12(bdec12_out_raw[q]);
++          i_ctr <= 4'd0; j_ctr <= 4'd0;
+           state <= S_START_SNTT;
+         end
+ 
+@@ -251,7 +260,7 @@ module pqc_mlkem_decaps_b1_core #(
+           // generointi KeyGenin omaan, EI-transponoituun konventioon -
+           // transpoosi toteutetaan sen sijaan matriisikertolaskun omassa
+           // indeksoinnissa (S_MATMUL_U).
+-          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
++          samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
+           samplentt_start <= 1'b1;
+           state <= S_WAIT_SNTT;
+         end
+@@ -265,35 +274,35 @@ module pqc_mlkem_decaps_b1_core #(
+ 
+         S_SNTT_NEXT: begin
+           if (j_ctr == K-1) begin
+-            j_ctr <= 2'd0;
++            j_ctr <= 4'd0;
+             if (i_ctr == K-1) begin
+-              i_ctr <= 2'd0; n_ctr <= 3'd0;
++              i_ctr <= 4'd0; n_ctr <= 4'd0;
+               state <= S_START_CBD1;
+             end else begin
+-              i_ctr <= i_ctr + 2'd1;
++              i_ctr <= i_ctr + 4'd1;
+               state <= S_START_SNTT;
+             end
+           end else begin
+-            j_ctr <= j_ctr + 2'd1;
++            j_ctr <= j_ctr + 4'd1;
+             state <= S_START_SNTT;
+           end
+         end
+ 
+         // --- y_vec: PRF+CBD(ETA1), N=0..K-1 ---
+         S_START_CBD1: begin
+-          cbd1_seed <= r_prime_in; cbd1_n <= {5'b0,n_ctr};
++          cbd1_seed <= r_prime_in; cbd1_n <= {4'b0,n_ctr};
+           cbd1_start <= 1'b1;
+           state <= S_WAIT_CBD1;
+         end
+ 
+         S_WAIT_CBD1: begin
+           if (cbd1_done) begin
+-            y_vec[n_ctr[0]] <= cbd1_out;
++            y_vec[n_ctr] <= cbd1_out;
+             if (n_ctr == K-1) begin
+-              n_ctr <= n_ctr + 3'd1;
++              n_ctr <= n_ctr + 4'd1;
+               state <= S_START_CBD2;
+             end else begin
+-              n_ctr <= n_ctr + 3'd1;
++              n_ctr <= n_ctr + 4'd1;
+               state <= S_START_CBD1;
+             end
+           end
+@@ -301,7 +310,7 @@ module pqc_mlkem_decaps_b1_core #(
+ 
+         // --- e1_vec (N=K..2K-1) ja e2_poly (N=2K): PRF+CBD(ETA2) ---
+         S_START_CBD2: begin
+-          cbd2_seed <= r_prime_in; cbd2_n <= {5'b0,n_ctr};
++          cbd2_seed <= r_prime_in; cbd2_n <= {4'b0,n_ctr};
+           cbd2_start <= 1'b1;
+           state <= S_WAIT_CBD2;
+         end
+@@ -310,11 +319,11 @@ module pqc_mlkem_decaps_b1_core #(
+           if (cbd2_done) begin
+             if (n_ctr == 2*K) begin
+               e2_poly_out <= cbd2_out;
+-              fwd_ctr <= 2'd0; load_idx <= 8'd0;
++              fwd_ctr <= 4'd0; load_idx <= 8'd0;
+               state <= S_FWD_LOAD;
+             end else begin
+               e1_vec[n_ctr - K] <= cbd2_out;
+-              n_ctr <= n_ctr + 3'd1;
++              n_ctr <= n_ctr + 4'd1;
+               state <= S_START_CBD2;
+             end
+           end
+@@ -381,12 +390,12 @@ module pqc_mlkem_decaps_b1_core #(
+ 
+         S_FWD_NEXT: begin
+           if (fwd_ctr == K-1) begin
+-            mm_col <= 2'd0; mm_j <= 2'd0;
++            mm_col <= 4'd0; mm_j <= 4'd0;
+             for (int cc = 0; cc < K; cc++) u_acc[cc] <= '0;
+             v_acc <= '0;
+             state <= S_MATMUL_U;
+           end else begin
+-            fwd_ctr <= fwd_ctr + 2'd1;
++            fwd_ctr <= fwd_ctr + 4'd1;
+             load_idx <= 8'd0;
+             state <= S_FWD_LOAD;
+           end
+@@ -412,10 +421,10 @@ module pqc_mlkem_decaps_b1_core #(
+         S_MATMUL_U_CAPTURE: begin
+           u_acc[mm_col] <= padd_sum;
+           if (mm_j == K-1) begin
+-            mm_j <= 2'd0;
++            mm_j <= 4'd0;
+             state <= S_MATMUL_U_NEXT;
+           end else begin
+-            mm_j <= mm_j + 2'd1;
++            mm_j <= mm_j + 4'd1;
+             state <= S_MATMUL_U;
+           end
+         end
+@@ -423,7 +432,7 @@ module pqc_mlkem_decaps_b1_core #(
+         S_MATMUL_U_NEXT: begin
+           if (mm_col == K-1) state <= S_MATMUL_V;
+           else begin
+-            mm_col <= mm_col + 2'd1;
++            mm_col <= mm_col + 4'd1;
+             state <= S_MATMUL_U;
+           end
+         end
+@@ -438,10 +447,10 @@ module pqc_mlkem_decaps_b1_core #(
+         S_MATMUL_V_CAPTURE: begin
+           v_acc <= padd_sum;
+           if (mm_j == K-1) begin
+-            inv_col <= 2'd0; inv_load_idx <= 8'd0;
++            inv_col <= 4'd0; inv_load_idx <= 8'd0;
+             state <= S_INV_U_LOAD;
+           end else begin
+-            mm_j <= mm_j + 2'd1;
++            mm_j <= mm_j + 4'd1;
+             state <= S_MATMUL_V;
+           end
+         end
+@@ -520,7 +529,7 @@ module pqc_mlkem_decaps_b1_core #(
+             inv_load_idx <= 8'd0;
+             state <= S_INV_V_LOAD;
+           end else begin
+-            inv_col <= inv_col + 2'd1;
++            inv_col <= inv_col + 4'd1;
+             inv_load_idx <= 8'd0;
+             state <= S_INV_U_LOAD;
+           end
+@@ -628,20 +637,17 @@ module pqc_mlkem_decaps_b1_core #(
+         // setup/capture-malli (sama periaate kuin kaikkialla muualla). ---
+         S_COMPRESS_U_SETUP: begin
+           v_poly <= padd_sum;  // viimeistellaan v_poly:n oma laskenta tassa
+-          bcompu_in[0] <= u_vec[0];
+-          bcompu_in[1] <= u_vec[1];
++          for (int q = 0; q < K; q++) bcompu_in[q] <= u_vec[q];
+           state <= S_COMPRESS_U;
+         end
+ 
+         S_COMPRESS_U: begin
+-          bencu_in[0] <= bcompu_out[0];
+-          bencu_in[1] <= bcompu_out[1];
++          for (int q = 0; q < K; q++) bencu_in[q] <= bcompu_out[q];
+           state <= S_ENCODE_U;
+         end
+ 
+         S_ENCODE_U: begin
+-          c_prime[(0*DU*32)*8 +: DU*32*8] <= bencu_out[0];
+-          c_prime[(1*DU*32)*8 +: DU*32*8] <= bencu_out[1];
++          for (int q = 0; q < K; q++) c_prime[(q*DU*32)*8 +: DU*32*8] <= bencu_out[q];
+           bcompv_in <= v_poly;
+           state <= S_COMPRESS_V_SETUP;
+         end
+@@ -656,7 +662,7 @@ module pqc_mlkem_decaps_b1_core #(
+         end
+ 
+         S_ENCODE_V: begin
+-          c_prime[(2*DU*32)*8 +: DV*32*8] <= bencv_out;
++          c_prime[(K*DU*32)*8 +: DV*32*8] <= bencv_out;
+           shake256_msg_in <= '0;
+           state <= S_START_SHAKE256;
+         end
+@@ -665,7 +671,7 @@ module pqc_mlkem_decaps_b1_core #(
+         // SHAKE256(z||c,32), K_final = match ? K' : K_bar ---
+         S_START_SHAKE256: begin
+           shake256_msg_in[255:0] <= z_in;
+-          shake256_msg_in[8*768+255:256] <= c_in;
++          shake256_msg_in[256 +: 8*C_BYTES] <= c_in;
+           shake256_start <= 1'b1;
+           state <= S_WAIT_SHAKE256;
+         end
+@@ -689,10 +695,16 @@ module pqc_mlkem_decaps_b1_core #(
+   end
+ 
+   // --- Litistys: sisaiset unpacked-taulukot -> paketoidut ulostuloportit ---
+-  assign A_out_flat = {A[1][1], A[1][0], A[0][1], A[0][0]};
+-  assign y_vec_out_flat = {y_vec[1], y_vec[0]};
+-  assign y_hat_out_flat = {y_hat[1], y_hat[0]};
+-  assign e1_vec_out_flat = {e1_vec[1], e1_vec[0]};
++  for (genvar gi = 0; gi < K; gi++) begin : g_flat
++    for (genvar gj = 0; gj < K; gj++) begin : g_flat_a
++      assign A_out_flat[(gi*K+gj)*256*COEFF_W +: 256*COEFF_W] = A[gi][gj];
++    end
++    assign y_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_vec[gi];
++    assign y_hat_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_hat[gi];
++    assign e1_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W] = e1_vec[gi];
++    assign u_acc_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_acc[gi];
++    assign u_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_vec[gi];
++  end
+ 
+   assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT) ||
+                           (state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
+@@ -707,9 +719,7 @@ module pqc_mlkem_decaps_b1_core #(
+   assign mntt_f = (state == S_MATMUL_V) ? t_hat[mm_j] : A[mm_j][mm_col];
+   assign mntt_g = y_hat[mm_j];
+ 
+-  assign u_acc_out_flat = {u_acc[1], u_acc[0]};
+   assign v_acc_out = v_acc;
+-  assign u_vec_out_flat = {u_vec[1], u_vec[0]};
+   assign v_poly_out = v_poly;
+   assign c_prime_out = c_prime;
+ 
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_top.sv b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_top.sv
+index f92ddee..886862d 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_top.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_top.sv
+@@ -15,14 +15,18 @@
+ module pqc_mlkem_decaps_top #(
+     parameter int COEFF_W = 16,
+     parameter int SPAD_AW = 9,
+-    parameter int K = 2
++    parameter int K = 2,
++    parameter int DKPKE_BYTES = 384*K,                       // johdettu
++    parameter int EK_BYTES = 384*K + 32,                     // johdettu
++    parameter int DK_BYTES = 768*K + 96,                     // johdettu
++    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))  // johdettu
+ )(
+     input  logic clk,
+     input  logic reset,
+ 
+     input  logic start,
+-    input  logic [8*768-1:0] c_in,     // alkuperainen siffertext
+-    input  logic [8*1632-1:0] dk_in,   // dk = dkPKE(768B)||ek(800B)||h(32B)||z(32B)
++    input  logic [8*C_BYTES-1:0] c_in,   // alkuperainen siffertext
++    input  logic [8*DK_BYTES-1:0] dk_in, // dk = dkPKE(384K)||ek(384K+32)||h(32)||z(32)
+ 
+     output logic done,
+     output logic [255:0] K_final_out,
+@@ -30,10 +34,10 @@ module pqc_mlkem_decaps_top #(
+ );
+ 
+   // --- dk:n oma purku FIPS 203:n rakenteen mukaisesti ---
+-  wire [8*768-1:0] dkPKE = dk_in[8*768-1:0];
+-  wire [8*800-1:0] ek    = dk_in[8*(768+800)-1:8*768];
+-  wire [255:0] h_val     = dk_in[8*(768+800+32)-1:8*(768+800)];
+-  wire [255:0] z_val     = dk_in[8*1632-1:8*(768+800+32)];
++  wire [8*DKPKE_BYTES-1:0] dkPKE = dk_in[0 +: 8*DKPKE_BYTES];
++  wire [8*EK_BYTES-1:0] ek       = dk_in[8*DKPKE_BYTES +: 8*EK_BYTES];
++  wire [255:0] h_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES) +: 256];
++  wire [255:0] z_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES+32) +: 256];
+ 
+   // --- Phase A+G ---
+   logic phaseA_start, phaseA_done;
+@@ -48,10 +52,10 @@ module pqc_mlkem_decaps_top #(
+ 
+   // --- Phase B1-B4 ---
+   logic phaseB_start, phaseB_done;
+-  logic [4*256*COEFF_W-1:0] unused_A;
++  logic [K*K*256*COEFF_W-1:0] unused_A;
+   logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
+   logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
+-  logic [8*768-1:0] unused_cprime;
++  logic [8*C_BYTES-1:0] unused_cprime;
+ 
+   pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) decaps_b (
+     .clk(clk), .reset(reset), .start(phaseB_start),
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_encaps_top.sv b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_encaps_top.sv
+index eaf1da6..ca558f7 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_encaps_top.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_encaps_top.sv
+@@ -3,7 +3,7 @@
+ // M4-ENCAPS-ORCH-001: ML-KEM.Encaps_internal (FIPS 203 Algoritmi 17).
+ //
+ // SEKVENSSI:
+-// 1. H(ek) = SHA3-256(ek, 800 tavua)
++// 1. H(ek) = SHA3-256(ek, 384K+32 tavua)
+ // 2. (K,r) = G(m||H(ek)) = SHA3-512
+ // 3. c = K-PKE.Encrypt(ek, m, r) - UUDELLEENKAYTTAA SUORAAN
+ //    pqc_mlkem_decaps_b1_core.sv:n jo todistetun K-PKE.Encrypt-
+@@ -22,26 +22,29 @@
+ 
+ module pqc_mlkem_encaps_top #(
+     parameter int COEFF_W = 16,
+-    parameter int K = 2
++    parameter int K = 2,
++    parameter int EK_BYTES = 384*K + 32,                    // johdettu
++    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4)),  // johdettu
++    parameter int H_BLOCKS = EK_BYTES/136 + 1                // johdettu
+ )(
+     input  logic clk,
+     input  logic reset,
+ 
+     input  logic start,
+-    input  logic [8*800-1:0] ek_in,
++    input  logic [8*EK_BYTES-1:0] ek_in,
+     input  logic [255:0] m_in,
+ 
+     output logic done,
+     output logic [255:0] K_out,
+-    output logic [8*768-1:0] c_out
++    output logic [8*C_BYTES-1:0] c_out
+ );
+ 
+   logic sha256_start, sha256_done;
+-  logic [8*136*6-1:0] sha256_msg_in;
++  logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
+   logic [255:0] sha256_out;
+-  pqc_sha3_256 #(.MAX_BLOCKS(6)) sha256_dut (
++  pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
+     .clk(clk), .reset(reset), .start(sha256_start),
+-    .msg_in(sha256_msg_in), .msg_len_bytes(16'd800),
++    .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
+     .digest_out(sha256_out), .done(sha256_done)
+   );
+ 
+@@ -59,10 +62,10 @@ module pqc_mlkem_encaps_top #(
+   // NAMA EIVAT vaikuta c_prime_out:n omaan laskentaan. ---
+   logic encrypt_start, encrypt_done;
+   logic [255:0] r_val, K_val;
+-  logic [8*768-1:0] c_prime;
++  logic [8*C_BYTES-1:0] c_prime;
+   logic unused_match;
+   logic [255:0] unused_K_final;
+-  logic [4*256*COEFF_W-1:0] unused_A;
++  logic [K*K*256*COEFF_W-1:0] unused_A;
+   logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
+   logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
+ 
+@@ -96,7 +99,7 @@ module pqc_mlkem_encaps_top #(
+       case (state)
+         S_IDLE: if (start) begin
+           sha256_msg_in <= '0;
+-          sha256_msg_in[8*800-1:0] <= ek_in;
++          sha256_msg_in[8*EK_BYTES-1:0] <= ek_in;
+           state <= S_START_H;
+         end
+ 
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_keygen_core.sv b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_keygen_core.sv
+index 39aa630..24db38d 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_mlkem_keygen_core.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_mlkem_keygen_core.sv
+@@ -13,7 +13,13 @@
+ // mutta synteesikelpoisena RTL:na (ei testipenkin omana proseduraalisena
+ // koodina).
+ //
+-// SEKVENSSI (K=2, ML-KEM-512):
++// K-yleistys (2026-11-15): K=2 (ML-KEM-512) ja K=3 (ML-KEM-768)
++// todennettu NIST ACVP -vektoreilla. K=4 (ML-KEM-1024) kaantyy, ei
++// todennettu. Johdetut leveydet (EK_BYTES, DK_BYTES, H_BLOCKS) ovat
++// parametreja vain siksi, etta niita voi kayttaa porttileveyksissa:
++// niita EI ole tarkoitus ylikirjoittaa.
++//
++// SEKVENSSI (yleinen K):
+ // 1. SHA3-512(d||K) -> rho, sigma
+ // 2. SampleNTT(rho,i,j) x4 (KxK) -> A[i][j]
+ // 3. PRF+SamplePolyCBD(sigma,N) x4 (2K) -> s_vec[i], e_vec[i]
+@@ -33,7 +39,11 @@ module pqc_mlkem_keygen_core #(
+     parameter int COEFF_W = 16,
+     parameter int SPAD_AW = 9,
+     parameter int K = 2,
+-    parameter int ETA1 = 3
++    parameter int ETA1 = (K == 2) ? 3 : 2,
++    parameter int DKPKE_BYTES = 384*K,
++    parameter int EK_BYTES = 384*K + 32,
++    parameter int DK_BYTES = 768*K + 96,
++    parameter int H_BLOCKS = EK_BYTES/136 + 1
+ )(
+     input  logic clk,
+     input  logic reset,
+@@ -43,8 +53,8 @@ module pqc_mlkem_keygen_core #(
+     input  logic [255:0] z_seed,
+ 
+     output logic done,
+-    output logic [8*800-1:0] ek_out,
+-    output logic [8*1632-1:0] dk_out,
++    output logic [8*EK_BYTES-1:0] ek_out,
++    output logic [8*DK_BYTES-1:0] dk_out,
+ 
+     // TILAPAINEN debug-ulostulo taman osittaisen version testausta
+     // varten - poistetaan kun koko sekvenssi on valmis.
+@@ -92,11 +102,11 @@ module pqc_mlkem_keygen_core #(
+   );
+ 
+   logic sha256_start, sha256_done;
+-  logic [8*136*6-1:0] sha256_msg_in;
++  logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
+   logic [255:0] sha256_out;
+-  pqc_sha3_256 #(.MAX_BLOCKS(6)) sha256_dut (
++  pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
+     .clk(clk), .reset(reset), .start(sha256_start),
+-    .msg_in(sha256_msg_in), .msg_len_bytes(16'd800),
++    .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
+     .digest_out(sha256_out), .done(sha256_done)
+   );
+ 
+@@ -127,10 +137,11 @@ module pqc_mlkem_keygen_core #(
+   logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+   pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+ 
+-  logic [256*12-1:0] benc12_in [0:1];
+-  logic [8*384-1:0] benc12_out [0:1];
+-  pqc_byteencode_dparam #(.D(12)) benc12_0 (.f_in(benc12_in[0]), .b_out(benc12_out[0]));
+-  pqc_byteencode_dparam #(.D(12)) benc12_1 (.f_in(benc12_in[1]), .b_out(benc12_out[1]));
++  logic [256*12-1:0] benc12_in [0:K-1];
++  logic [8*384-1:0] benc12_out [0:K-1];
++  for (genvar g = 0; g < K; g++) begin : g_benc12
++    pqc_byteencode_dparam #(.D(12)) benc12 (.f_in(benc12_in[g]), .b_out(benc12_out[g]));
++  end
+ 
+   // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): pqc_byteencode_dparam
+   // odottaa kertoimet TIIVIISTI pakattuina 12 bittiin/kerroin (256*12
+@@ -145,14 +156,14 @@ module pqc_mlkem_keygen_core #(
+     end
+   endfunction
+ 
+-  // --- Tallennusrekisterit (K=2-kokoiset taulukot) ---
++  // --- Tallennusrekisterit ---
+   logic [255:0] rho, sigma;
+   logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
+   logic [256*COEFF_W-1:0] s_vec [0:K-1], e_vec [0:K-1];
+   logic [256*COEFF_W-1:0] s_hat [0:K-1], e_hat [0:K-1], t_hat [0:K-1];
+   logic [255:0] H_ek;
+-  logic [8*800-1:0] ek_reg;
+-  logic [8*1632-1:0] dk_reg;
++  logic [8*EK_BYTES-1:0] ek_reg;
++  logic [8*DK_BYTES-1:0] dk_reg;
+ 
+   // --- Paatilakone: askellaskuri, joka kayy lapi tasmalleen saman
+   // sekvenssin kuin testipenkin oma initial-lohko. ---
+@@ -169,10 +180,10 @@ module pqc_mlkem_keygen_core #(
+   } state_e;
+   state_e state, return_state;
+ 
+-  logic [1:0] i_ctr, j_ctr;
+-  logic [1:0] n_ctr;
+-  logic [1:0] fwd_ctr;
+-  logic [1:0] mm_i, mm_j;
++  logic [3:0] i_ctr, j_ctr;
++  logic [3:0] n_ctr;
++  logic [3:0] fwd_ctr;
++  logic [3:0] mm_i, mm_j;
+   logic [256*COEFF_W-1:0] mm_acc;
+   logic [7:0] load_idx, read_idx;
+   logic [5:0] sched_idx;
+@@ -188,7 +199,7 @@ module pqc_mlkem_keygen_core #(
+ 
+     if (reset) begin
+       state <= S_IDLE;
+-      i_ctr <= 2'd0; j_ctr <= 2'd0; n_ctr <= 2'd0;
++      i_ctr <= 4'd0; j_ctr <= 4'd0; n_ctr <= 4'd0;
+     end else begin
+       case (state)
+         S_IDLE: begin
+@@ -208,14 +219,14 @@ module pqc_mlkem_keygen_core #(
+           if (sha512_done) begin
+             rho   <= sha512_out[255:0];
+             sigma <= sha512_out[511:256];
+-            i_ctr <= 2'd0; j_ctr <= 2'd0;
++            i_ctr <= 4'd0; j_ctr <= 4'd0;
+             state <= S_START_SNTT;
+           end
+         end
+ 
+         // --- SampleNTT KxK kertaa ---
+         S_START_SNTT: begin
+-          samplentt_rho <= rho; samplentt_i <= {6'b0,i_ctr}; samplentt_j <= {6'b0,j_ctr};
++          samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
+           samplentt_start <= 1'b1;
+           state <= S_WAIT_SNTT;
+         end
+@@ -227,47 +238,49 @@ module pqc_mlkem_keygen_core #(
+         end
+         S_SNTT_NEXT: begin
+           if (j_ctr == K-1) begin
+-            j_ctr <= 2'd0;
++            j_ctr <= 4'd0;
+             if (i_ctr == K-1) begin
+-              i_ctr <= 2'd0; n_ctr <= 2'd0;
++              i_ctr <= 4'd0; n_ctr <= 4'd0;
+               state <= S_START_CBD;
+             end else begin
+-              i_ctr <= i_ctr + 2'd1;
++              i_ctr <= i_ctr + 4'd1;
+               state <= S_START_SNTT;
+             end
+           end else begin
+-            j_ctr <= j_ctr + 2'd1;
++            j_ctr <= j_ctr + 4'd1;
+             state <= S_START_SNTT;
+           end
+         end
+ 
+         // --- PRF+SamplePolyCBD 2K kertaa: ensin K s_vec, sitten K e_vec ---
+         S_START_CBD: begin
+-          cbd1_seed <= sigma; cbd1_n <= {6'b0,n_ctr};
++          cbd1_seed <= sigma; cbd1_n <= {4'b0,n_ctr};
+           cbd1_start <= 1'b1;
+           state <= S_WAIT_CBD;
+         end
+         S_WAIT_CBD: begin
+           if (cbd1_done) begin
+-            if (n_ctr < K) s_vec[n_ctr[0]] <= cbd1_out;
+-            else e_vec[n_ctr[0]] <= cbd1_out;
++            for (int q = 0; q < K; q++) begin
++              if (n_ctr == q)     s_vec[q] <= cbd1_out;
++              if (n_ctr == K + q) e_vec[q] <= cbd1_out;
++            end
+             state <= S_CBD_NEXT;
+           end
+         end
+         S_CBD_NEXT: begin
+           if (n_ctr == 2*K-1) begin
+-            fwd_ctr <= 2'd0;
++            fwd_ctr <= 4'd0;
+             load_idx <= 8'd0;
+             fwd_poly_in <= s_vec[0];
+             state <= S_NTT_FWD_LOAD;
+           end else begin
+-            n_ctr <= n_ctr + 2'd1;
++            n_ctr <= n_ctr + 4'd1;
+             state <= S_START_CBD;
+           end
+         end
+ 
+-        // --- NTT-forward: 4 kertaa (s_vec[0], s_vec[1], e_vec[0],
+-        // e_vec[1]) -> s_hat[0], s_hat[1], e_hat[0], e_hat[1].
++        // --- NTT-forward: 2K kertaa (s_vec[0..K-1], e_vec[0..K-1])
++        // -> s_hat[0..K-1], e_hat[0..K-1].
+         // Kayttaa ytimen omaa FPGA_BRINGUP-rajapintaa (load_valid/
+         // load_addr/load_data, read_en/read_addr/read_valid/
+         // read_data) - EI hierarkkista suoraa kirjoitusta (joka EI
+@@ -333,12 +346,10 @@ module pqc_mlkem_keygen_core #(
+ 
+         S_NTT_FWD_READ_WAIT: begin
+           if (ntt_read_valid) begin
+-            case (fwd_ctr)
+-              2'd0: s_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+-              2'd1: s_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+-              2'd2: e_hat[0][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+-              default: e_hat[1][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+-            endcase
++            for (int q = 0; q < K; q++) begin
++              if (fwd_ctr == q)     s_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
++              if (fwd_ctr == K + q) e_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
++            end
+             if (read_idx == 8'd255) begin
+               state <= S_NTT_FWD_NEXT;
+             end else begin
+@@ -349,18 +360,17 @@ module pqc_mlkem_keygen_core #(
+         end
+ 
+         S_NTT_FWD_NEXT: begin
+-          if (fwd_ctr == 2'd3) begin
+-            mm_i <= 2'd0; mm_j <= 2'd0;
++          if (fwd_ctr == 2*K-1) begin
++            mm_i <= 4'd0; mm_j <= 4'd0;
+             mm_acc <= '0;
+             state <= S_MATMUL;
+           end else begin
+-            fwd_ctr <= fwd_ctr + 2'd1;
++            fwd_ctr <= fwd_ctr + 4'd1;
+             load_idx <= 8'd0;
+-            case (fwd_ctr + 2'd1)
+-              2'd1: fwd_poly_in <= s_vec[1];
+-              2'd2: fwd_poly_in <= e_vec[0];
+-              default: fwd_poly_in <= e_vec[1];
+-            endcase
++            for (int q = 0; q < K; q++) begin
++              if (fwd_ctr + 4'd1 == q)     fwd_poly_in <= s_vec[q];
++              if (fwd_ctr + 4'd1 == K + q) fwd_poly_in <= e_vec[q];
++            end
+             state <= S_NTT_FWD_LOAD;
+           end
+         end
+@@ -372,10 +382,10 @@ module pqc_mlkem_keygen_core #(
+         S_MATMUL: begin
+           mm_acc <= padd_sum;  // mm_acc + mntt_h (ks. combinational wiring alla)
+           if (mm_j == K-1) begin
+-            mm_j <= 2'd0;
++            mm_j <= 4'd0;
+             state <= S_MATMUL_NEXT;
+           end else begin
+-            mm_j <= mm_j + 2'd1;
++            mm_j <= mm_j + 4'd1;
+           end
+         end
+ 
+@@ -386,7 +396,7 @@ module pqc_mlkem_keygen_core #(
+           if (mm_i == K-1) begin
+             state <= S_ENCODE_T;
+           end else begin
+-            mm_i <= mm_i + 2'd1;
++            mm_i <= mm_i + 4'd1;
+             mm_acc <= '0;
+             state <= S_MATMUL;
+           end
+@@ -394,14 +404,15 @@ module pqc_mlkem_keygen_core #(
+ 
+         // --- ByteEncode12(t_hat) + rho -> ek, ByteEncode12(s_hat) -> dkPKE ---
+         S_ENCODE_T: begin
+-          ek_reg <= {rho, benc12_out[1], benc12_out[0]};
++          for (int q = 0; q < K; q++) ek_reg[q*8*384 +: 8*384] <= benc12_out[q];
++          ek_reg[8*DKPKE_BYTES +: 256] <= rho;
+           state <= S_ENCODE_S;
+         end
+ 
+         S_ENCODE_S: begin
+-          dk_reg[8*768-1:0] <= {benc12_out[1], benc12_out[0]};  // dkPKE (K=2*384 tavua)
++          for (int q = 0; q < K; q++) dk_reg[q*8*384 +: 8*384] <= benc12_out[q];  // dkPKE (K*384 tavua)
+           sha256_msg_in <= '0;
+-          sha256_msg_in[8*800-1:0] <= ek_reg;
++          sha256_msg_in[8*EK_BYTES-1:0] <= ek_reg;
+           state <= S_START_SHA256;
+         end
+ 
+@@ -419,9 +430,9 @@ module pqc_mlkem_keygen_core #(
+ 
+         S_ASSEMBLE: begin
+           // dk = dkPKE || ek || H(ek) || z (FIPS 203:n kiintea rakenne)
+-          dk_reg[8*(768+800)-1:8*768]      <= ek_reg;
+-          dk_reg[8*(768+800+32)-1:8*(768+800)] <= H_ek;
+-          dk_reg[8*1632-1:8*(768+800+32)]  <= z_seed;
++          dk_reg[8*DKPKE_BYTES +: 8*EK_BYTES]     <= ek_reg;
++          dk_reg[8*(DKPKE_BYTES+EK_BYTES) +: 256]    <= H_ek;
++          dk_reg[8*(DKPKE_BYTES+EK_BYTES+32) +: 256] <= z_seed;
+           state <= S_DONE;
+         end
+ 
+@@ -458,8 +469,9 @@ module pqc_mlkem_keygen_core #(
+ 
+   // ByteEncode12: S_ENCODE_T kayttaa t_hat:ia, S_ENCODE_S kayttaa s_hat:ia -
+   // yhteiskaytto SAMOJEN kombinatoristen instanssien kanssa eri aikoina.
+-  assign benc12_in[0] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[0]) : repack16_to_12(t_hat[0]);
+-  assign benc12_in[1] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[1]) : repack16_to_12(t_hat[1]);
++  for (genvar g = 0; g < K; g++) begin : g_benc12_in
++    assign benc12_in[g] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[g]) : repack16_to_12(t_hat[g]);
++  end
+ 
+   assign ek_out = ek_reg;
+   assign dk_out = dk_reg;
+diff --git a/hardware/pqc-rtl/fpga/tau/pqc_tau_integrated_wrapper.sv b/hardware/pqc-rtl/fpga/tau/pqc_tau_integrated_wrapper.sv
+index d614c4a..80d3041 100644
+--- a/hardware/pqc-rtl/fpga/tau/pqc_tau_integrated_wrapper.sv
++++ b/hardware/pqc-rtl/fpga/tau/pqc_tau_integrated_wrapper.sv
+@@ -21,15 +21,20 @@
+ //   0x122: KEYGEN_Z_SEED_IN  (kirjoitus: 16-bittinen sana z_seed-puskuriin[WORD_SEL])
+ //   0x123: KEYGEN_START      (kirjoitus, mika tahansa arvo: laukaisee KeyGenin)
+ //   0x124: KEYGEN_STATUS     (luku): [0]=busy [1]=done (sticky)
+-//   0x125: KEYGEN_EK_OUT     (luku): ek:n sana WORD_SEL (0-399)
+-//   0x126: KEYGEN_DK_OUT     (luku): dk:n sana WORD_SEL (0-815)
++//   0x125: KEYGEN_EK_OUT     (luku): ek:n sana WORD_SEL (0..EK_BYTES/2-1; K=2: 399, K=3: 591)
++//   0x126: KEYGEN_DK_OUT     (luku): dk:n sana WORD_SEL (0..DK_BYTES/2-1; K=2: 815, K=3: 1199)
+ 
+ `timescale 1ns/1ps
+ 
+ module pqc_tau_integrated_wrapper #(
+     parameter int COEFF_W = 16,
+     parameter int SPAD_AW = 9,
+-    parameter int LOG_DEPTH = 64
++    parameter int LOG_DEPTH = 64,
++    // ML-KEM-parametrisarja: K=2 (512) tai K=3 (768). Muut johdettuja.
++    parameter int K = 2,
++    parameter int EK_BYTES = 384*K + 32,
++    parameter int DK_BYTES = 768*K + 96,
++    parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))
+ )(
+     input  logic clk,
+     input  logic rst,
+@@ -102,12 +107,12 @@ module pqc_tau_integrated_wrapper #(
+ 
+   // --- Decaps (M4-DECAPS-ORCH-001) ---
+   logic decaps_start, decaps_done;
+-  logic [8*768-1:0] decaps_c_buf;
+-  logic [8*1632-1:0] decaps_dk_buf;
++  logic [8*C_BYTES-1:0] decaps_c_buf;
++  logic [8*DK_BYTES-1:0] decaps_dk_buf;
+   logic [255:0] decaps_K_final;
+   logic decaps_match;
+ 
+-  pqc_mlkem_decaps_top #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(2)) decaps (
++  pqc_mlkem_decaps_top #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) decaps (
+     .clk(clk), .reset(rst), .start(decaps_start),
+     .c_in(decaps_c_buf), .dk_in(decaps_dk_buf),
+     .done(decaps_done), .K_final_out(decaps_K_final), .match_out(decaps_match)
+@@ -115,12 +120,12 @@ module pqc_tau_integrated_wrapper #(
+ 
+   // --- Encaps (M4-ENCAPS-ORCH-001) ---
+   logic encaps_start, encaps_done;
+-  logic [8*800-1:0] encaps_ek_buf;
++  logic [8*EK_BYTES-1:0] encaps_ek_buf;
+   logic [255:0] encaps_m_buf;
+   logic [255:0] encaps_K;
+-  logic [8*768-1:0] encaps_c;
++  logic [8*C_BYTES-1:0] encaps_c;
+ 
+-  pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(2)) encaps (
++  pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(K)) encaps (
+     .clk(clk), .reset(rst), .start(encaps_start),
+     .ek_in(encaps_ek_buf), .m_in(encaps_m_buf),
+     .done(encaps_done), .K_out(encaps_K), .c_out(encaps_c)
+@@ -129,13 +134,13 @@ module pqc_tau_integrated_wrapper #(
+   // --- KeyGen-orkestraattori ---
+   logic keygen_start, keygen_done;
+   logic [255:0] d_seed_buf, z_seed_buf;
+-  logic [8*800-1:0] ek_out;
+-  logic [8*1632-1:0] dk_out;
++  logic [8*EK_BYTES-1:0] ek_out;
++  logic [8*DK_BYTES-1:0] dk_out;
+   logic [255:0] dbg_rho, dbg_sigma;
+   logic [256*COEFF_W-1:0] dbg_A00;
+   logic [4:0] dbg_state;
+ 
+-  pqc_mlkem_keygen_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW)) keygen (
++  pqc_mlkem_keygen_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) keygen (
+     .clk(clk), .reset(rst), .start(keygen_start),
+     .d_seed(d_seed_buf), .z_seed(z_seed_buf),
+     .done(keygen_done), .ek_out(ek_out), .dk_out(dk_out),
+@@ -366,15 +371,15 @@ module pqc_tau_integrated_wrapper #(
+         end else if (is_decaps_range) begin
+           case (wb_adr_i[7:0])
+             8'h30: word_sel <= wb_dat_i[10:0];  // DECAPS_WORD_SEL
+-            8'h31: if (word_sel < 384) decaps_c_buf[word_sel*16 +: 16] <= wb_dat_i;   // DECAPS_C_IN
+-            8'h32: if (word_sel < 816) decaps_dk_buf[word_sel*16 +: 16] <= wb_dat_i;  // DECAPS_DK_IN
++            8'h31: if (word_sel < C_BYTES/2) decaps_c_buf[word_sel*16 +: 16] <= wb_dat_i;   // DECAPS_C_IN
++            8'h32: if (word_sel < DK_BYTES/2) decaps_dk_buf[word_sel*16 +: 16] <= wb_dat_i;  // DECAPS_DK_IN
+             8'h33: begin decaps_start <= 1'b1; decaps_done_sticky <= 1'b0; end        // DECAPS_START
+             default: ;
+           endcase
+         end else if (is_encaps_range) begin
+           case (wb_adr_i[7:0])
+             8'h40: word_sel <= wb_dat_i[10:0];  // ENCAPS_WORD_SEL
+-            8'h41: if (word_sel < 400) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
++            8'h41: if (word_sel < EK_BYTES/2) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
+             8'h42: if (word_sel < 16) encaps_m_buf[word_sel*16 +: 16] <= wb_dat_i;    // ENCAPS_M_IN
+             8'h43: begin encaps_start <= 1'b1; encaps_done_sticky <= 1'b0; end        // ENCAPS_START
+             default: ;
+@@ -416,8 +421,8 @@ module pqc_tau_integrated_wrapper #(
+     else keygen_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_keygen_range;
+     case (wb_adr_i[7:0])
+       8'h24: keygen_read_data <= {14'b0, keygen_done_sticky, keygen_busy};
+-      8'h25: keygen_read_data <= (word_sel < 400) ? ek_out[word_sel*16 +: 16] : 16'd0;
+-      8'h26: keygen_read_data <= (word_sel < 816) ? dk_out[word_sel*16 +: 16] : 16'd0;
++      8'h25: keygen_read_data <= (word_sel < EK_BYTES/2) ? ek_out[word_sel*16 +: 16] : 16'd0;
++      8'h26: keygen_read_data <= (word_sel < DK_BYTES/2) ? dk_out[word_sel*16 +: 16] : 16'd0;
+       8'h29: keygen_read_data <= {14'b0, pending_watchdog_interrupt, ecu_alive};  // WATCHDOG_STATUS
+       default: keygen_read_data <= '0;
+     endcase
+@@ -440,7 +445,7 @@ module pqc_tau_integrated_wrapper #(
+     case (wb_adr_i[7:0])
+       8'h44: encaps_read_data <= {14'b0, encaps_done_sticky, encaps_busy};       // ENCAPS_STATUS
+       8'h45: encaps_read_data <= (word_sel < 16) ? encaps_K[word_sel*16 +: 16] : 16'd0;    // ENCAPS_K_OUT
+-      8'h46: encaps_read_data <= (word_sel < 384) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
++      8'h46: encaps_read_data <= (word_sel < C_BYTES/2) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
+       default: encaps_read_data <= '0;
+     endcase
+   end
+```
+
+## Tiedostot kokonaisina rivinumeroin (PR:n tila)
+
+### hardware/pqc-rtl/fpga/tau/pqc_mlkem_keygen_core.sv
+
+```
+   1  // pqc_mlkem_keygen_core.sv
+   2  //
+   3  // M4-TAU-001 Osa 5 (M4-MLKEM-ORCH-001): ENSIMMAINEN synteesikelpoinen
+   4  // ML-KEM.KeyGen_internal-orkestrointimoduuli (FIPS 203 Algoritmi 16).
+   5  //
+   6  // TARKEA LOYDOS (2026-07-19): koko ML-KEM.KeyGen/Encaps/Decaps on
+   7  // tahan asti ollut olemassa VAIN testipenkkien proseduraalisena
+   8  // orkestrointina (initial-lohkot, ei-synteesikelpoiset rakenteet) -
+   9  // jokainen ALIMODUULI on synteesikelpoinen ja todistettu, mutta
+  10  // niita YHDISTAVA ohjauslogiikka ei ole. Tama moduuli on ENSIMMAINEN
+  11  // askel taman aukon korjaamiseksi: synteesikelpoinen tilakone joka
+  12  // ajaa TASMALLEEN saman sekvenssin kuin pqc_mlkem_keygen_tb.sv,
+  13  // mutta synteesikelpoisena RTL:na (ei testipenkin omana proseduraalisena
+  14  // koodina).
+  15  //
+  16  // K-yleistys (2026-11-15): K=2 (ML-KEM-512) ja K=3 (ML-KEM-768)
+  17  // todennettu NIST ACVP -vektoreilla. K=4 (ML-KEM-1024) kaantyy, ei
+  18  // todennettu. Johdetut leveydet (EK_BYTES, DK_BYTES, H_BLOCKS) ovat
+  19  // parametreja vain siksi, etta niita voi kayttaa porttileveyksissa:
+  20  // niita EI ole tarkoitus ylikirjoittaa.
+  21  //
+  22  // SEKVENSSI (yleinen K):
+  23  // 1. SHA3-512(d||K) -> rho, sigma
+  24  // 2. SampleNTT(rho,i,j) x4 (KxK) -> A[i][j]
+  25  // 3. PRF+SamplePolyCBD(sigma,N) x4 (2K) -> s_vec[i], e_vec[i]
+  26  // 4. NTT-forward x4 (2K) -> s_hat[i], e_hat[i]
+  27  // 5. Matriisikertolasku+summaus: t_hat[i] = sum_j(A[i][j]*s_hat[j]) + e_hat[i]
+  28  // 6. ByteEncode12(t_hat) + rho -> ek
+  29  // 7. ByteEncode12(s_hat) -> dkPKE
+  30  // 8. H(ek)=SHA3-256(ek), kokoa dk = dkPKE||ek||H(ek)||z
+  31  //
+  32  // TAMA ON TUTKIMUSPROTOTYYPPI (fpga/tau/) - EI VIELA tuotanto-
+  33  // integraatiota. Testattu Icarus Verilogilla, EI VIELA synteesi-
+  34  // testattu ECP5:lla.
+  35  
+  36  `timescale 1ns/1ps
+  37  
+  38  module pqc_mlkem_keygen_core #(
+  39      parameter int COEFF_W = 16,
+  40      parameter int SPAD_AW = 9,
+  41      parameter int K = 2,
+  42      parameter int ETA1 = (K == 2) ? 3 : 2,
+  43      parameter int DKPKE_BYTES = 384*K,
+  44      parameter int EK_BYTES = 384*K + 32,
+  45      parameter int DK_BYTES = 768*K + 96,
+  46      parameter int H_BLOCKS = EK_BYTES/136 + 1
+  47  )(
+  48      input  logic clk,
+  49      input  logic reset,
+  50  
+  51      input  logic start,
+  52      input  logic [255:0] d_seed,
+  53      input  logic [255:0] z_seed,
+  54  
+  55      output logic done,
+  56      output logic [8*EK_BYTES-1:0] ek_out,
+  57      output logic [8*DK_BYTES-1:0] dk_out,
+  58  
+  59      // TILAPAINEN debug-ulostulo taman osittaisen version testausta
+  60      // varten - poistetaan kun koko sekvenssi on valmis.
+  61      output logic [255:0] debug_rho,
+  62      output logic [255:0] debug_sigma,
+  63      output logic [256*COEFF_W-1:0] debug_A00,
+  64      output logic [4:0] debug_state
+  65  );
+  66  
+  67    // --- Alimoduulit (kaikki jo todennettuja, uudelleenkaytettyja) ---
+  68    logic ntt_start, stage_done, bank_conflict_detected;
+  69    logic [7:0] ntt_count, ntt_pair_dist;
+  70    logic ntt_mode;
+  71    logic [SPAD_AW-1:0] base_addr_lane0, base_addr_lane1;
+  72    logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+  73    logic ntt_load_valid, ntt_read_en, ntt_read_valid;
+  74    logic [7:0] ntt_load_addr, ntt_read_addr;
+  75    logic [COEFF_W-1:0] ntt_load_data, ntt_read_data;
+  76  
+  77    pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .FPGA_BRINGUP(1)) ntt_dut (
+  78      .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
+  79      .pair_dist(ntt_pair_dist), .mode(ntt_mode),
+  80      .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+  81      .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+  82      .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+  83      .load_valid(ntt_load_valid), .load_addr(ntt_load_addr), .load_data(ntt_load_data),
+  84      .read_en(ntt_read_en), .read_addr(ntt_read_addr), .read_valid(ntt_read_valid), .read_data(ntt_read_data)
+  85    );
+  86  
+  87    // --- NTT-aikataulun ROM (M4-MLKEM-ORCH-001): 64 merkintaa (taso 6
+  88    // + full_schedule.txt), pakattu 64-bittisiksi sanoiksi:
+  89    // {length[8], base0[9], zeta0[16], base1[9], zeta1[16]} ---
+  90    logic [71:0] ntt_schedule_rom [0:63];
+  91    initial begin
+  92      $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", ntt_schedule_rom);
+  93    end
+  94  
+  95    logic sha512_start, sha512_done;
+  96    logic [8*72-1:0] sha512_msg_in;
+  97    logic [511:0] sha512_out;
+  98    pqc_sha3_512 #(.MAX_BLOCKS(1)) sha512_dut (
+  99      .clk(clk), .reset(reset), .start(sha512_start),
+ 100      .msg_in(sha512_msg_in), .msg_len_bytes(16'd33),
+ 101      .digest_out(sha512_out), .done(sha512_done)
+ 102    );
+ 103  
+ 104    logic sha256_start, sha256_done;
+ 105    logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
+ 106    logic [255:0] sha256_out;
+ 107    pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
+ 108      .clk(clk), .reset(reset), .start(sha256_start),
+ 109      .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
+ 110      .digest_out(sha256_out), .done(sha256_done)
+ 111    );
+ 112  
+ 113    logic samplentt_start, samplentt_done, samplentt_err;
+ 114    logic [255:0] samplentt_rho;
+ 115    logic [7:0] samplentt_j, samplentt_i;
+ 116    logic [256*COEFF_W-1:0] samplentt_out;
+ 117    logic [15:0] sn_acc, sn_rej, sn_xof;
+ 118    pqc_samplentt #(.XOF_BYTES(1008)) samplentt_dut (
+ 119      .clk(clk), .reset(reset), .start(samplentt_start),
+ 120      .rho(samplentt_rho), .byte_j(samplentt_j), .byte_i(samplentt_i),
+ 121      .a_hat(samplentt_out), .accepted_count(sn_acc), .rejected_count(sn_rej),
+ 122      .xof_bytes_consumed(sn_xof), .done(samplentt_done), .error_exhausted(samplentt_err)
+ 123    );
+ 124  
+ 125    logic cbd1_start, cbd1_done;
+ 126    logic [255:0] cbd1_seed;
+ 127    logic [7:0] cbd1_n;
+ 128    logic [256*COEFF_W-1:0] cbd1_out;
+ 129    pqc_prf_samplepolycbd #(.ETA(ETA1)) cbd1_dut (
+ 130      .clk(clk), .reset(reset), .start(cbd1_start),
+ 131      .seed_s(cbd1_seed), .counter_n(cbd1_n), .f_out(cbd1_out), .done(cbd1_done)
+ 132    );
+ 133  
+ 134    logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+ 135    pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+ 136  
+ 137    logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+ 138    pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+ 139  
+ 140    logic [256*12-1:0] benc12_in [0:K-1];
+ 141    logic [8*384-1:0] benc12_out [0:K-1];
+ 142    for (genvar g = 0; g < K; g++) begin : g_benc12
+ 143      pqc_byteencode_dparam #(.D(12)) benc12 (.f_in(benc12_in[g]), .b_out(benc12_out[g]));
+ 144    end
+ 145  
+ 146    // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): pqc_byteencode_dparam
+ 147    // odottaa kertoimet TIIVIISTI pakattuina 12 bittiin/kerroin (256*12
+ 148    // bittia), MUTTA oma polynomiedustuksemme kayttaa 16 bittia/kerroin
+ 149    // (256*16 bittia, COEFF_W). Suora leveyseroinen assign katkaisisi/
+ 150    // sekoittaisi pakkauksen - taman vuoksi tarvitaan eksplisiittinen
+ 151    // uudelleenpakkaus (kukin kertoimen oma 12-bittinen ARVO poimitaan
+ 152    // ja pakataan TIIVIISTI).
+ 153    function automatic [256*12-1:0] repack16_to_12(input logic [256*COEFF_W-1:0] wide);
+ 154      for (int k = 0; k < 256; k++) begin
+ 155        repack16_to_12[k*12 +: 12] = wide[k*COEFF_W +: COEFF_W];
+ 156      end
+ 157    endfunction
+ 158  
+ 159    // --- Tallennusrekisterit ---
+ 160    logic [255:0] rho, sigma;
+ 161    logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
+ 162    logic [256*COEFF_W-1:0] s_vec [0:K-1], e_vec [0:K-1];
+ 163    logic [256*COEFF_W-1:0] s_hat [0:K-1], e_hat [0:K-1], t_hat [0:K-1];
+ 164    logic [255:0] H_ek;
+ 165    logic [8*EK_BYTES-1:0] ek_reg;
+ 166    logic [8*DK_BYTES-1:0] dk_reg;
+ 167  
+ 168    // --- Paatilakone: askellaskuri, joka kayy lapi tasmalleen saman
+ 169    // sekvenssin kuin testipenkin oma initial-lohko. ---
+ 170    typedef enum logic [4:0] {
+ 171      S_IDLE, S_RESET_SHA512, S_START_SHA512, S_WAIT_SHA512,
+ 172      S_RESET_SNTT, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
+ 173      S_RESET_CBD, S_START_CBD, S_WAIT_CBD, S_CBD_NEXT,
+ 174      S_NTT_FWD_LOAD, S_NTT_FWD_SCHED_SETUP, S_NTT_FWD_SCHED_START, S_NTT_FWD_SCHED_WAIT,
+ 175      S_NTT_FWD_READ, S_NTT_FWD_READ_WAIT, S_NTT_FWD_NEXT,
+ 176      S_MATMUL, S_MATMUL_NEXT,
+ 177      S_ENCODE_T, S_ENCODE_S,
+ 178      S_RESET_SHA256, S_START_SHA256, S_WAIT_SHA256,
+ 179      S_ASSEMBLE, S_DONE
+ 180    } state_e;
+ 181    state_e state, return_state;
+ 182  
+ 183    logic [3:0] i_ctr, j_ctr;
+ 184    logic [3:0] n_ctr;
+ 185    logic [3:0] fwd_ctr;
+ 186    logic [3:0] mm_i, mm_j;
+ 187    logic [256*COEFF_W-1:0] mm_acc;
+ 188    logic [7:0] load_idx, read_idx;
+ 189    logic [5:0] sched_idx;
+ 190    logic [256*COEFF_W-1:0] fwd_poly_in, fwd_poly_out;
+ 191  
+ 192    always_ff @(posedge clk) begin
+ 193      ntt_start <= 1'b0;
+ 194      sha512_start <= 1'b0;
+ 195      sha256_start <= 1'b0;
+ 196      samplentt_start <= 1'b0;
+ 197      cbd1_start <= 1'b0;
+ 198      done <= 1'b0;
+ 199  
+ 200      if (reset) begin
+ 201        state <= S_IDLE;
+ 202        i_ctr <= 4'd0; j_ctr <= 4'd0; n_ctr <= 4'd0;
+ 203      end else begin
+ 204        case (state)
+ 205          S_IDLE: begin
+ 206            if (start) begin
+ 207              sha512_msg_in <= '0;
+ 208              sha512_msg_in[255:0] <= d_seed;
+ 209              sha512_msg_in[263:256] <= K[7:0];
+ 210              state <= S_START_SHA512;
+ 211            end
+ 212          end
+ 213  
+ 214          S_START_SHA512: begin
+ 215            sha512_start <= 1'b1;
+ 216            state <= S_WAIT_SHA512;
+ 217          end
+ 218          S_WAIT_SHA512: begin
+ 219            if (sha512_done) begin
+ 220              rho   <= sha512_out[255:0];
+ 221              sigma <= sha512_out[511:256];
+ 222              i_ctr <= 4'd0; j_ctr <= 4'd0;
+ 223              state <= S_START_SNTT;
+ 224            end
+ 225          end
+ 226  
+ 227          // --- SampleNTT KxK kertaa ---
+ 228          S_START_SNTT: begin
+ 229            samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
+ 230            samplentt_start <= 1'b1;
+ 231            state <= S_WAIT_SNTT;
+ 232          end
+ 233          S_WAIT_SNTT: begin
+ 234            if (samplentt_done) begin
+ 235              A[i_ctr][j_ctr] <= samplentt_out;
+ 236              state <= S_SNTT_NEXT;
+ 237            end
+ 238          end
+ 239          S_SNTT_NEXT: begin
+ 240            if (j_ctr == K-1) begin
+ 241              j_ctr <= 4'd0;
+ 242              if (i_ctr == K-1) begin
+ 243                i_ctr <= 4'd0; n_ctr <= 4'd0;
+ 244                state <= S_START_CBD;
+ 245              end else begin
+ 246                i_ctr <= i_ctr + 4'd1;
+ 247                state <= S_START_SNTT;
+ 248              end
+ 249            end else begin
+ 250              j_ctr <= j_ctr + 4'd1;
+ 251              state <= S_START_SNTT;
+ 252            end
+ 253          end
+ 254  
+ 255          // --- PRF+SamplePolyCBD 2K kertaa: ensin K s_vec, sitten K e_vec ---
+ 256          S_START_CBD: begin
+ 257            cbd1_seed <= sigma; cbd1_n <= {4'b0,n_ctr};
+ 258            cbd1_start <= 1'b1;
+ 259            state <= S_WAIT_CBD;
+ 260          end
+ 261          S_WAIT_CBD: begin
+ 262            if (cbd1_done) begin
+ 263              for (int q = 0; q < K; q++) begin
+ 264                if (n_ctr == q)     s_vec[q] <= cbd1_out;
+ 265                if (n_ctr == K + q) e_vec[q] <= cbd1_out;
+ 266              end
+ 267              state <= S_CBD_NEXT;
+ 268            end
+ 269          end
+ 270          S_CBD_NEXT: begin
+ 271            if (n_ctr == 2*K-1) begin
+ 272              fwd_ctr <= 4'd0;
+ 273              load_idx <= 8'd0;
+ 274              fwd_poly_in <= s_vec[0];
+ 275              state <= S_NTT_FWD_LOAD;
+ 276            end else begin
+ 277              n_ctr <= n_ctr + 4'd1;
+ 278              state <= S_START_CBD;
+ 279            end
+ 280          end
+ 281  
+ 282          // --- NTT-forward: 2K kertaa (s_vec[0..K-1], e_vec[0..K-1])
+ 283          // -> s_hat[0..K-1], e_hat[0..K-1].
+ 284          // Kayttaa ytimen omaa FPGA_BRINGUP-rajapintaa (load_valid/
+ 285          // load_addr/load_data, read_en/read_addr/read_valid/
+ 286          // read_data) - EI hierarkkista suoraa kirjoitusta (joka EI
+ 287          // ole synteesikelpoinen). ---
+ 288          S_NTT_FWD_LOAD: begin
+ 289            ntt_load_valid <= 1'b1;
+ 290            ntt_load_addr  <= load_idx;
+ 291            ntt_load_data  <= fwd_poly_in[load_idx*COEFF_W +: COEFF_W];
+ 292            if (load_idx == 8'd255) begin
+ 293              sched_idx <= 6'd0;
+ 294              state <= S_NTT_FWD_SCHED_SETUP;
+ 295            end else begin
+ 296              load_idx <= load_idx + 8'd1;
+ 297            end
+ 298          end
+ 299  
+ 300          // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): parametrit
+ 301          // (pair_dist/base_addr/zeta/count) asetetaan OMASSA,
+ 302          // ERILLISESSA syklissaan ENNEN start-pulssia - sama periaate
+ 303          // kuin jo todistetussa suorassa testissa (joka kayttaa
+ 304          // "parametrit; @(posedge clk); start<=1;" -kuviota, EI aseta
+ 305          // molempia SAMALLA syklilla).
+ 306          S_NTT_FWD_SCHED_SETUP: begin
+ 307            ntt_load_valid <= 1'b0;
+ 308            begin
+ 309              logic [71:0] entry;
+ 310              entry = ntt_schedule_rom[sched_idx];
+ 311              ntt_pair_dist   <= entry[57:50];
+ 312              base_addr_lane0 <= entry[49:41];
+ 313              zeta_lane0      <= entry[40:25];
+ 314              base_addr_lane1 <= entry[24:16];
+ 315              zeta_lane1      <= entry[15:0];
+ 316              ntt_count       <= entry[65:58];
+ 317            end
+ 318            ntt_mode  <= 1'b0;
+ 319            state <= S_NTT_FWD_SCHED_START;
+ 320          end
+ 321  
+ 322          S_NTT_FWD_SCHED_START: begin
+ 323            ntt_start <= 1'b1;
+ 324            state <= S_NTT_FWD_SCHED_WAIT;
+ 325          end
+ 326  
+ 327          S_NTT_FWD_SCHED_WAIT: begin
+ 328            if (stage_done) begin
+ 329              if (sched_idx == 6'd63) begin
+ 330                read_idx <= 8'd0;
+ 331                state <= S_NTT_FWD_READ;
+ 332              end else begin
+ 333                sched_idx <= sched_idx + 6'd1;
+ 334                state <= S_NTT_FWD_SCHED_SETUP;
+ 335              end
+ 336            end
+ 337          end
+ 338  
+ 339          S_NTT_FWD_READ: begin
+ 340            // Esita osoite (read_idx), odota YKSI sykli ennen luvun
+ 341            // tarkistusta - vastaa tasmalleen jo toimivaksi todistettua
+ 342            // Wishbone-lukupolkua (yksi pyynto kerrallaan, ei
+ 343            // perakkaisia paallekkaisia lukuja).
+ 344            state <= S_NTT_FWD_READ_WAIT;
+ 345          end
+ 346  
+ 347          S_NTT_FWD_READ_WAIT: begin
+ 348            if (ntt_read_valid) begin
+ 349              for (int q = 0; q < K; q++) begin
+ 350                if (fwd_ctr == q)     s_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 351                if (fwd_ctr == K + q) e_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 352              end
+ 353              if (read_idx == 8'd255) begin
+ 354                state <= S_NTT_FWD_NEXT;
+ 355              end else begin
+ 356                read_idx <= read_idx + 8'd1;
+ 357                state <= S_NTT_FWD_READ;
+ 358              end
+ 359            end
+ 360          end
+ 361  
+ 362          S_NTT_FWD_NEXT: begin
+ 363            if (fwd_ctr == 2*K-1) begin
+ 364              mm_i <= 4'd0; mm_j <= 4'd0;
+ 365              mm_acc <= '0;
+ 366              state <= S_MATMUL;
+ 367            end else begin
+ 368              fwd_ctr <= fwd_ctr + 4'd1;
+ 369              load_idx <= 8'd0;
+ 370              for (int q = 0; q < K; q++) begin
+ 371                if (fwd_ctr + 4'd1 == q)     fwd_poly_in <= s_vec[q];
+ 372                if (fwd_ctr + 4'd1 == K + q) fwd_poly_in <= e_vec[q];
+ 373              end
+ 374              state <= S_NTT_FWD_LOAD;
+ 375            end
+ 376          end
+ 377  
+ 378          // --- Matriisikertolasku+summaus: t_hat[i] = sum_j(A[i][j]*
+ 379          // s_hat[j]) + e_hat[i]. mntt_dut/padd_dut ovat TAYSIN
+ 380          // kombinatorisia (ei clk/reset/start/done) - vain rekisteroity
+ 381          // akkumulointi tarvitaan. ---
+ 382          S_MATMUL: begin
+ 383            mm_acc <= padd_sum;  // mm_acc + mntt_h (ks. combinational wiring alla)
+ 384            if (mm_j == K-1) begin
+ 385              mm_j <= 4'd0;
+ 386              state <= S_MATMUL_NEXT;
+ 387            end else begin
+ 388              mm_j <= mm_j + 4'd1;
+ 389            end
+ 390          end
+ 391  
+ 392          S_MATMUL_NEXT: begin
+ 393            // mm_acc sisaltaa nyt sum_j(A[mm_i][j]*s_hat[j]) - lisaa
+ 394            // e_hat[mm_i], talleta t_hat[mm_i].
+ 395            t_hat[mm_i] <= final_sum;
+ 396            if (mm_i == K-1) begin
+ 397              state <= S_ENCODE_T;
+ 398            end else begin
+ 399              mm_i <= mm_i + 4'd1;
+ 400              mm_acc <= '0;
+ 401              state <= S_MATMUL;
+ 402            end
+ 403          end
+ 404  
+ 405          // --- ByteEncode12(t_hat) + rho -> ek, ByteEncode12(s_hat) -> dkPKE ---
+ 406          S_ENCODE_T: begin
+ 407            for (int q = 0; q < K; q++) ek_reg[q*8*384 +: 8*384] <= benc12_out[q];
+ 408            ek_reg[8*DKPKE_BYTES +: 256] <= rho;
+ 409            state <= S_ENCODE_S;
+ 410          end
+ 411  
+ 412          S_ENCODE_S: begin
+ 413            for (int q = 0; q < K; q++) dk_reg[q*8*384 +: 8*384] <= benc12_out[q];  // dkPKE (K*384 tavua)
+ 414            sha256_msg_in <= '0;
+ 415            sha256_msg_in[8*EK_BYTES-1:0] <= ek_reg;
+ 416            state <= S_START_SHA256;
+ 417          end
+ 418  
+ 419          S_START_SHA256: begin
+ 420            sha256_start <= 1'b1;
+ 421            state <= S_WAIT_SHA256;
+ 422          end
+ 423  
+ 424          S_WAIT_SHA256: begin
+ 425            if (sha256_done) begin
+ 426              H_ek <= sha256_out;
+ 427              state <= S_ASSEMBLE;
+ 428            end
+ 429          end
+ 430  
+ 431          S_ASSEMBLE: begin
+ 432            // dk = dkPKE || ek || H(ek) || z (FIPS 203:n kiintea rakenne)
+ 433            dk_reg[8*DKPKE_BYTES +: 8*EK_BYTES]     <= ek_reg;
+ 434            dk_reg[8*(DKPKE_BYTES+EK_BYTES) +: 256]    <= H_ek;
+ 435            dk_reg[8*(DKPKE_BYTES+EK_BYTES+32) +: 256] <= z_seed;
+ 436            state <= S_DONE;
+ 437          end
+ 438  
+ 439          S_DONE: begin
+ 440            done <= 1'b1;
+ 441            state <= S_IDLE;
+ 442          end
+ 443  
+ 444          default: state <= S_IDLE;
+ 445        endcase
+ 446      end
+ 447    end
+ 448  
+ 449    // M4-MLKEM-ORCH-001 debug-korjaus (2026-07-19): read_en/read_addr
+ 450    // TAYTYY olla KOMBINATORISIA (ei rekisteroityja) - sama periaate
+ 451    // kuin jo toimivaksi todistetussa Wishbone-lukupolussa
+ 452    // (pqc_ntt_wishbone_wrapper.sv: "assign read_en = ...", EI
+ 453    // rekisteroity <=). Ytimen oma read_valid/read_data tulevat YHDEN
+ 454    // SYKLIN viiveella - read_idx_captured tallentaa MIKA read_idx oli
+ 455    // silloin kun VASTAAVA data lopulta saapuu.
+ 456    assign ntt_read_en   = (state == S_NTT_FWD_READ) || (state == S_NTT_FWD_READ_WAIT);
+ 457    assign ntt_read_addr = read_idx;
+ 458  
+ 459    logic [256*COEFF_W-1:0] final_sum;
+ 460  
+ 461    // Matriisikertolasku: A[mm_i][mm_j] * s_hat[mm_j], akkumuloi mm_acc:iin.
+ 462    // padd_b vaihtuu: S_MATMUL:ssa mntt_h (uusi kertolaskutermi),
+ 463    // S_MATMUL_NEXT:ssa e_hat[mm_i] (lopullinen summaus).
+ 464    assign mntt_f = A[mm_i][mm_j];
+ 465    assign mntt_g = s_hat[mm_j];
+ 466    assign padd_a = mm_acc;
+ 467    assign padd_b = (state == S_MATMUL_NEXT) ? e_hat[mm_i] : mntt_h;
+ 468    assign final_sum = padd_sum;
+ 469  
+ 470    // ByteEncode12: S_ENCODE_T kayttaa t_hat:ia, S_ENCODE_S kayttaa s_hat:ia -
+ 471    // yhteiskaytto SAMOJEN kombinatoristen instanssien kanssa eri aikoina.
+ 472    for (genvar g = 0; g < K; g++) begin : g_benc12_in
+ 473      assign benc12_in[g] = (state == S_ENCODE_S) ? repack16_to_12(s_hat[g]) : repack16_to_12(t_hat[g]);
+ 474    end
+ 475  
+ 476    assign ek_out = ek_reg;
+ 477    assign dk_out = dk_reg;
+ 478  
+ 479    assign debug_rho = rho;
+ 480    assign debug_sigma = sigma;
+ 481    assign debug_A00 = A[0][0];
+ 482    assign debug_state = state;
+ 483  
+ 484  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_a_core.sv
+
+```
+   1  // pqc_mlkem_decaps_a_core.sv
+   2  //
+   3  // M4-DECAPS-ORCH-001 Phase A: K-PKE.Decrypt(dkPKE, c) -> m'
+   4  // (FIPS 203 Algoritmi 15, ML-KEM.Decaps_internal:n ensimmainen osa).
+   5  //
+   6  // SEKVENSSI (vastaa tb/pqc_mlkem_decaps_a_tb.sv:n proseduraalista
+   7  // orkestrointia, nyt synteesikelpoisena tilakoneena):
+   8  // K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
+   9  // C_BYTES ja DKPKE_BYTES ovat johdettuja; niita ei ylikirjoiteta.
+  10  //
+  11  // 1. Pura c -> c1[0..K-1] (DU-bittinen), c2 (DV-bittinen)
+  12  // 2. ByteDecode(DU) + Decompress(DU) c1[i]:sta -> u'[i]
+  13  // 3. ByteDecode(DV) + Decompress(DV) c2:sta -> v'
+  14  // 4. ByteDecode(12) dkPKE:sta -> s_hat[i]
+  15  // 5. NTT-forward u'[i]:lle -> u_hat[i]
+  16  // 6. Matriisikertolasku+summaus: acc = sum_i(s_hat[i]*u_hat[i])
+  17  // 7. NTT-inverse acc:lle -> inner_raw -> scale -> inner
+  18  // 8. w = v' - inner
+  19  // 9. Compress(D=1) + ByteEncode(D=1) w:sta -> m'
+  20  //
+  21  // TAMA ON TUTKIMUSPROTOTYYPPI (fpga/tau/) - EI VIELA tuotanto-
+  22  // integraatiota. Kayttaa uudelleen M4-MLKEM-ORCH-001:n (KeyGen)
+  23  // todistettua NTT-forward-metodologiaa, laajennettuna NTT-inverse-
+  24  // kykyyn (uusi aikataulu-ROM, mode=1).
+  25  
+  26  `timescale 1ns/1ps
+  27  
+  28  module pqc_mlkem_decaps_a_core #(
+  29      parameter int COEFF_W = 16,
+  30      parameter int SPAD_AW = 9,
+  31      parameter int K = 2,
+  32      parameter int DU = (K == 4) ? 11 : 10,
+  33      parameter int DV = (K == 4) ? 5 : 4,
+  34      parameter int C_BYTES = 32*(DU*K + DV),
+  35      parameter int DKPKE_BYTES = 384*K
+  36  )(
+  37      input  logic clk,
+  38      input  logic reset,
+  39  
+  40      input  logic start,
+  41      input  logic [8*C_BYTES-1:0] c_in,         // tiiviisti pakattu siffertext
+  42      input  logic [8*DKPKE_BYTES-1:0] dkPKE_in, // dkPKE (K*384 tavua)
+  43      input  logic [255:0] h_in,          // H(ek), G-vaiheen syote
+  44  
+  45      output logic done,
+  46      output logic [255:0] m_prime_out,
+  47      output logic [255:0] K_prime_out,
+  48      output logic [255:0] r_prime_out
+  49  );
+  50  
+  51    // --- NTT-ydin (bring-up-rajapinta, sama kuin KeyGenissa) ---
+  52    logic ntt_start, stage_done, bank_conflict_detected;
+  53    logic [7:0] ntt_count, ntt_pair_dist;
+  54    logic ntt_mode;
+  55    logic [SPAD_AW-1:0] base_addr_lane0, base_addr_lane1;
+  56    logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+  57    logic ntt_load_valid, ntt_read_en, ntt_read_valid;
+  58    logic [7:0] ntt_load_addr, ntt_read_addr;
+  59    logic [COEFF_W-1:0] ntt_load_data, ntt_read_data;
+  60  
+  61    pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .FPGA_BRINGUP(1)) ntt_dut (
+  62      .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
+  63      .pair_dist(ntt_pair_dist), .mode(ntt_mode),
+  64      .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+  65      .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+  66      .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+  67      .load_valid(ntt_load_valid), .load_addr(ntt_load_addr), .load_data(ntt_load_data),
+  68      .read_en(ntt_read_en), .read_addr(ntt_read_addr), .read_valid(ntt_read_valid), .read_data(ntt_read_data)
+  69    );
+  70  
+  71    // --- Aikataulu-ROMit: forward (KeyGenista uudelleenkaytetty) ja
+  72    // inverse (uusi, taso 6 VIIMEISENA) ---
+  73    logic [71:0] fwd_schedule_rom [0:63];
+  74    logic [71:0] inv_schedule_rom [0:63];
+  75    initial begin
+  76      $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", fwd_schedule_rom);
+  77      $readmemh("fpga/tau/mlkem_ntt_inverse_schedule_rom.memh", inv_schedule_rom);
+  78    end
+  79  
+  80    // --- Kombinatoriset alimoduulit ---
+  81    logic [256*DU-1:0] bdecU_in [0:K-1];
+  82    logic [256*DU-1:0] bdecU_out [0:K-1];
+  83    logic [256*DU-1:0] decompU_in [0:K-1];
+  84    logic [256*COEFF_W-1:0] decompU_out [0:K-1];
+  85    logic [256*12-1:0] bdec12_in [0:K-1];
+  86    logic [256*12-1:0] bdec12_out_raw [0:K-1];
+  87    for (genvar g = 0; g < K; g++) begin : g_dec
+  88      pqc_bytedecode_dparam #(.D(DU)) bdecU (.b_in(bdecU_in[g]), .f_out(bdecU_out[g]));
+  89      pqc_batch_decompress #(.D(DU), .COEFF_W(COEFF_W)) decompU (.y_packed(decompU_in[g]), .x_packed(decompU_out[g]));
+  90      pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
+  91    end
+  92  
+  93    logic [256*DV-1:0] bdecV_in;
+  94    logic [256*DV-1:0] bdecV_out;
+  95    pqc_bytedecode_dparam #(.D(DV)) bdecV (.b_in(bdecV_in), .f_out(bdecV_out));
+  96  
+  97    logic [256*DV-1:0] decompV_in;
+  98    logic [256*COEFF_W-1:0] decompV_out;
+  99    pqc_batch_decompress #(.D(DV), .COEFF_W(COEFF_W)) decompV (.y_packed(decompV_in), .x_packed(decompV_out));
+ 100  
+ 101  
+ 102    logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+ 103    pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+ 104  
+ 105    logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+ 106    pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+ 107  
+ 108    logic [256*COEFF_W-1:0] psub_a, psub_b, psub_diff;
+ 109    pqc_polysub #(.COEFF_W(COEFF_W)) psub_dut (.a_in(psub_a), .b_in(psub_b), .diff_out(psub_diff));
+ 110  
+ 111    logic [256*COEFF_W-1:0] scale_in, scale_out;
+ 112    pqc_ntt_final_scale #(.COEFF_W(COEFF_W)) scale_dut (.f_in(scale_in), .f_out(scale_out));
+ 113  
+ 114    logic [COEFF_W-1:0] c1_x_in;
+ 115    logic [COEFF_W-1:0] c1_compress_out;
+ 116    logic [3:0] c1_d_sel;
+ 117    pqc_compress #(.COEFF_W(COEFF_W)) compress1_dut (
+ 118      .d(c1_d_sel), .x_in(c1_x_in), .compress_out(c1_compress_out),
+ 119      .y_in('0), .decompress_out()
+ 120    );
+ 121  
+ 122    logic [255:0] benc1_in, benc1_out;
+ 123    pqc_byteencode_d1 benc1_dut (.f_in(benc1_in), .b_out(benc1_out));
+ 124  
+ 125    logic sha512_start, sha512_done;
+ 126    logic [8*72-1:0] sha512_msg_in;
+ 127    logic [511:0] sha512_out;
+ 128    pqc_sha3_512 #(.MAX_BLOCKS(1)) sha512_dut (
+ 129      .clk(clk), .reset(reset), .start(sha512_start),
+ 130      .msg_in(sha512_msg_in), .msg_len_bytes(16'd64),
+ 131      .digest_out(sha512_out), .done(sha512_done)
+ 132    );
+ 133  
+ 134    // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
+ 135    // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
+ 136    function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
+ 137      widen12 = '0;
+ 138      for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
+ 139    endfunction
+ 140  
+ 141    // --- Tallennusrekisterit ---
+ 142    logic [256*COEFF_W-1:0] u_prime [0:K-1], v_prime;
+ 143    logic [256*COEFF_W-1:0] s_hat [0:K-1];
+ 144    logic [256*COEFF_W-1:0] u_hat [0:K-1];
+ 145    logic [256*COEFF_W-1:0] mm_acc;
+ 146    logic [256*COEFF_W-1:0] inner_raw, inner, w;
+ 147  
+ 148    // --- Paatilakone ---
+ 149    typedef enum logic [4:0] {
+ 150      S_IDLE, S_DECODE_U_V, S_DECODE_S,
+ 151      S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT, S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT,
+ 152      S_MATMUL, S_MATMUL_NEXT,
+ 153      S_INV_LOAD, S_INV_SCHED_SETUP, S_INV_SCHED_START, S_INV_SCHED_WAIT, S_INV_READ, S_INV_READ_WAIT,
+ 154      S_SCALE, S_SUB, S_ENCODE_M_SETUP, S_ENCODE_M,
+ 155      S_START_SHA512, S_WAIT_SHA512, S_DONE
+ 156    } state_e;
+ 157    state_e state;
+ 158  
+ 159    logic [3:0] fwd_ctr;
+ 160    logic [5:0] sched_idx;
+ 161    logic [7:0] load_idx, read_idx;
+ 162    logic [3:0] mm_i;
+ 163    logic [7:0] m_bit_idx;
+ 164  
+ 165    always_ff @(posedge clk) begin
+ 166      ntt_start <= 1'b0;
+ 167      ntt_load_valid <= 1'b0;
+ 168      sha512_start <= 1'b0;
+ 169      done <= 1'b0;
+ 170  
+ 171      if (reset) begin
+ 172        state <= S_IDLE;
+ 173      end else begin
+ 174        case (state)
+ 175          S_IDLE: begin
+ 176            if (start) begin
+ 177              // --- ByteDecode+Decompress: kombinatorinen, yksi sykli riittaa ---
+ 178              for (int q = 0; q < K; q++) begin
+ 179                bdecU_in[q]  <= c_in[(q*DU*32)*8 +: DU*32*8];
+ 180                bdec12_in[q] <= dkPKE_in[(q*384)*8 +: 384*8];
+ 181              end
+ 182              bdecV_in    <= c_in[(K*DU*32)*8 +: DV*32*8];
+ 183              state <= S_DECODE_U_V;
+ 184            end
+ 185          end
+ 186  
+ 187          S_DECODE_U_V: begin
+ 188            for (int q = 0; q < K; q++) decompU_in[q] <= bdecU_out[q];
+ 189            decompV_in    <= bdecV_out;
+ 190            state <= S_DECODE_S;
+ 191          end
+ 192  
+ 193          S_DECODE_S: begin
+ 194            for (int q = 0; q < K; q++) u_prime[q] <= decompU_out[q];
+ 195            v_prime    <= decompV_out;
+ 196            for (int q = 0; q < K; q++) s_hat[q] <= widen12(bdec12_out_raw[q]);
+ 197            fwd_ctr <= 4'd0;
+ 198            load_idx <= 8'd0;
+ 199            state <= S_FWD_LOAD;
+ 200          end
+ 201  
+ 202          // --- NTT-forward u'[0..K-1] -> u_hat[0..K-1] ---
+ 203          S_FWD_LOAD: begin
+ 204            ntt_load_valid <= 1'b1;
+ 205            ntt_load_addr  <= load_idx;
+ 206            for (int q = 0; q < K; q++)
+ 207              if (fwd_ctr == q) ntt_load_data <= u_prime[q][load_idx*COEFF_W +: COEFF_W];
+ 208            if (load_idx == 8'd255) begin
+ 209              sched_idx <= 6'd0;
+ 210              state <= S_FWD_SCHED_SETUP;
+ 211            end else load_idx <= load_idx + 8'd1;
+ 212          end
+ 213  
+ 214          S_FWD_SCHED_SETUP: begin
+ 215            ntt_load_valid <= 1'b0;
+ 216            begin
+ 217              logic [71:0] entry;
+ 218              entry = fwd_schedule_rom[sched_idx];
+ 219              ntt_count       <= entry[65:58];
+ 220              ntt_pair_dist   <= entry[57:50];
+ 221              base_addr_lane0 <= entry[49:41];
+ 222              zeta_lane0      <= entry[40:25];
+ 223              base_addr_lane1 <= entry[24:16];
+ 224              zeta_lane1      <= entry[15:0];
+ 225            end
+ 226            ntt_mode <= 1'b0;
+ 227            state <= S_FWD_SCHED_START;
+ 228          end
+ 229  
+ 230          S_FWD_SCHED_START: begin
+ 231            ntt_start <= 1'b1;
+ 232            state <= S_FWD_SCHED_WAIT;
+ 233          end
+ 234  
+ 235          S_FWD_SCHED_WAIT: begin
+ 236            if (stage_done) begin
+ 237              if (sched_idx == 6'd63) begin
+ 238                read_idx <= 8'd0;
+ 239                state <= S_FWD_READ;
+ 240              end else begin
+ 241                sched_idx <= sched_idx + 6'd1;
+ 242                state <= S_FWD_SCHED_SETUP;
+ 243              end
+ 244            end
+ 245          end
+ 246  
+ 247          S_FWD_READ: state <= S_FWD_READ_WAIT;
+ 248  
+ 249          S_FWD_READ_WAIT: begin
+ 250            if (ntt_read_valid) begin
+ 251              for (int q = 0; q < K; q++)
+ 252                if (fwd_ctr == q) u_hat[q][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 253              if (read_idx == 8'd255) state <= S_FWD_NEXT;
+ 254              else begin
+ 255                read_idx <= read_idx + 8'd1;
+ 256                state <= S_FWD_READ;
+ 257              end
+ 258            end
+ 259          end
+ 260  
+ 261          S_FWD_NEXT: begin
+ 262            if (fwd_ctr == K-1) begin
+ 263              mm_i <= 4'd0;
+ 264              mm_acc <= '0;
+ 265              state <= S_MATMUL;
+ 266            end else begin
+ 267              fwd_ctr <= fwd_ctr + 4'd1;
+ 268              load_idx <= 8'd0;
+ 269              state <= S_FWD_LOAD;
+ 270            end
+ 271          end
+ 272  
+ 273          // --- Matriisikertolasku: acc = sum_i(s_hat[i]*u_hat[i]) ---
+ 274          S_MATMUL: begin
+ 275            mm_acc <= padd_sum;
+ 276            if (mm_i == K-1) begin
+ 277              load_idx <= 8'd0;
+ 278              state <= S_INV_LOAD;
+ 279            end else mm_i <= mm_i + 4'd1;
+ 280          end
+ 281  
+ 282          // --- NTT-inverse mm_acc:lle -> inner_raw ---
+ 283          S_INV_LOAD: begin
+ 284            ntt_load_valid <= 1'b1;
+ 285            ntt_load_addr  <= load_idx;
+ 286            ntt_load_data  <= mm_acc[load_idx*COEFF_W +: COEFF_W];
+ 287            if (load_idx == 8'd255) begin
+ 288              sched_idx <= 6'd0;
+ 289              state <= S_INV_SCHED_SETUP;
+ 290            end else load_idx <= load_idx + 8'd1;
+ 291          end
+ 292  
+ 293          S_INV_SCHED_SETUP: begin
+ 294            ntt_load_valid <= 1'b0;
+ 295            begin
+ 296              logic [71:0] entry;
+ 297              entry = inv_schedule_rom[sched_idx];
+ 298              ntt_count       <= entry[65:58];
+ 299              ntt_pair_dist   <= entry[57:50];
+ 300              base_addr_lane0 <= entry[49:41];
+ 301              zeta_lane0      <= entry[40:25];
+ 302              base_addr_lane1 <= entry[24:16];
+ 303              zeta_lane1      <= entry[15:0];
+ 304            end
+ 305            ntt_mode <= 1'b1;  // INVERSE
+ 306            state <= S_INV_SCHED_START;
+ 307          end
+ 308  
+ 309          S_INV_SCHED_START: begin
+ 310            ntt_start <= 1'b1;
+ 311            state <= S_INV_SCHED_WAIT;
+ 312          end
+ 313  
+ 314          S_INV_SCHED_WAIT: begin
+ 315            if (stage_done) begin
+ 316              if (sched_idx == 6'd63) begin
+ 317                read_idx <= 8'd0;
+ 318                state <= S_INV_READ;
+ 319              end else begin
+ 320                sched_idx <= sched_idx + 6'd1;
+ 321                state <= S_INV_SCHED_SETUP;
+ 322              end
+ 323            end
+ 324          end
+ 325  
+ 326          S_INV_READ: state <= S_INV_READ_WAIT;
+ 327  
+ 328          S_INV_READ_WAIT: begin
+ 329            if (ntt_read_valid) begin
+ 330              inner_raw[read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 331              if (read_idx == 8'd255) state <= S_SCALE;
+ 332              else begin
+ 333                read_idx <= read_idx + 8'd1;
+ 334                state <= S_INV_READ;
+ 335              end
+ 336            end
+ 337          end
+ 338  
+ 339          S_SCALE: begin
+ 340            inner <= scale_out;
+ 341            state <= S_SUB;
+ 342          end
+ 343  
+ 344          S_SUB: begin
+ 345            w <= psub_diff;
+ 346            m_bit_idx <= 8'd0;
+ 347            state <= S_ENCODE_M_SETUP;
+ 348          end
+ 349  
+ 350          // M4-DECAPS-ORCH-001 debug-korjaus: c1_x_in on rekisteroity,
+ 351          // c1_compress_out on kombinatorinen sen POHJALTA - tarvitaan
+ 352          // KAKSI erillista sykli-vaihetta (aseta x_in, sitten VASTA
+ 353          // seuraavalla syklilla kaappaa compress_out) - sama periaate
+ 354          // kuin aiemmin loydetty ja korjattu NTT-luku/kirjoitusvirhe.
+ 355          S_ENCODE_M_SETUP: begin
+ 356            c1_d_sel <= 4'd1;
+ 357            c1_x_in  <= w[m_bit_idx*COEFF_W +: COEFF_W];
+ 358            state <= S_ENCODE_M;
+ 359          end
+ 360  
+ 361          S_ENCODE_M: begin
+ 362            benc1_in[m_bit_idx] <= c1_compress_out[0];
+ 363            if (m_bit_idx == 8'd255) begin
+ 364              sha512_msg_in <= '0;
+ 365              state <= S_START_SHA512;
+ 366            end else begin
+ 367              m_bit_idx <= m_bit_idx + 8'd1;
+ 368              state <= S_ENCODE_M_SETUP;
+ 369            end
+ 370          end
+ 371  
+ 372          // --- G(m'||h) -> (K', r') - sama kaava kuin M4-MLKEM-
+ 373          // ORCH-001:ssa (KeyGenin oma SHA3-512-vaihe) ---
+ 374          S_START_SHA512: begin
+ 375            sha512_msg_in[255:0]   <= benc1_out;
+ 376            sha512_msg_in[511:256] <= h_in;
+ 377            sha512_start <= 1'b1;
+ 378            state <= S_WAIT_SHA512;
+ 379          end
+ 380  
+ 381          S_WAIT_SHA512: begin
+ 382            if (sha512_done) begin
+ 383              K_prime_out <= sha512_out[255:0];
+ 384              r_prime_out <= sha512_out[511:256];
+ 385              state <= S_DONE;
+ 386            end
+ 387          end
+ 388  
+ 389          S_DONE: begin
+ 390            done <= 1'b1;
+ 391            state <= S_IDLE;
+ 392          end
+ 393  
+ 394          default: state <= S_IDLE;
+ 395        endcase
+ 396      end
+ 397    end
+ 398  
+ 399    // --- Kombinatorinen kytkenta ---
+ 400    assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT) ||
+ 401                            (state == S_INV_READ) || (state == S_INV_READ_WAIT);
+ 402    assign ntt_read_addr = read_idx;
+ 403  
+ 404    assign mntt_f = s_hat[mm_i];
+ 405    assign mntt_g = u_hat[mm_i];
+ 406    assign padd_a = mm_acc;
+ 407    assign padd_b = mntt_h;
+ 408  
+ 409    assign scale_in = inner_raw;
+ 410    assign psub_a = v_prime;
+ 411    assign psub_b = inner;
+ 412  
+ 413    assign m_prime_out = benc1_out;
+ 414  
+ 415  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_b1_core.sv
+
+```
+   1  // pqc_mlkem_decaps_b1_core.sv
+   2  //
+   3  // M4-DECAPS-ORCH-001 Phase B1: K-PKE.Encrypt:n alkuosa - A-matriisin
+   4  // muodostus (SampleNTT) ja deterministinen kohinageneraatio
+   5  // (PRF+SamplePolyCBD) r':sta. EI VIELA matriisikertolaskuja/NTT:ta -
+   6  // VAIN syotteen muodostus todennetaan tassa vaiheessa (kayttajan
+   7  // oma, tarkoituksellinen rajaus riskien hallitsemiseksi).
+   8  //
+   9  // SEKVENSSI (vastaa tb/pqc_mlkem_decaps_b_tb.sv:n alkuosaa):
+  10  // 1. ByteDecode(12) ek:sta -> t_hat[i] (EI VIELA kaytetty tassa
+  11  //    vaiheessa, mutta puretaan yhdessa rho:n kanssa koska ne
+  12  //    tulevat samasta ek-syotteesta)
+  13  // 2. rho = ek:n viimeiset 32 tavua
+  14  // 3. SampleNTT(rho,i,j) KxK kertaa -> A[i][j]
+  15  // 4. PRF+SamplePolyCBD(r',N) ETA1:lla, N=0,1 -> y_vec[0], y_vec[1]
+  16  // 5. PRF+SamplePolyCBD(r',N) ETA2:lla, N=2,3 -> e1_vec[0], e1_vec[1]
+  17  // 6. PRF+SamplePolyCBD(r',N) ETA2:lla, N=4 -> e2_poly
+  18  //
+  19  // K-yleistys (2026-11-15): K=2 ja K=3 todennettu NIST ACVP:lla.
+  20  // EK_BYTES, C_BYTES ja J_BLOCKS ovat johdettuja; niita ei ylikirjoiteta.
+  21  //
+  22  // TAMA ON TUTKIMUSPROTOTYYPPI, OSA 1/4 Phase B:sta (kayttajan oma
+  23  // B1-B4-jako). Uudelleenkayttaa M4-MLKEM-ORCH-001:n (KeyGen)
+  24  // todistettua SampleNTT+CBD-silmukkarakennetta.
+  25  
+  26  `timescale 1ns/1ps
+  27  
+  28  module pqc_mlkem_decaps_b1_core #(
+  29      parameter int COEFF_W = 16,
+  30      parameter int K = 2,
+  31      parameter int ETA1 = (K == 2) ? 3 : 2,
+  32      parameter int ETA2 = 2,
+  33      parameter int DU = (K == 4) ? 11 : 10,
+  34      parameter int DV = (K == 4) ? 5 : 4,
+  35      parameter int EK_BYTES = 384*K + 32,
+  36      parameter int C_BYTES = 32*(DU*K + DV),
+  37      parameter int J_BLOCKS = (32 + C_BYTES)/136 + 1
+  38  )(
+  39      input  logic clk,
+  40      input  logic reset,
+  41  
+  42      input  logic start,
+  43      input  logic [8*EK_BYTES-1:0] ek_in,   // ek (K*384 t_hat + 32 rho)
+  44      input  logic [255:0] r_prime_in,
+  45      input  logic [255:0] m_prime_in,   // Phase A:n oma m'
+  46      input  logic [8*C_BYTES-1:0] c_in,      // alkuperainen siffertext (ECU:n oma syote)
+  47      input  logic [255:0] z_in,           // z-siemen (dk:n oma osa)
+  48      input  logic [255:0] K_prime_in,     // Phase G:n oma K'
+  49  
+  50      output logic done,
+  51      output logic [K*K*256*COEFF_W-1:0] A_out_flat,      // A[i][j] indeksissa i*K+j
+  52      output logic [K*256*COEFF_W-1:0] y_vec_out_flat,
+  53      output logic [K*256*COEFF_W-1:0] y_hat_out_flat,     // B2a: NTT-forward(y_vec)
+  54      output logic [K*256*COEFF_W-1:0] e1_vec_out_flat,
+  55      output logic [256*COEFF_W-1:0] e2_poly_out,
+  56      output logic [K*256*COEFF_W-1:0] u_acc_out_flat,  // B2b-1: A^T*y_hat (NTT-alueella, ennen INTT:ta)
+  57      output logic [256*COEFF_W-1:0] v_acc_out,           // B2b-1: t_hat*y_hat (NTT-alueella, ennen INTT:ta)
+  58      output logic [K*256*COEFF_W-1:0] u_vec_out_flat,   // B2b-2: normaalialueen u
+  59      output logic [256*COEFF_W-1:0] v_poly_out,           // B2b-2: normaalialueen v
+  60      output logic [8*C_BYTES-1:0] c_prime_out,              // B3: siffertext c'
+  61      output logic match_out,                                 // B4: c == c'
+  62      output logic [255:0] K_final_out                       // B4: lopullinen istuntoavain
+  63  );
+  64  
+  65    // --- NTT-ydin (bring-up, sama kuin KeyGenissa/Decaps A:ssa) ---
+  66    logic ntt_start, stage_done, bank_conflict_detected;
+  67    logic [7:0] ntt_count, ntt_pair_dist;
+  68    logic ntt_mode;
+  69    logic [8:0] base_addr_lane0, base_addr_lane1;
+  70    logic [COEFF_W-1:0] zeta_lane0, zeta_lane1;
+  71    logic ntt_load_valid, ntt_read_en, ntt_read_valid;
+  72    logic [7:0] ntt_load_addr, ntt_read_addr;
+  73    logic [COEFF_W-1:0] ntt_load_data, ntt_read_data;
+  74  
+  75    pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(9), .FPGA_BRINGUP(1)) ntt_dut (
+  76      .clk(clk), .reset(reset), .start(ntt_start), .count(ntt_count),
+  77      .pair_dist(ntt_pair_dist), .mode(ntt_mode),
+  78      .base_addr_lane0(base_addr_lane0), .base_addr_lane1(base_addr_lane1),
+  79      .zeta_lane0(zeta_lane0), .zeta_lane1(zeta_lane1),
+  80      .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+  81      .load_valid(ntt_load_valid), .load_addr(ntt_load_addr), .load_data(ntt_load_data),
+  82      .read_en(ntt_read_en), .read_addr(ntt_read_addr), .read_valid(ntt_read_valid), .read_data(ntt_read_data)
+  83    );
+  84  
+  85    logic [71:0] fwd_schedule_rom [0:63];
+  86    initial $readmemh("fpga/tau/mlkem_ntt_schedule_rom.memh", fwd_schedule_rom);
+  87  
+  88    logic [71:0] inv_schedule_rom [0:63];
+  89    initial $readmemh("fpga/tau/mlkem_ntt_inverse_schedule_rom.memh", inv_schedule_rom);
+  90  
+  91    logic [256*COEFF_W-1:0] scale_in, scale_out;
+  92    pqc_ntt_final_scale #(.COEFF_W(COEFF_W)) scale_dut (.f_in(scale_in), .f_out(scale_out));
+  93  
+  94    logic [255:0] bdec1_in, bdec1_out;
+  95  
+  96    // --- Phase B3: Compress(DU/DV) + ByteEncode(DU/DV) -> c' ---
+  97    logic [256*COEFF_W-1:0] bcompu_in [0:K-1];
+  98    logic [256*DU-1:0] bcompu_out [0:K-1];
+  99    logic [256*DU-1:0] bencu_in [0:K-1];
+ 100    logic [256*DU-1:0] bencu_out [0:K-1];
+ 101    logic [256*12-1:0] bdec12_in [0:K-1];
+ 102    logic [256*12-1:0] bdec12_out_raw [0:K-1];
+ 103    for (genvar g = 0; g < K; g++) begin : g_codec
+ 104      pqc_batch_compress #(.D(DU), .COEFF_W(COEFF_W)) bcompu (.x_packed(bcompu_in[g]), .y_packed(bcompu_out[g]));
+ 105      pqc_byteencode_dparam #(.D(DU)) bencu (.f_in(bencu_in[g]), .b_out(bencu_out[g]));
+ 106      pqc_bytedecode_dparam #(.D(12)) bdec12 (.b_in(bdec12_in[g]), .f_out(bdec12_out_raw[g]));
+ 107    end
+ 108  
+ 109    logic [256*COEFF_W-1:0] bcompv_in;
+ 110    logic [256*DV-1:0] bcompv_out;
+ 111    pqc_batch_compress #(.D(DV), .COEFF_W(COEFF_W)) bcompv (.x_packed(bcompv_in), .y_packed(bcompv_out));
+ 112  
+ 113  
+ 114    logic [256*DV-1:0] bencv_in, bencv_out;
+ 115    pqc_byteencode_dparam #(.D(DV)) bencv (.f_in(bencv_in), .b_out(bencv_out));
+ 116  
+ 117    logic [8*C_BYTES-1:0] c_prime;
+ 118  
+ 119    localparam int J_LEN = 32 + C_BYTES;
+ 120    logic shake256_start, shake256_done;
+ 121    logic [8*136*J_BLOCKS-1:0] shake256_msg_in;
+ 122    logic [8*32-1:0] shake256_out;
+ 123    pqc_shake256 #(.MAX_BLOCKS(J_BLOCKS), .MAX_OUT_BYTES(32)) shake256_dut (
+ 124      .clk(clk), .reset(reset), .start(shake256_start),
+ 125      .msg_in(shake256_msg_in), .msg_len_bytes(J_LEN[15:0]), .out_len_bytes(16'd32),
+ 126      .out_data(shake256_out), .done(shake256_done)
+ 127    );
+ 128    pqc_bytedecode_dparam #(.D(1)) bdec1_dut (.b_in(bdec1_in), .f_out(bdec1_out));
+ 129  
+ 130    logic [COEFF_W-1:0] c1_x_in, c1_y_in, c1_compress_out, c1_decompress_out;
+ 131    logic [3:0] c1_d_sel;
+ 132    pqc_compress #(.COEFF_W(COEFF_W)) compress1_dut (
+ 133      .d(c1_d_sel), .x_in(c1_x_in), .compress_out(c1_compress_out),
+ 134      .y_in(c1_y_in), .decompress_out(c1_decompress_out)
+ 135    );
+ 136  
+ 137    logic [256*COEFF_W-1:0] y_hat [0:K-1];
+ 138    logic [3:0] fwd_ctr;
+ 139    logic [5:0] sched_idx;
+ 140    logic [7:0] load_idx, read_idx;
+ 141  
+ 142    logic samplentt_start, samplentt_done, samplentt_err;
+ 143    logic [255:0] samplentt_rho;
+ 144    logic [7:0] samplentt_j, samplentt_i;
+ 145    logic [256*COEFF_W-1:0] samplentt_out;
+ 146    logic [15:0] sn_acc, sn_rej, sn_xof;
+ 147    pqc_samplentt #(.XOF_BYTES(1008)) samplentt_dut (
+ 148      .clk(clk), .reset(reset), .start(samplentt_start),
+ 149      .rho(samplentt_rho), .byte_j(samplentt_j), .byte_i(samplentt_i),
+ 150      .a_hat(samplentt_out), .accepted_count(sn_acc), .rejected_count(sn_rej),
+ 151      .xof_bytes_consumed(sn_xof), .done(samplentt_done), .error_exhausted(samplentt_err)
+ 152    );
+ 153  
+ 154    logic cbd1_start, cbd1_done;
+ 155    logic [255:0] cbd1_seed;
+ 156    logic [7:0] cbd1_n;
+ 157    logic [256*COEFF_W-1:0] cbd1_out;
+ 158    pqc_prf_samplepolycbd #(.ETA(ETA1)) cbd1_dut (
+ 159      .clk(clk), .reset(reset), .start(cbd1_start),
+ 160      .seed_s(cbd1_seed), .counter_n(cbd1_n), .f_out(cbd1_out), .done(cbd1_done)
+ 161    );
+ 162  
+ 163    logic cbd2_start, cbd2_done;
+ 164    logic [255:0] cbd2_seed;
+ 165    logic [7:0] cbd2_n;
+ 166    logic [256*COEFF_W-1:0] cbd2_out;
+ 167    pqc_prf_samplepolycbd #(.ETA(ETA2)) cbd2_dut (
+ 168      .clk(clk), .reset(reset), .start(cbd2_start),
+ 169      .seed_s(cbd2_seed), .counter_n(cbd2_n), .f_out(cbd2_out), .done(cbd2_done)
+ 170    );
+ 171  
+ 172  
+ 173    // 12-bittiset kertoimet COEFF_W-levyisiksi (Verilator ei tue
+ 174    // viivastettya osittaissijoitusta taulukkoon for-silmukassa).
+ 175    function automatic [256*COEFF_W-1:0] widen12(input logic [256*12-1:0] raw);
+ 176      widen12 = '0;
+ 177      for (int cc = 0; cc < 256; cc++) widen12[cc*COEFF_W +: 12] = raw[cc*12 +: 12];
+ 178    endfunction
+ 179  
+ 180    logic [256*COEFF_W-1:0] t_hat [0:K-1];
+ 181    logic [255:0] rho;
+ 182    logic [3:0] i_ctr, j_ctr;
+ 183    logic [3:0] n_ctr;  // 0..2K (0..K-1 = y_vec; K..2K-1 = e1_vec; 2K = e2_poly)
+ 184  
+ 185    // Sisaiset (unpacked, EI portteja - turvallinen Icarus Verilogissa)
+ 186    logic [256*COEFF_W-1:0] A [0:K-1][0:K-1];
+ 187    logic [256*COEFF_W-1:0] y_vec [0:K-1];
+ 188    logic [256*COEFF_W-1:0] e1_vec [0:K-1];
+ 189  
+ 190    // --- B2b-1: pisteittainen kertolasku + akkumulointi NTT-alueella ---
+ 191    logic [256*COEFF_W-1:0] mntt_f, mntt_g, mntt_h;
+ 192    pqc_multiplyntts #(.COEFF_W(COEFF_W)) mntt_dut (.f_hat(mntt_f), .g_hat(mntt_g), .h_hat(mntt_h));
+ 193    logic [256*COEFF_W-1:0] padd_a, padd_b, padd_sum;
+ 194    pqc_polyadd #(.COEFF_W(COEFF_W)) padd_dut (.a_in(padd_a), .b_in(padd_b), .sum_out(padd_sum));
+ 195  
+ 196    logic [256*COEFF_W-1:0] u_acc [0:K-1];  // A^T*y_hat akkumulaattori, per sarake
+ 197    logic [256*COEFF_W-1:0] v_acc;          // t_hat*y_hat akkumulaattori
+ 198    logic [3:0] mm_col, mm_j;
+ 199  
+ 200    typedef enum logic [5:0] {
+ 201      S_IDLE, S_DECODE_T, S_START_SNTT, S_WAIT_SNTT, S_SNTT_NEXT,
+ 202      S_START_CBD1, S_WAIT_CBD1, S_START_CBD2, S_WAIT_CBD2, S_CBD_NEXT,
+ 203      S_FWD_LOAD, S_FWD_SCHED_SETUP, S_FWD_SCHED_START, S_FWD_SCHED_WAIT,
+ 204      S_FWD_READ, S_FWD_READ_WAIT, S_FWD_NEXT,
+ 205      S_MATMUL_U, S_MATMUL_U_CAPTURE, S_MATMUL_U_NEXT,
+ 206      S_MATMUL_V, S_MATMUL_V_CAPTURE,
+ 207      S_INV_U_LOAD, S_INV_U_SCHED_SETUP, S_INV_U_SCHED_START, S_INV_U_SCHED_WAIT,
+ 208      S_INV_U_READ, S_INV_U_READ_WAIT, S_INV_U_SCALE, S_INV_U_ADD_E1, S_INV_U_NEXT,
+ 209      S_INV_V_LOAD, S_INV_V_SCHED_SETUP, S_INV_V_SCHED_START, S_INV_V_SCHED_WAIT,
+ 210      S_INV_V_READ, S_INV_V_READ_WAIT, S_INV_V_SCALE,
+ 211      S_DECODE_MU_SETUP, S_DECODE_MU, S_DECODE_MU_CAPTURE, S_ADD_E2, S_ADD_MU,
+ 212      S_COMPRESS_U_SETUP, S_COMPRESS_U, S_ENCODE_U,
+ 213      S_COMPRESS_V_SETUP, S_COMPRESS_V, S_ENCODE_V,
+ 214      S_START_SHAKE256, S_WAIT_SHAKE256, S_SELECT_K,
+ 215      S_DONE
+ 216    } state_e;
+ 217    state_e state;
+ 218  
+ 219    logic [7:0] inv_load_idx, inv_read_idx;
+ 220    logic [5:0] inv_sched_idx;
+ 221    logic [3:0] inv_col;
+ 222    logic [256*COEFF_W-1:0] raw_u, raw_v, scaled_v, mu_poly;
+ 223    logic [256*COEFF_W-1:0] u_vec [0:K-1];
+ 224    logic [256*COEFF_W-1:0] v_poly;
+ 225    logic [7:0] mu_bit_idx;
+ 226  
+ 227    always_ff @(posedge clk) begin
+ 228      samplentt_start <= 1'b0;
+ 229      cbd1_start <= 1'b0;
+ 230      cbd2_start <= 1'b0;
+ 231      ntt_start <= 1'b0;
+ 232      ntt_load_valid <= 1'b0;
+ 233      shake256_start <= 1'b0;
+ 234      done <= 1'b0;
+ 235  
+ 236      if (reset) begin
+ 237        state <= S_IDLE;
+ 238      end else begin
+ 239        case (state)
+ 240          S_IDLE: begin
+ 241            if (start) begin
+ 242              for (int q = 0; q < K; q++) bdec12_in[q] <= ek_in[(q*384)*8 +: 384*8];
+ 243              rho <= ek_in[(384*K)*8 +: 32*8];
+ 244              state <= S_DECODE_T;
+ 245            end
+ 246          end
+ 247  
+ 248          S_DECODE_T: begin
+ 249            for (int q = 0; q < K; q++) t_hat[q] <= widen12(bdec12_out_raw[q]);
+ 250            i_ctr <= 4'd0; j_ctr <= 4'd0;
+ 251            state <= S_START_SNTT;
+ 252          end
+ 253  
+ 254          S_START_SNTT: begin
+ 255            // KORJAUS 2 (2026-07-19, jatko): AIEMPI vaihto oli VAARIN.
+ 256            // Virallisen kpke_encrypt_golden.py:n oma kommentti: "A_hat[i,j]
+ 257            // = SampleNTT(rho||j||i) - TASMALLEEN SAMA kuin K-PKE.KeyGen,
+ 258            // EI transponoitu generoinnissa. Transponointi tapahtuu VASTA
+ 259            // KAAVASSA: u[i] = sum_j A_hat[j][i] * y_hat[j]". Palautettu
+ 260            // generointi KeyGenin omaan, EI-transponoituun konventioon -
+ 261            // transpoosi toteutetaan sen sijaan matriisikertolaskun omassa
+ 262            // indeksoinnissa (S_MATMUL_U).
+ 263            samplentt_rho <= rho; samplentt_i <= {4'b0,i_ctr}; samplentt_j <= {4'b0,j_ctr};
+ 264            samplentt_start <= 1'b1;
+ 265            state <= S_WAIT_SNTT;
+ 266          end
+ 267  
+ 268          S_WAIT_SNTT: begin
+ 269            if (samplentt_done) begin
+ 270              A[i_ctr][j_ctr] <= samplentt_out;
+ 271              state <= S_SNTT_NEXT;
+ 272            end
+ 273          end
+ 274  
+ 275          S_SNTT_NEXT: begin
+ 276            if (j_ctr == K-1) begin
+ 277              j_ctr <= 4'd0;
+ 278              if (i_ctr == K-1) begin
+ 279                i_ctr <= 4'd0; n_ctr <= 4'd0;
+ 280                state <= S_START_CBD1;
+ 281              end else begin
+ 282                i_ctr <= i_ctr + 4'd1;
+ 283                state <= S_START_SNTT;
+ 284              end
+ 285            end else begin
+ 286              j_ctr <= j_ctr + 4'd1;
+ 287              state <= S_START_SNTT;
+ 288            end
+ 289          end
+ 290  
+ 291          // --- y_vec: PRF+CBD(ETA1), N=0..K-1 ---
+ 292          S_START_CBD1: begin
+ 293            cbd1_seed <= r_prime_in; cbd1_n <= {4'b0,n_ctr};
+ 294            cbd1_start <= 1'b1;
+ 295            state <= S_WAIT_CBD1;
+ 296          end
+ 297  
+ 298          S_WAIT_CBD1: begin
+ 299            if (cbd1_done) begin
+ 300              y_vec[n_ctr] <= cbd1_out;
+ 301              if (n_ctr == K-1) begin
+ 302                n_ctr <= n_ctr + 4'd1;
+ 303                state <= S_START_CBD2;
+ 304              end else begin
+ 305                n_ctr <= n_ctr + 4'd1;
+ 306                state <= S_START_CBD1;
+ 307              end
+ 308            end
+ 309          end
+ 310  
+ 311          // --- e1_vec (N=K..2K-1) ja e2_poly (N=2K): PRF+CBD(ETA2) ---
+ 312          S_START_CBD2: begin
+ 313            cbd2_seed <= r_prime_in; cbd2_n <= {4'b0,n_ctr};
+ 314            cbd2_start <= 1'b1;
+ 315            state <= S_WAIT_CBD2;
+ 316          end
+ 317  
+ 318          S_WAIT_CBD2: begin
+ 319            if (cbd2_done) begin
+ 320              if (n_ctr == 2*K) begin
+ 321                e2_poly_out <= cbd2_out;
+ 322                fwd_ctr <= 4'd0; load_idx <= 8'd0;
+ 323                state <= S_FWD_LOAD;
+ 324              end else begin
+ 325                e1_vec[n_ctr - K] <= cbd2_out;
+ 326                n_ctr <= n_ctr + 4'd1;
+ 327                state <= S_START_CBD2;
+ 328              end
+ 329            end
+ 330          end
+ 331  
+ 332          // --- B2a: NTT-forward y_vec[0], y_vec[1] -> y_hat[0], y_hat[1]
+ 333          // (sama, jo todistettu bring-up-metodologia kuin M4-MLKEM-
+ 334          // ORCH-001:ssa ja Decaps Phase A:ssa) ---
+ 335          S_FWD_LOAD: begin
+ 336            ntt_load_valid <= 1'b1;
+ 337            ntt_load_addr  <= load_idx;
+ 338            ntt_load_data  <= y_vec[fwd_ctr][load_idx*COEFF_W +: COEFF_W];
+ 339            if (load_idx == 8'd255) begin
+ 340              sched_idx <= 6'd0;
+ 341              state <= S_FWD_SCHED_SETUP;
+ 342            end else load_idx <= load_idx + 8'd1;
+ 343          end
+ 344  
+ 345          S_FWD_SCHED_SETUP: begin
+ 346            ntt_load_valid <= 1'b0;
+ 347            begin
+ 348              logic [71:0] entry;
+ 349              entry = fwd_schedule_rom[sched_idx];
+ 350              ntt_count       <= entry[65:58];
+ 351              ntt_pair_dist   <= entry[57:50];
+ 352              base_addr_lane0 <= entry[49:41];
+ 353              zeta_lane0      <= entry[40:25];
+ 354              base_addr_lane1 <= entry[24:16];
+ 355              zeta_lane1      <= entry[15:0];
+ 356            end
+ 357            ntt_mode <= 1'b0;
+ 358            state <= S_FWD_SCHED_START;
+ 359          end
+ 360  
+ 361          S_FWD_SCHED_START: begin
+ 362            ntt_start <= 1'b1;
+ 363            state <= S_FWD_SCHED_WAIT;
+ 364          end
+ 365  
+ 366          S_FWD_SCHED_WAIT: begin
+ 367            if (stage_done) begin
+ 368              if (sched_idx == 6'd63) begin
+ 369                read_idx <= 8'd0;
+ 370                state <= S_FWD_READ;
+ 371              end else begin
+ 372                sched_idx <= sched_idx + 6'd1;
+ 373                state <= S_FWD_SCHED_SETUP;
+ 374              end
+ 375            end
+ 376          end
+ 377  
+ 378          S_FWD_READ: state <= S_FWD_READ_WAIT;
+ 379  
+ 380          S_FWD_READ_WAIT: begin
+ 381            if (ntt_read_valid) begin
+ 382              y_hat[fwd_ctr][read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 383              if (read_idx == 8'd255) state <= S_FWD_NEXT;
+ 384              else begin
+ 385                read_idx <= read_idx + 8'd1;
+ 386                state <= S_FWD_READ;
+ 387              end
+ 388            end
+ 389          end
+ 390  
+ 391          S_FWD_NEXT: begin
+ 392            if (fwd_ctr == K-1) begin
+ 393              mm_col <= 4'd0; mm_j <= 4'd0;
+ 394              for (int cc = 0; cc < K; cc++) u_acc[cc] <= '0;
+ 395              v_acc <= '0;
+ 396              state <= S_MATMUL_U;
+ 397            end else begin
+ 398              fwd_ctr <= fwd_ctr + 4'd1;
+ 399              load_idx <= 8'd0;
+ 400              state <= S_FWD_LOAD;
+ 401            end
+ 402          end
+ 403  
+ 404          // --- B2b-1: pisteittainen kertolasku + akkumulointi NTT-
+ 405          // alueella. EI VIELA inverse-NTT:ta - vain lineaarialgebra
+ 406          // NTT-domainissa todennetaan tassa vaiheessa (kayttajan oma
+ 407          // rajaus). u_acc[col] = sum_j(A[j][col]*y_hat[j]).
+ 408          //
+ 409          // KORJAUS (2026-07-19): alkuperainen yksisyklinen versio luki
+ 410          // padd_sum:n SAMALLA syklilla kuin asetti padd_a/padd_b:n -
+ 411          // sama bugiluokka kuin aiemmin loydetty ja korjattu NTT-luku/
+ 412          // Compress-virhe. Korjattu kaksivaiheisella setup/capture-
+ 413          // tilaparilla (aseta operandit, VASTA seuraavalla syklilla
+ 414          // kaappaa summa). ---
+ 415          S_MATMUL_U: begin
+ 416            padd_a <= u_acc[mm_col];
+ 417            padd_b <= mntt_h;
+ 418            state <= S_MATMUL_U_CAPTURE;
+ 419          end
+ 420  
+ 421          S_MATMUL_U_CAPTURE: begin
+ 422            u_acc[mm_col] <= padd_sum;
+ 423            if (mm_j == K-1) begin
+ 424              mm_j <= 4'd0;
+ 425              state <= S_MATMUL_U_NEXT;
+ 426            end else begin
+ 427              mm_j <= mm_j + 4'd1;
+ 428              state <= S_MATMUL_U;
+ 429            end
+ 430          end
+ 431  
+ 432          S_MATMUL_U_NEXT: begin
+ 433            if (mm_col == K-1) state <= S_MATMUL_V;
+ 434            else begin
+ 435              mm_col <= mm_col + 4'd1;
+ 436              state <= S_MATMUL_U;
+ 437            end
+ 438          end
+ 439  
+ 440          // --- v_acc = sum_j(t_hat[j]*y_hat[j]) - sama kaksivaiheinen korjaus ---
+ 441          S_MATMUL_V: begin
+ 442            padd_a <= v_acc;
+ 443            padd_b <= mntt_h;
+ 444            state <= S_MATMUL_V_CAPTURE;
+ 445          end
+ 446  
+ 447          S_MATMUL_V_CAPTURE: begin
+ 448            v_acc <= padd_sum;
+ 449            if (mm_j == K-1) begin
+ 450              inv_col <= 4'd0; inv_load_idx <= 8'd0;
+ 451              state <= S_INV_U_LOAD;
+ 452            end else begin
+ 453              mm_j <= mm_j + 4'd1;
+ 454              state <= S_MATMUL_V;
+ 455            end
+ 456          end
+ 457  
+ 458          // --- B2b-2: inverse-NTT + skaalaus u_acc[col]:lle, +e1_vec[col] -> u_vec[col] ---
+ 459          S_INV_U_LOAD: begin
+ 460            ntt_load_valid <= 1'b1;
+ 461            ntt_load_addr  <= inv_load_idx;
+ 462            ntt_load_data  <= u_acc[inv_col][inv_load_idx*COEFF_W +: COEFF_W];
+ 463            if (inv_load_idx == 8'd255) begin
+ 464              inv_sched_idx <= 6'd0;
+ 465              state <= S_INV_U_SCHED_SETUP;
+ 466            end else inv_load_idx <= inv_load_idx + 8'd1;
+ 467          end
+ 468  
+ 469          S_INV_U_SCHED_SETUP: begin
+ 470            ntt_load_valid <= 1'b0;
+ 471            begin
+ 472              logic [71:0] entry;
+ 473              entry = inv_schedule_rom[inv_sched_idx];
+ 474              ntt_count       <= entry[65:58];
+ 475              ntt_pair_dist   <= entry[57:50];
+ 476              base_addr_lane0 <= entry[49:41];
+ 477              zeta_lane0      <= entry[40:25];
+ 478              base_addr_lane1 <= entry[24:16];
+ 479              zeta_lane1      <= entry[15:0];
+ 480            end
+ 481            ntt_mode <= 1'b1;
+ 482            state <= S_INV_U_SCHED_START;
+ 483          end
+ 484  
+ 485          S_INV_U_SCHED_START: begin
+ 486            ntt_start <= 1'b1;
+ 487            state <= S_INV_U_SCHED_WAIT;
+ 488          end
+ 489  
+ 490          S_INV_U_SCHED_WAIT: begin
+ 491            if (stage_done) begin
+ 492              if (inv_sched_idx == 6'd63) begin
+ 493                inv_read_idx <= 8'd0;
+ 494                state <= S_INV_U_READ;
+ 495              end else begin
+ 496                inv_sched_idx <= inv_sched_idx + 6'd1;
+ 497                state <= S_INV_U_SCHED_SETUP;
+ 498              end
+ 499            end
+ 500          end
+ 501  
+ 502          S_INV_U_READ: state <= S_INV_U_READ_WAIT;
+ 503  
+ 504          S_INV_U_READ_WAIT: begin
+ 505            if (ntt_read_valid) begin
+ 506              raw_u[inv_read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 507              if (inv_read_idx == 8'd255) state <= S_INV_U_SCALE;
+ 508              else begin
+ 509                inv_read_idx <= inv_read_idx + 8'd1;
+ 510                state <= S_INV_U_READ;
+ 511              end
+ 512            end
+ 513          end
+ 514  
+ 515          S_INV_U_SCALE: begin
+ 516            scale_in <= raw_u;
+ 517            state <= S_INV_U_ADD_E1;
+ 518          end
+ 519  
+ 520          S_INV_U_ADD_E1: begin
+ 521            padd_a <= scale_out;
+ 522            padd_b <= e1_vec[inv_col];
+ 523            state <= S_INV_U_NEXT;
+ 524          end
+ 525  
+ 526          S_INV_U_NEXT: begin
+ 527            u_vec[inv_col] <= padd_sum;
+ 528            if (inv_col == K-1) begin
+ 529              inv_load_idx <= 8'd0;
+ 530              state <= S_INV_V_LOAD;
+ 531            end else begin
+ 532              inv_col <= inv_col + 4'd1;
+ 533              inv_load_idx <= 8'd0;
+ 534              state <= S_INV_U_LOAD;
+ 535            end
+ 536          end
+ 537  
+ 538          // --- inverse-NTT + skaalaus v_acc:lle (ei viela e2/mu-lisaysta) ---
+ 539          S_INV_V_LOAD: begin
+ 540            ntt_load_valid <= 1'b1;
+ 541            ntt_load_addr  <= inv_load_idx;
+ 542            ntt_load_data  <= v_acc[inv_load_idx*COEFF_W +: COEFF_W];
+ 543            if (inv_load_idx == 8'd255) begin
+ 544              inv_sched_idx <= 6'd0;
+ 545              state <= S_INV_V_SCHED_SETUP;
+ 546            end else inv_load_idx <= inv_load_idx + 8'd1;
+ 547          end
+ 548  
+ 549          S_INV_V_SCHED_SETUP: begin
+ 550            ntt_load_valid <= 1'b0;
+ 551            begin
+ 552              logic [71:0] entry;
+ 553              entry = inv_schedule_rom[inv_sched_idx];
+ 554              ntt_count       <= entry[65:58];
+ 555              ntt_pair_dist   <= entry[57:50];
+ 556              base_addr_lane0 <= entry[49:41];
+ 557              zeta_lane0      <= entry[40:25];
+ 558              base_addr_lane1 <= entry[24:16];
+ 559              zeta_lane1      <= entry[15:0];
+ 560            end
+ 561            ntt_mode <= 1'b1;
+ 562            state <= S_INV_V_SCHED_START;
+ 563          end
+ 564  
+ 565          S_INV_V_SCHED_START: begin
+ 566            ntt_start <= 1'b1;
+ 567            state <= S_INV_V_SCHED_WAIT;
+ 568          end
+ 569  
+ 570          S_INV_V_SCHED_WAIT: begin
+ 571            if (stage_done) begin
+ 572              if (inv_sched_idx == 6'd63) begin
+ 573                inv_read_idx <= 8'd0;
+ 574                state <= S_INV_V_READ;
+ 575              end else begin
+ 576                inv_sched_idx <= inv_sched_idx + 6'd1;
+ 577                state <= S_INV_V_SCHED_SETUP;
+ 578              end
+ 579            end
+ 580          end
+ 581  
+ 582          S_INV_V_READ: state <= S_INV_V_READ_WAIT;
+ 583  
+ 584          S_INV_V_READ_WAIT: begin
+ 585            if (ntt_read_valid) begin
+ 586              raw_v[inv_read_idx*COEFF_W +: COEFF_W] <= ntt_read_data;
+ 587              if (inv_read_idx == 8'd255) state <= S_INV_V_SCALE;
+ 588              else begin
+ 589                inv_read_idx <= inv_read_idx + 8'd1;
+ 590                state <= S_INV_V_READ;
+ 591              end
+ 592            end
+ 593          end
+ 594  
+ 595          S_INV_V_SCALE: begin
+ 596            scale_in <= raw_v;
+ 597            state <= S_DECODE_MU_SETUP;
+ 598          end
+ 599  
+ 600          // --- mu_poly = Decompress(D=1)(ByteDecode(D=1)(m')) ---
+ 601          S_DECODE_MU_SETUP: begin
+ 602            scaled_v <= scale_out;
+ 603            bdec1_in <= m_prime_in;
+ 604            mu_bit_idx <= 8'd0;
+ 605            state <= S_DECODE_MU;
+ 606          end
+ 607  
+ 608          S_DECODE_MU: begin
+ 609            c1_d_sel <= 4'd1;
+ 610            c1_y_in  <= {15'b0, bdec1_out[mu_bit_idx]};
+ 611            state <= S_DECODE_MU_CAPTURE;
+ 612          end
+ 613  
+ 614          S_DECODE_MU_CAPTURE: begin
+ 615            mu_poly[mu_bit_idx*COEFF_W +: COEFF_W] <= c1_decompress_out;
+ 616            if (mu_bit_idx == 8'd255) state <= S_ADD_E2;
+ 617            else begin
+ 618              mu_bit_idx <= mu_bit_idx + 8'd1;
+ 619              state <= S_DECODE_MU;
+ 620            end
+ 621          end
+ 622  
+ 623          S_ADD_E2: begin
+ 624            padd_a <= scaled_v;
+ 625            padd_b <= e2_poly_out;
+ 626            state <= S_ADD_MU;
+ 627          end
+ 628  
+ 629          S_ADD_MU: begin
+ 630            padd_a <= padd_sum;
+ 631            padd_b <= mu_poly;
+ 632            state <= S_COMPRESS_U_SETUP;
+ 633          end
+ 634  
+ 635          // --- Phase B3: Compress(DU)+ByteEncode(DU) u_vec:lle,
+ 636          // Compress(DV)+ByteEncode(DV) v_poly:lle -> c'. Kaksivaiheinen
+ 637          // setup/capture-malli (sama periaate kuin kaikkialla muualla). ---
+ 638          S_COMPRESS_U_SETUP: begin
+ 639            v_poly <= padd_sum;  // viimeistellaan v_poly:n oma laskenta tassa
+ 640            for (int q = 0; q < K; q++) bcompu_in[q] <= u_vec[q];
+ 641            state <= S_COMPRESS_U;
+ 642          end
+ 643  
+ 644          S_COMPRESS_U: begin
+ 645            for (int q = 0; q < K; q++) bencu_in[q] <= bcompu_out[q];
+ 646            state <= S_ENCODE_U;
+ 647          end
+ 648  
+ 649          S_ENCODE_U: begin
+ 650            for (int q = 0; q < K; q++) c_prime[(q*DU*32)*8 +: DU*32*8] <= bencu_out[q];
+ 651            bcompv_in <= v_poly;
+ 652            state <= S_COMPRESS_V_SETUP;
+ 653          end
+ 654  
+ 655          S_COMPRESS_V_SETUP: begin
+ 656            state <= S_COMPRESS_V;
+ 657          end
+ 658  
+ 659          S_COMPRESS_V: begin
+ 660            bencv_in <= bcompv_out;
+ 661            state <= S_ENCODE_V;
+ 662          end
+ 663  
+ 664          S_ENCODE_V: begin
+ 665            c_prime[(K*DU*32)*8 +: DV*32*8] <= bencv_out;
+ 666            shake256_msg_in <= '0;
+ 667            state <= S_START_SHAKE256;
+ 668          end
+ 669  
+ 670          // --- Phase B4: FO-valinta. match=(c==c'), K_bar=J(z||c)=
+ 671          // SHAKE256(z||c,32), K_final = match ? K' : K_bar ---
+ 672          S_START_SHAKE256: begin
+ 673            shake256_msg_in[255:0] <= z_in;
+ 674            shake256_msg_in[256 +: 8*C_BYTES] <= c_in;
+ 675            shake256_start <= 1'b1;
+ 676            state <= S_WAIT_SHAKE256;
+ 677          end
+ 678  
+ 679          S_WAIT_SHAKE256: begin
+ 680            if (shake256_done) begin
+ 681              match_out <= (c_in === c_prime);
+ 682              K_final_out <= (c_in === c_prime) ? K_prime_in : shake256_out;
+ 683              state <= S_DONE;
+ 684            end
+ 685          end
+ 686  
+ 687          S_DONE: begin
+ 688            done <= 1'b1;
+ 689            state <= S_IDLE;
+ 690          end
+ 691  
+ 692          default: state <= S_IDLE;
+ 693        endcase
+ 694      end
+ 695    end
+ 696  
+ 697    // --- Litistys: sisaiset unpacked-taulukot -> paketoidut ulostuloportit ---
+ 698    for (genvar gi = 0; gi < K; gi++) begin : g_flat
+ 699      for (genvar gj = 0; gj < K; gj++) begin : g_flat_a
+ 700        assign A_out_flat[(gi*K+gj)*256*COEFF_W +: 256*COEFF_W] = A[gi][gj];
+ 701      end
+ 702      assign y_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_vec[gi];
+ 703      assign y_hat_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = y_hat[gi];
+ 704      assign e1_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W] = e1_vec[gi];
+ 705      assign u_acc_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_acc[gi];
+ 706      assign u_vec_out_flat[gi*256*COEFF_W +: 256*COEFF_W]  = u_vec[gi];
+ 707    end
+ 708  
+ 709    assign ntt_read_en   = (state == S_FWD_READ) || (state == S_FWD_READ_WAIT) ||
+ 710                            (state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
+ 711                            (state == S_INV_V_READ) || (state == S_INV_V_READ_WAIT);
+ 712    assign ntt_read_addr = ((state == S_INV_U_READ) || (state == S_INV_U_READ_WAIT) ||
+ 713                            (state == S_INV_V_READ) || (state == S_INV_V_READ_WAIT)) ? inv_read_idx : read_idx;
+ 714  
+ 715    // B2b-1: mntt_f/mntt_g KOMBINATORISIA, indeksoituna rekisteroidyilla
+ 716    // mm_j/mm_col:lla - sama, jo todistettu periaate kuin KeyGenin
+ 717    // omassa matriisikertolaskussa (EI rekisteroida mntt_f/mntt_g:ta
+ 718    // itseaan, koska mntt_h on kombinatorinen niiden pohjalta).
+ 719    assign mntt_f = (state == S_MATMUL_V) ? t_hat[mm_j] : A[mm_j][mm_col];
+ 720    assign mntt_g = y_hat[mm_j];
+ 721  
+ 722    assign v_acc_out = v_acc;
+ 723    assign v_poly_out = v_poly;
+ 724    assign c_prime_out = c_prime;
+ 725  
+ 726  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/pqc_mlkem_encaps_top.sv
+
+```
+   1  // pqc_mlkem_encaps_top.sv
+   2  //
+   3  // M4-ENCAPS-ORCH-001: ML-KEM.Encaps_internal (FIPS 203 Algoritmi 17).
+   4  //
+   5  // SEKVENSSI:
+   6  // 1. H(ek) = SHA3-256(ek, 384K+32 tavua)
+   7  // 2. (K,r) = G(m||H(ek)) = SHA3-512
+   8  // 3. c = K-PKE.Encrypt(ek, m, r) - UUDELLEENKAYTTAA SUORAAN
+   9  //    pqc_mlkem_decaps_b1_core.sv:n jo todistetun K-PKE.Encrypt-
+  10  //    logiikan (Phase B1-B3), koska Decaps Phase B JA Encaps
+  11  //    kayttavat TASMALLEEN samaa K-PKE.Encrypt-algoritmia.
+  12  //
+  13  // Uudelleenkaytettaessa decaps_b1_core:a: c_in/z_in/K_prime_in-
+  14  // portit (jotka liittyvat VAIN Decapsin omaan FO-valintaan, Phase
+  15  // B4:aan) syotetaan nollilla - EI vaikuta c_prime_out:n omaan
+  16  // laskentaan, koska FO-valinta on VIIMEINEN, ERILLINEN vaihe joka
+  17  // EI muokkaa c':n omaa arvoa, vain PAATTAA mika K palautetaan.
+  18  // Tama moduuli EI kayta match_out/K_final_out-ulostuloja lainkaan -
+  19  // oma K palautetaan SUORAAN G-vaiheen omasta tuloksesta.
+  20  
+  21  `timescale 1ns/1ps
+  22  
+  23  module pqc_mlkem_encaps_top #(
+  24      parameter int COEFF_W = 16,
+  25      parameter int K = 2,
+  26      parameter int EK_BYTES = 384*K + 32,                    // johdettu
+  27      parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4)),  // johdettu
+  28      parameter int H_BLOCKS = EK_BYTES/136 + 1                // johdettu
+  29  )(
+  30      input  logic clk,
+  31      input  logic reset,
+  32  
+  33      input  logic start,
+  34      input  logic [8*EK_BYTES-1:0] ek_in,
+  35      input  logic [255:0] m_in,
+  36  
+  37      output logic done,
+  38      output logic [255:0] K_out,
+  39      output logic [8*C_BYTES-1:0] c_out
+  40  );
+  41  
+  42    logic sha256_start, sha256_done;
+  43    logic [8*136*H_BLOCKS-1:0] sha256_msg_in;
+  44    logic [255:0] sha256_out;
+  45    pqc_sha3_256 #(.MAX_BLOCKS(H_BLOCKS)) sha256_dut (
+  46      .clk(clk), .reset(reset), .start(sha256_start),
+  47      .msg_in(sha256_msg_in), .msg_len_bytes(EK_BYTES[15:0]),
+  48      .digest_out(sha256_out), .done(sha256_done)
+  49    );
+  50  
+  51    logic sha512_start, sha512_done;
+  52    logic [8*72-1:0] sha512_msg_in;
+  53    logic [511:0] sha512_out;
+  54    pqc_sha3_512 #(.MAX_BLOCKS(1)) sha512_dut (
+  55      .clk(clk), .reset(reset), .start(sha512_start),
+  56      .msg_in(sha512_msg_in), .msg_len_bytes(16'd64),
+  57      .digest_out(sha512_out), .done(sha512_done)
+  58    );
+  59  
+  60    // --- K-PKE.Encrypt: uudelleenkaytetty decaps_b1_core, Phase B4:n
+  61    // (FO-valinta) omat syotteet (c_in/z_in/K_prime_in) nollattuina -
+  62    // NAMA EIVAT vaikuta c_prime_out:n omaan laskentaan. ---
+  63    logic encrypt_start, encrypt_done;
+  64    logic [255:0] r_val, K_val;
+  65    logic [8*C_BYTES-1:0] c_prime;
+  66    logic unused_match;
+  67    logic [255:0] unused_K_final;
+  68    logic [K*K*256*COEFF_W-1:0] unused_A;
+  69    logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
+  70    logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
+  71  
+  72    pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) kpke_encrypt (
+  73      .clk(clk), .reset(reset), .start(encrypt_start),
+  74      .ek_in(ek_in), .r_prime_in(r_val), .m_prime_in(m_in),
+  75      .c_in('0), .z_in('0), .K_prime_in('0),
+  76      .done(encrypt_done),
+  77      .A_out_flat(unused_A), .y_vec_out_flat(unused_yvec), .y_hat_out_flat(unused_yhat),
+  78      .e1_vec_out_flat(unused_e1vec), .e2_poly_out(unused_e2),
+  79      .u_acc_out_flat(unused_uacc), .v_acc_out(unused_vacc),
+  80      .u_vec_out_flat(unused_uvec), .v_poly_out(unused_vpoly),
+  81      .c_prime_out(c_prime),
+  82      .match_out(unused_match), .K_final_out(unused_K_final)
+  83    );
+  84  
+  85    typedef enum logic [2:0] {
+  86      S_IDLE, S_START_H, S_WAIT_H, S_START_G, S_WAIT_G, S_START_ENC, S_WAIT_ENC, S_DONE
+  87    } state_e;
+  88    state_e state;
+  89  
+  90    always_ff @(posedge clk) begin
+  91      sha256_start <= 1'b0;
+  92      sha512_start <= 1'b0;
+  93      encrypt_start <= 1'b0;
+  94      done <= 1'b0;
+  95  
+  96      if (reset) begin
+  97        state <= S_IDLE;
+  98      end else begin
+  99        case (state)
+ 100          S_IDLE: if (start) begin
+ 101            sha256_msg_in <= '0;
+ 102            sha256_msg_in[8*EK_BYTES-1:0] <= ek_in;
+ 103            state <= S_START_H;
+ 104          end
+ 105  
+ 106          S_START_H: begin
+ 107            sha256_start <= 1'b1;
+ 108            state <= S_WAIT_H;
+ 109          end
+ 110  
+ 111          S_WAIT_H: if (sha256_done) begin
+ 112            sha512_msg_in[255:0] <= m_in;
+ 113            sha512_msg_in[511:256] <= sha256_out;
+ 114            state <= S_START_G;
+ 115          end
+ 116  
+ 117          S_START_G: begin
+ 118            sha512_start <= 1'b1;
+ 119            state <= S_WAIT_G;
+ 120          end
+ 121  
+ 122          S_WAIT_G: if (sha512_done) begin
+ 123            K_val <= sha512_out[255:0];
+ 124            r_val <= sha512_out[511:256];
+ 125            state <= S_START_ENC;
+ 126          end
+ 127  
+ 128          S_START_ENC: begin
+ 129            encrypt_start <= 1'b1;
+ 130            state <= S_WAIT_ENC;
+ 131          end
+ 132  
+ 133          S_WAIT_ENC: if (encrypt_done) begin
+ 134            state <= S_DONE;
+ 135          end
+ 136  
+ 137          S_DONE: begin
+ 138            done <= 1'b1;
+ 139            state <= S_IDLE;
+ 140          end
+ 141  
+ 142          default: state <= S_IDLE;
+ 143        endcase
+ 144      end
+ 145    end
+ 146  
+ 147    assign K_out = K_val;
+ 148    assign c_out = c_prime;
+ 149  
+ 150  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/pqc_mlkem_decaps_top.sv
+
+```
+   1  // pqc_mlkem_decaps_top.sv
+   2  //
+   3  // M4-DECAPS-ORCH-001: yhdistaa Phase A+G (pqc_mlkem_decaps_a_core)
+   4  // ja Phase B1-B4 (pqc_mlkem_decaps_b1_core) TAYDEKSI ML-KEM.
+   5  // Decaps_internal-orkestroinniksi. Sekvenssi: kaynnista Phase A+G,
+   6  // odota valmis, kaynnista Phase B (kayttaen A+G:n omaa m'/K'/r'-
+   7  // tulosta), odota valmis, tuota lopullinen K_final.
+   8  //
+   9  // dk-syote puretaan tassa moduulissa dkPKE (768B) + ek (800B, dk:n
+  10  // oma sisainen ek-kopio) + h (32B) + z (32B) - FIPS 203:n oman
+  11  // dk-rakenteen mukaisesti: dk = dkPKE || ek || H(ek) || z.
+  12  
+  13  `timescale 1ns/1ps
+  14  
+  15  module pqc_mlkem_decaps_top #(
+  16      parameter int COEFF_W = 16,
+  17      parameter int SPAD_AW = 9,
+  18      parameter int K = 2,
+  19      parameter int DKPKE_BYTES = 384*K,                       // johdettu
+  20      parameter int EK_BYTES = 384*K + 32,                     // johdettu
+  21      parameter int DK_BYTES = 768*K + 96,                     // johdettu
+  22      parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))  // johdettu
+  23  )(
+  24      input  logic clk,
+  25      input  logic reset,
+  26  
+  27      input  logic start,
+  28      input  logic [8*C_BYTES-1:0] c_in,   // alkuperainen siffertext
+  29      input  logic [8*DK_BYTES-1:0] dk_in, // dk = dkPKE(384K)||ek(384K+32)||h(32)||z(32)
+  30  
+  31      output logic done,
+  32      output logic [255:0] K_final_out,
+  33      output logic match_out
+  34  );
+  35  
+  36    // --- dk:n oma purku FIPS 203:n rakenteen mukaisesti ---
+  37    wire [8*DKPKE_BYTES-1:0] dkPKE = dk_in[0 +: 8*DKPKE_BYTES];
+  38    wire [8*EK_BYTES-1:0] ek       = dk_in[8*DKPKE_BYTES +: 8*EK_BYTES];
+  39    wire [255:0] h_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES) +: 256];
+  40    wire [255:0] z_val             = dk_in[8*(DKPKE_BYTES+EK_BYTES+32) +: 256];
+  41  
+  42    // --- Phase A+G ---
+  43    logic phaseA_start, phaseA_done;
+  44    logic [255:0] m_prime, K_prime, r_prime;
+  45  
+  46    pqc_mlkem_decaps_a_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) decaps_a (
+  47      .clk(clk), .reset(reset), .start(phaseA_start),
+  48      .c_in(c_in), .dkPKE_in(dkPKE), .h_in(h_val),
+  49      .done(phaseA_done), .m_prime_out(m_prime),
+  50      .K_prime_out(K_prime), .r_prime_out(r_prime)
+  51    );
+  52  
+  53    // --- Phase B1-B4 ---
+  54    logic phaseB_start, phaseB_done;
+  55    logic [K*K*256*COEFF_W-1:0] unused_A;
+  56    logic [K*256*COEFF_W-1:0] unused_yvec, unused_yhat, unused_e1vec, unused_uacc, unused_uvec;
+  57    logic [256*COEFF_W-1:0] unused_e2, unused_vacc, unused_vpoly;
+  58    logic [8*C_BYTES-1:0] unused_cprime;
+  59  
+  60    pqc_mlkem_decaps_b1_core #(.COEFF_W(COEFF_W), .K(K)) decaps_b (
+  61      .clk(clk), .reset(reset), .start(phaseB_start),
+  62      .ek_in(ek), .r_prime_in(r_prime), .m_prime_in(m_prime),
+  63      .c_in(c_in), .z_in(z_val), .K_prime_in(K_prime),
+  64      .done(phaseB_done),
+  65      .A_out_flat(unused_A), .y_vec_out_flat(unused_yvec), .y_hat_out_flat(unused_yhat),
+  66      .e1_vec_out_flat(unused_e1vec), .e2_poly_out(unused_e2),
+  67      .u_acc_out_flat(unused_uacc), .v_acc_out(unused_vacc),
+  68      .u_vec_out_flat(unused_uvec), .v_poly_out(unused_vpoly),
+  69      .c_prime_out(unused_cprime),
+  70      .match_out(match_out), .K_final_out(K_final_out)
+  71    );
+  72  
+  73    typedef enum logic [2:0] {S_IDLE, S_START_A, S_WAIT_A, S_START_B, S_WAIT_B, S_DONE} state_e;
+  74    state_e state;
+  75  
+  76    always_ff @(posedge clk) begin
+  77      phaseA_start <= 1'b0;
+  78      phaseB_start <= 1'b0;
+  79      done <= 1'b0;
+  80  
+  81      if (reset) begin
+  82        state <= S_IDLE;
+  83      end else begin
+  84        case (state)
+  85          S_IDLE: if (start) begin
+  86            phaseA_start <= 1'b1;
+  87            state <= S_WAIT_A;
+  88          end
+  89  
+  90          S_WAIT_A: if (phaseA_done) begin
+  91            phaseB_start <= 1'b1;
+  92            state <= S_WAIT_B;
+  93          end
+  94  
+  95          S_WAIT_B: if (phaseB_done) begin
+  96            state <= S_DONE;
+  97          end
+  98  
+  99          S_DONE: begin
+ 100            done <= 1'b1;
+ 101            state <= S_IDLE;
+ 102          end
+ 103  
+ 104          default: state <= S_IDLE;
+ 105        endcase
+ 106      end
+ 107    end
+ 108  
+ 109  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/pqc_tau_integrated_wrapper.sv
+
+```
+   1  // pqc_tau_integrated_wrapper.sv
+   2  //
+   3  // M4-TAU-001 integraatio (2026-07-19): yhdistaa Wishbone-vaylan,
+   4  // ML-KEM.KeyGen-orkestraattorin (M4-MLKEM-ORCH-001), audit-lokin ja
+   5  // watchdogin YHDEKSI TAU-moduuliksi, TN-002-arkkitehtuurin mukaisesti.
+   6  //
+   7  // Kayttajan oma, sovittu integraatiojarjestys:
+   8  // 1. Wishbone -> KeyGen: START-rekisteri, BUSY/DONE-tilarekisteri
+   9  // 2. KeyGen -> audit-loki: "KeyGen kaynnistetty" ja "KeyGen valmis"
+  10  //    -tapahtumat KIINTEILLA tunnistehasheilla (EI kryptografista
+  11  //    avainmateriaalia lokiin)
+  12  // 3. ECU<->TAU-rajapinta: ECU kirjoittaa komennon, TAU suorittaa
+  13  //    KeyGenin, ECU lukee tuloksen takaisin
+  14  //
+  15  // OSOITEKARTTA (laajennus M4-SoC-001/M4-TAU-001-Osa2:n paalle):
+  16  //   0x000-0x0FF: NTT-data (M4-SoC-001)
+  17  //   0x100-0x107: NTT-ohjaus/tila (M4-SoC-001)
+  18  //   0x110-0x119: Audit-loki (M4-TAU-001 Osa 1/2)
+  19  //   0x120: KEYGEN_WORD_SEL   (kirjoitus: valitse sana 0-1023)
+  20  //   0x121: KEYGEN_D_SEED_IN  (kirjoitus: 16-bittinen sana d_seed-puskuriin[WORD_SEL])
+  21  //   0x122: KEYGEN_Z_SEED_IN  (kirjoitus: 16-bittinen sana z_seed-puskuriin[WORD_SEL])
+  22  //   0x123: KEYGEN_START      (kirjoitus, mika tahansa arvo: laukaisee KeyGenin)
+  23  //   0x124: KEYGEN_STATUS     (luku): [0]=busy [1]=done (sticky)
+  24  //   0x125: KEYGEN_EK_OUT     (luku): ek:n sana WORD_SEL (0..EK_BYTES/2-1; K=2: 399, K=3: 591)
+  25  //   0x126: KEYGEN_DK_OUT     (luku): dk:n sana WORD_SEL (0..DK_BYTES/2-1; K=2: 815, K=3: 1199)
+  26  
+  27  `timescale 1ns/1ps
+  28  
+  29  module pqc_tau_integrated_wrapper #(
+  30      parameter int COEFF_W = 16,
+  31      parameter int SPAD_AW = 9,
+  32      parameter int LOG_DEPTH = 64,
+  33      // ML-KEM-parametrisarja: K=2 (512) tai K=3 (768). Muut johdettuja.
+  34      parameter int K = 2,
+  35      parameter int EK_BYTES = 384*K + 32,
+  36      parameter int DK_BYTES = 768*K + 96,
+  37      parameter int C_BYTES = 32*(((K == 4) ? 11 : 10)*K + ((K == 4) ? 5 : 4))
+  38  )(
+  39      input  logic clk,
+  40      input  logic rst,
+  41  
+  42      input  logic [10:0] wb_adr_i,
+  43      input  logic [COEFF_W-1:0] wb_dat_i,
+  44      output logic [COEFF_W-1:0] wb_dat_o,
+  45      input  logic wb_we_i,
+  46      input  logic wb_stb_i,
+  47      input  logic wb_cyc_i,
+  48      output logic wb_ack_o
+  49  );
+  50  
+  51    // --- NTT-ytimen ohjausrekisterit (kuten M4-SoC-001:ssa) ---
+  52    logic ctrl_start_pulse, ctrl_mode;
+  53    logic [7:0] ctrl_count, ctrl_pair_dist;
+  54    logic [SPAD_AW-1:0] ctrl_base_addr0, ctrl_base_addr1;
+  55    logic [COEFF_W-1:0] ctrl_zeta0, ctrl_zeta1;
+  56    logic stage_done, bank_conflict_detected;
+  57    logic load_valid, read_en, read_valid;
+  58    logic [7:0] load_addr, read_addr;
+  59    logic [COEFF_W-1:0] load_data, read_data;
+  60  
+  61    pqc_ntt_stage_banked #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW),
+  62                            .NTT_READ_LATENCY(1), .FPGA_BRINGUP(1)) core (
+  63      .clk(clk), .reset(rst), .start(ctrl_start_pulse),
+  64      .count(ctrl_count), .pair_dist(ctrl_pair_dist), .mode(ctrl_mode),
+  65      .base_addr_lane0(ctrl_base_addr0), .base_addr_lane1(ctrl_base_addr1),
+  66      .zeta_lane0(ctrl_zeta0), .zeta_lane1(ctrl_zeta1),
+  67      .stage_done(stage_done), .bank_conflict_detected(bank_conflict_detected),
+  68      .load_valid(load_valid), .load_addr(load_addr), .load_data(load_data),
+  69      .read_en(read_en), .read_addr(read_addr), .read_valid(read_valid), .read_data(read_data)
+  70    );
+  71  
+  72    // --- Audit-loki ---
+  73    logic audit_write_valid, audit_write_busy, audit_write_done;
+  74    logic [255:0] audit_decision_hash_buf;
+  75    logic [7:0] audit_write_seq;
+  76    logic [255:0] audit_write_chain_hash;
+  77    logic [7:0] audit_read_seq;
+  78    logic [255:0] audit_read_chain_hash, audit_read_decision_hash;
+  79    logic audit_read_entry_valid;
+  80    logic [7:0] audit_log_count;
+  81    logic audit_log_full;
+  82  
+  83    pqc_tau_audit_log #(.LOG_DEPTH(LOG_DEPTH)) audit (
+  84      .clk(clk), .reset(rst),
+  85      .write_valid(audit_write_valid), .decision_hash(audit_decision_hash_buf),
+  86      .write_busy(audit_write_busy), .write_done(audit_write_done),
+  87      .write_seq(audit_write_seq), .write_chain_hash(audit_write_chain_hash),
+  88      .read_seq(audit_read_seq), .read_chain_hash(audit_read_chain_hash),
+  89      .read_decision_hash(audit_read_decision_hash), .read_entry_valid(audit_read_entry_valid),
+  90      .log_count(audit_log_count), .log_full(audit_log_full)
+  91    );
+  92  
+  93    // --- Watchdog (M4-TAU-001 Osa 3/4:n integrointi tahan kokonaisuuteen) ---
+  94    logic heartbeat_valid;
+  95    logic [31:0] wd_timeout_cycles;
+  96    logic wd_config_valid;
+  97    logic ecu_alive, wd_timeout_event;
+  98    logic [31:0] wd_cycles_since_heartbeat, wd_timeout_count;
+  99  
+ 100    pqc_tau_watchdog #(.TIMEOUT_CYCLES_DEFAULT(100000)) watchdog (
+ 101      .clk(clk), .reset(rst),
+ 102      .heartbeat_valid(heartbeat_valid),
+ 103      .timeout_cycles(wd_timeout_cycles), .config_valid(wd_config_valid),
+ 104      .ecu_alive(ecu_alive), .timeout_event(wd_timeout_event),
+ 105      .cycles_since_heartbeat(wd_cycles_since_heartbeat), .timeout_count(wd_timeout_count)
+ 106    );
+ 107  
+ 108    // --- Decaps (M4-DECAPS-ORCH-001) ---
+ 109    logic decaps_start, decaps_done;
+ 110    logic [8*C_BYTES-1:0] decaps_c_buf;
+ 111    logic [8*DK_BYTES-1:0] decaps_dk_buf;
+ 112    logic [255:0] decaps_K_final;
+ 113    logic decaps_match;
+ 114  
+ 115    pqc_mlkem_decaps_top #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) decaps (
+ 116      .clk(clk), .reset(rst), .start(decaps_start),
+ 117      .c_in(decaps_c_buf), .dk_in(decaps_dk_buf),
+ 118      .done(decaps_done), .K_final_out(decaps_K_final), .match_out(decaps_match)
+ 119    );
+ 120  
+ 121    // --- Encaps (M4-ENCAPS-ORCH-001) ---
+ 122    logic encaps_start, encaps_done;
+ 123    logic [8*EK_BYTES-1:0] encaps_ek_buf;
+ 124    logic [255:0] encaps_m_buf;
+ 125    logic [255:0] encaps_K;
+ 126    logic [8*C_BYTES-1:0] encaps_c;
+ 127  
+ 128    pqc_mlkem_encaps_top #(.COEFF_W(COEFF_W), .K(K)) encaps (
+ 129      .clk(clk), .reset(rst), .start(encaps_start),
+ 130      .ek_in(encaps_ek_buf), .m_in(encaps_m_buf),
+ 131      .done(encaps_done), .K_out(encaps_K), .c_out(encaps_c)
+ 132    );
+ 133  
+ 134    // --- KeyGen-orkestraattori ---
+ 135    logic keygen_start, keygen_done;
+ 136    logic [255:0] d_seed_buf, z_seed_buf;
+ 137    logic [8*EK_BYTES-1:0] ek_out;
+ 138    logic [8*DK_BYTES-1:0] dk_out;
+ 139    logic [255:0] dbg_rho, dbg_sigma;
+ 140    logic [256*COEFF_W-1:0] dbg_A00;
+ 141    logic [4:0] dbg_state;
+ 142  
+ 143    pqc_mlkem_keygen_core #(.COEFF_W(COEFF_W), .SPAD_AW(SPAD_AW), .K(K)) keygen (
+ 144      .clk(clk), .reset(rst), .start(keygen_start),
+ 145      .d_seed(d_seed_buf), .z_seed(z_seed_buf),
+ 146      .done(keygen_done), .ek_out(ek_out), .dk_out(dk_out),
+ 147      .debug_rho(dbg_rho), .debug_sigma(dbg_sigma), .debug_A00(dbg_A00), .debug_state(dbg_state)
+ 148    );
+ 149  
+ 150    // --- Kiinteat tunnistehashit KeyGen-tapahtumille (audit-loki) ---
+ 151    // SHA3-256("KEYGEN_STARTED_EVENT"/"KEYGEN_COMPLETED_EVENT"),
+ 152    // pack_bytes-konvention mukaisesti - EI kryptografista avain-
+ 153    // materiaalia lokiin, vain KIINTEA, ennalta tunnettu tapahtuma-
+ 154    // merkki.
+ 155    localparam logic [255:0] KEYGEN_STARTED_HASH =
+ 156      256'h5b5f32e23f0b447c0b872006ed81734ec8c305d1bc71f261d07193f31c23b68;
+ 157    localparam logic [255:0] KEYGEN_COMPLETED_HASH =
+ 158      256'hb634916025159880127a357fd392702fdeab5c38a97e47f846aa588e6617953;
+ 159    // M4-TAU-001 watchdog-integraatio: kiintea tunnistehash sille
+ 160    // erikoistapaukselle etta watchdog keskeyttaa suorituksen KESKEN
+ 161    // KeyGenin oman kaynnin - TAMA lokitetaan AINA, riippumatta ECU:n
+ 162    // omasta tilasta (TN-002:n oma vaatimus: vika lokitetaan vaikka
+ 163    // kayttoyksikko on vaarantunut).
+ 164    localparam logic [255:0] KEYGEN_WATCHDOG_INTERRUPTED_HASH =
+ 165      256'h7d07634cc39e92beabe29262bd672fd15156917f4cfb96b60531dfe36d9e476;
+ 166  
+ 167    // M4-DECAPS-ORCH-001 Wishbone-integraatio: samat kolme tapahtuma-
+ 168    // tyyppia myos Decapsille, samalla periaatteella.
+ 169    localparam logic [255:0] DECAPS_STARTED_HASH =
+ 170      256'h17a30f6b265de08941701b60853803f3765366e6813c8ff7049c65d0f7443a5;
+ 171    localparam logic [255:0] DECAPS_COMPLETED_HASH =
+ 172      256'hc8e62f26f38dfe54ea7377f2d1f9e095416dab0e7283e492f31549c78b3563c8;
+ 173    localparam logic [255:0] DECAPS_WATCHDOG_INTERRUPTED_HASH =
+ 174      256'h0f3634643e79382fd48f5100fcaaa5c9dda010e2756a9a4729240cd3a7cd5152;
+ 175  
+ 176    // M4-ENCAPS-ORCH-001 Wishbone-integraatio: samat kolme tapahtuma-
+ 177    // tyyppia myos Encapsille, samalla periaatteella - symmetria
+ 178    // KeyGenin ja Decapsin kanssa.
+ 179    localparam logic [255:0] ENCAPS_STARTED_HASH =
+ 180      256'hd017a92c25b5e1389673606647ee92bc4aa5d7a22597bb9f06ebc2928b143e1;
+ 181    localparam logic [255:0] ENCAPS_COMPLETED_HASH =
+ 182      256'h544b25411db9aea3616f97bb9e694f831ba98f9afdbbd4d50a3dcc7f519c10f;
+ 183    localparam logic [255:0] ENCAPS_WATCHDOG_INTERRUPTED_HASH =
+ 184      256'hd76422558bc53dae16ae76334f19c48868ab67f103dc1756bcb71d9f7e1132e;
+ 185  
+ 186    logic keygen_busy;
+ 187    logic decaps_busy;
+ 188    logic encaps_busy;
+ 189    logic pending_audit_valid;
+ 190    logic [255:0] pending_audit_hash;
+ 191  
+ 192    always_ff @(posedge clk) begin
+ 193      if (rst) begin
+ 194        keygen_busy <= 1'b0;
+ 195        decaps_busy <= 1'b0;
+ 196        encaps_busy <= 1'b0;
+ 197      end else begin
+ 198        if (keygen_start) keygen_busy <= 1'b1;
+ 199        if (keygen_done) keygen_busy <= 1'b0;
+ 200        if (decaps_start) decaps_busy <= 1'b1;
+ 201        if (decaps_done) decaps_busy <= 1'b0;
+ 202        if (encaps_start) encaps_busy <= 1'b1;
+ 203        if (encaps_done) encaps_busy <= 1'b0;
+ 204        // Watchdog-keskeytys KESKEN minka tahansa kolmesta operaatiosta -
+ 205        // pysayta myos ajon oma tila (ECU ei voi enaa luottaa
+ 206        // keskeneraiseen tulokseen)
+ 207        if (wd_timeout_event && keygen_busy) keygen_busy <= 1'b0;
+ 208        if (wd_timeout_event && decaps_busy) decaps_busy <= 1'b0;
+ 209        if (wd_timeout_event && encaps_busy) encaps_busy <= 1'b0;
+ 210      end
+ 211    end
+ 212  
+ 213    // --- Audit-kirjoitusarbitrointi: watchdog-keskeytys (KeyGen >
+ 214    // Decaps > Encaps) > KeyGen-omat tapahtumat > Decaps-omat
+ 215    // tapahtumat > Encaps-omat tapahtumat - sama periaate kuin
+ 216    // pqc_tau_core.sv:ssa (M4-TAU-001 Osa 4). ---
+ 217    logic keygen_event_pending;
+ 218    logic [255:0] keygen_event_hash;
+ 219    logic pending_watchdog_interrupt;
+ 220    logic pending_watchdog_interrupt_decaps;
+ 221    logic pending_watchdog_interrupt_encaps;
+ 222    logic decaps_event_pending;
+ 223    logic [255:0] decaps_event_hash;
+ 224    logic encaps_event_pending;
+ 225    logic [255:0] encaps_event_hash;
+ 226    always_ff @(posedge clk) begin
+ 227      if (rst) begin
+ 228        keygen_event_pending <= 1'b0;
+ 229        pending_watchdog_interrupt <= 1'b0;
+ 230        pending_watchdog_interrupt_decaps <= 1'b0;
+ 231        pending_watchdog_interrupt_encaps <= 1'b0;
+ 232        decaps_event_pending <= 1'b0;
+ 233        encaps_event_pending <= 1'b0;
+ 234      end else begin
+ 235        if (wd_timeout_event && keygen_busy) begin
+ 236          pending_watchdog_interrupt <= 1'b1;
+ 237        end else if (audit_write_valid && !audit_write_busy && pending_watchdog_interrupt) begin
+ 238          pending_watchdog_interrupt <= 1'b0;
+ 239        end
+ 240  
+ 241        if (wd_timeout_event && decaps_busy) begin
+ 242          pending_watchdog_interrupt_decaps <= 1'b1;
+ 243        end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+ 244                      pending_watchdog_interrupt_decaps) begin
+ 245          pending_watchdog_interrupt_decaps <= 1'b0;
+ 246        end
+ 247  
+ 248        if (wd_timeout_event && encaps_busy) begin
+ 249          pending_watchdog_interrupt_encaps <= 1'b1;
+ 250        end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+ 251                      !pending_watchdog_interrupt_decaps && pending_watchdog_interrupt_encaps) begin
+ 252          pending_watchdog_interrupt_encaps <= 1'b0;
+ 253        end
+ 254  
+ 255        if (keygen_start) begin
+ 256          keygen_event_pending <= 1'b1;
+ 257          keygen_event_hash <= KEYGEN_STARTED_HASH;
+ 258        end else if (keygen_done) begin
+ 259          keygen_event_pending <= 1'b1;
+ 260          keygen_event_hash <= KEYGEN_COMPLETED_HASH;
+ 261        end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+ 262                      !pending_watchdog_interrupt_decaps && !pending_watchdog_interrupt_encaps) begin
+ 263          keygen_event_pending <= 1'b0;
+ 264        end
+ 265  
+ 266        if (decaps_start) begin
+ 267          decaps_event_pending <= 1'b1;
+ 268          decaps_event_hash <= DECAPS_STARTED_HASH;
+ 269        end else if (decaps_done) begin
+ 270          decaps_event_pending <= 1'b1;
+ 271          decaps_event_hash <= DECAPS_COMPLETED_HASH;
+ 272        end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+ 273                      !pending_watchdog_interrupt_decaps && !pending_watchdog_interrupt_encaps &&
+ 274                      !keygen_event_pending) begin
+ 275          decaps_event_pending <= 1'b0;
+ 276        end
+ 277  
+ 278        if (encaps_start) begin
+ 279          encaps_event_pending <= 1'b1;
+ 280          encaps_event_hash <= ENCAPS_STARTED_HASH;
+ 281        end else if (encaps_done) begin
+ 282          encaps_event_pending <= 1'b1;
+ 283          encaps_event_hash <= ENCAPS_COMPLETED_HASH;
+ 284        end else if (audit_write_valid && !audit_write_busy && !pending_watchdog_interrupt &&
+ 285                      !pending_watchdog_interrupt_decaps && !pending_watchdog_interrupt_encaps &&
+ 286                      !keygen_event_pending && !decaps_event_pending) begin
+ 287          encaps_event_pending <= 1'b0;
+ 288        end
+ 289      end
+ 290    end
+ 291  
+ 292    assign audit_write_valid = pending_watchdog_interrupt || pending_watchdog_interrupt_decaps ||
+ 293                                pending_watchdog_interrupt_encaps ||
+ 294                                keygen_event_pending || decaps_event_pending || encaps_event_pending;
+ 295    assign audit_decision_hash_buf =
+ 296      pending_watchdog_interrupt ? KEYGEN_WATCHDOG_INTERRUPTED_HASH :
+ 297      pending_watchdog_interrupt_decaps ? DECAPS_WATCHDOG_INTERRUPTED_HASH :
+ 298      pending_watchdog_interrupt_encaps ? ENCAPS_WATCHDOG_INTERRUPTED_HASH :
+ 299      keygen_event_pending ? keygen_event_hash :
+ 300      decaps_event_pending ? decaps_event_hash : encaps_event_hash;
+ 301  
+ 302    // --- Osoitedekoodaus ---
+ 303    wire is_data_range   = (wb_adr_i < 11'h100);
+ 304    wire is_ctrl_range   = (wb_adr_i >= 11'h100) && (wb_adr_i <= 11'h107);
+ 305    wire is_audit_range  = (wb_adr_i >= 11'h110) && (wb_adr_i <= 11'h119);
+ 306    wire is_keygen_range = (wb_adr_i >= 11'h120) && (wb_adr_i <= 11'h129);
+ 307    wire is_decaps_range = (wb_adr_i >= 11'h130) && (wb_adr_i <= 11'h139);
+ 308    wire is_encaps_range = (wb_adr_i >= 11'h140) && (wb_adr_i <= 11'h149);
+ 309  
+ 310    logic [10:0] word_sel;
+ 311    logic keygen_done_sticky;
+ 312    logic decaps_done_sticky;
+ 313    logic encaps_done_sticky;
+ 314  
+ 315    always_ff @(posedge clk) begin
+ 316      ctrl_start_pulse <= 1'b0;
+ 317      load_valid <= 1'b0;
+ 318      keygen_start <= 1'b0;
+ 319      decaps_start <= 1'b0;
+ 320      encaps_start <= 1'b0;
+ 321      heartbeat_valid <= 1'b0;
+ 322      wd_config_valid <= 1'b0;
+ 323  
+ 324      if (rst) begin
+ 325        ctrl_mode <= 1'b0; ctrl_count <= 8'd0; ctrl_pair_dist <= 8'd0;
+ 326        ctrl_base_addr0 <= '0; ctrl_base_addr1 <= '0;
+ 327        ctrl_zeta0 <= '0; ctrl_zeta1 <= '0;
+ 328        word_sel <= 11'd0;
+ 329        d_seed_buf <= '0; z_seed_buf <= '0;
+ 330        keygen_done_sticky <= 1'b0;
+ 331        decaps_done_sticky <= 1'b0;
+ 332        encaps_done_sticky <= 1'b0;
+ 333        wd_timeout_cycles <= 32'd100000;
+ 334      end else begin
+ 335        if (keygen_done) keygen_done_sticky <= 1'b1;
+ 336        if (decaps_done) decaps_done_sticky <= 1'b1;
+ 337        if (encaps_done) encaps_done_sticky <= 1'b1;
+ 338  
+ 339        if (wb_cyc_i && wb_stb_i && wb_we_i) begin
+ 340          if (is_data_range) begin
+ 341            load_valid <= 1'b1;
+ 342            load_addr  <= wb_adr_i[7:0];
+ 343            load_data  <= wb_dat_i;
+ 344          end else if (is_ctrl_range) begin
+ 345            case (wb_adr_i[3:0])
+ 346              4'h0: begin ctrl_start_pulse <= wb_dat_i[0]; ctrl_mode <= wb_dat_i[1]; end
+ 347              4'h1: ctrl_count      <= wb_dat_i[7:0];
+ 348              4'h2: ctrl_pair_dist  <= wb_dat_i[7:0];
+ 349              4'h3: ctrl_base_addr0 <= wb_dat_i[SPAD_AW-1:0];
+ 350              4'h4: ctrl_base_addr1 <= wb_dat_i[SPAD_AW-1:0];
+ 351              4'h5: ctrl_zeta0      <= wb_dat_i;
+ 352              4'h6: ctrl_zeta1      <= wb_dat_i;
+ 353              default: ;
+ 354            endcase
+ 355          end else if (is_audit_range) begin
+ 356            case (wb_adr_i[7:0])
+ 357              8'h10: word_sel <= wb_dat_i[10:0];  // AUDIT_WORD_SEL (jaettu word_sel-rekisteri)
+ 358              8'h16: audit_read_seq <= wb_dat_i[7:0];
+ 359              default: ;
+ 360            endcase
+ 361          end else if (is_keygen_range) begin
+ 362            case (wb_adr_i[7:0])
+ 363              8'h20: word_sel <= wb_dat_i[10:0];
+ 364              8'h21: if (word_sel < 16) d_seed_buf[word_sel*16 +: 16] <= wb_dat_i;
+ 365              8'h22: if (word_sel < 16) z_seed_buf[word_sel*16 +: 16] <= wb_dat_i;
+ 366              8'h23: begin keygen_start <= 1'b1; keygen_done_sticky <= 1'b0; end
+ 367              8'h27: heartbeat_valid <= 1'b1;  // HEARTBEAT
+ 368              8'h28: begin wd_timeout_cycles <= {16'b0, wb_dat_i}; wd_config_valid <= 1'b1; end  // WATCHDOG_TIMEOUT_CONFIG
+ 369              default: ;
+ 370            endcase
+ 371          end else if (is_decaps_range) begin
+ 372            case (wb_adr_i[7:0])
+ 373              8'h30: word_sel <= wb_dat_i[10:0];  // DECAPS_WORD_SEL
+ 374              8'h31: if (word_sel < C_BYTES/2) decaps_c_buf[word_sel*16 +: 16] <= wb_dat_i;   // DECAPS_C_IN
+ 375              8'h32: if (word_sel < DK_BYTES/2) decaps_dk_buf[word_sel*16 +: 16] <= wb_dat_i;  // DECAPS_DK_IN
+ 376              8'h33: begin decaps_start <= 1'b1; decaps_done_sticky <= 1'b0; end        // DECAPS_START
+ 377              default: ;
+ 378            endcase
+ 379          end else if (is_encaps_range) begin
+ 380            case (wb_adr_i[7:0])
+ 381              8'h40: word_sel <= wb_dat_i[10:0];  // ENCAPS_WORD_SEL
+ 382              8'h41: if (word_sel < EK_BYTES/2) encaps_ek_buf[word_sel*16 +: 16] <= wb_dat_i;  // ENCAPS_EK_IN
+ 383              8'h42: if (word_sel < 16) encaps_m_buf[word_sel*16 +: 16] <= wb_dat_i;    // ENCAPS_M_IN
+ 384              8'h43: begin encaps_start <= 1'b1; encaps_done_sticky <= 1'b0; end        // ENCAPS_START
+ 385              default: ;
+ 386            endcase
+ 387          end
+ 388        end
+ 389      end
+ 390    end
+ 391  
+ 392    // --- Luku ---
+ 393    assign read_en   = wb_cyc_i && wb_stb_i && !wb_we_i && is_data_range;
+ 394    assign read_addr = wb_adr_i[7:0];
+ 395  
+ 396    logic [COEFF_W-1:0] ctrl_read_data, audit_read_data, keygen_read_data, decaps_read_data, encaps_read_data;
+ 397    logic ctrl_read_valid, audit_read_valid_reg, keygen_read_valid_reg, decaps_read_valid_reg, encaps_read_valid_reg;
+ 398  
+ 399    always_ff @(posedge clk) begin
+ 400      if (rst) ctrl_read_valid <= 1'b0;
+ 401      else ctrl_read_valid <= wb_cyc_i && wb_stb_i && !wb_we_i && is_ctrl_range;
+ 402      if (wb_adr_i[3:0] == 4'h7) ctrl_read_data <= {14'b0, bank_conflict_detected, stage_done};
+ 403    end
+ 404  
+ 405    always_ff @(posedge clk) begin
+ 406      if (rst) audit_read_valid_reg <= 1'b0;
+ 407      else audit_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_audit_range;
+ 408      case (wb_adr_i[7:0])
+ 409        8'h13: audit_read_data <= {14'b0, audit_log_full, audit_write_done};
+ 410        8'h14: audit_read_data <= {8'b0, audit_write_seq};
+ 411        8'h15: audit_read_data <= audit_write_chain_hash[word_sel[3:0]*16 +: 16];
+ 412        8'h17: audit_read_data <= {15'b0, audit_read_entry_valid};
+ 413        8'h18: audit_read_data <= audit_read_chain_hash[word_sel[3:0]*16 +: 16];
+ 414        8'h19: audit_read_data <= audit_read_decision_hash[word_sel[3:0]*16 +: 16];
+ 415        default: audit_read_data <= '0;
+ 416      endcase
+ 417    end
+ 418  
+ 419    always_ff @(posedge clk) begin
+ 420      if (rst) keygen_read_valid_reg <= 1'b0;
+ 421      else keygen_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_keygen_range;
+ 422      case (wb_adr_i[7:0])
+ 423        8'h24: keygen_read_data <= {14'b0, keygen_done_sticky, keygen_busy};
+ 424        8'h25: keygen_read_data <= (word_sel < EK_BYTES/2) ? ek_out[word_sel*16 +: 16] : 16'd0;
+ 425        8'h26: keygen_read_data <= (word_sel < DK_BYTES/2) ? dk_out[word_sel*16 +: 16] : 16'd0;
+ 426        8'h29: keygen_read_data <= {14'b0, pending_watchdog_interrupt, ecu_alive};  // WATCHDOG_STATUS
+ 427        default: keygen_read_data <= '0;
+ 428      endcase
+ 429    end
+ 430  
+ 431    always_ff @(posedge clk) begin
+ 432      if (rst) decaps_read_valid_reg <= 1'b0;
+ 433      else decaps_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_decaps_range;
+ 434      case (wb_adr_i[7:0])
+ 435        8'h34: decaps_read_data <= {14'b0, decaps_done_sticky, decaps_busy};       // DECAPS_STATUS
+ 436        8'h35: decaps_read_data <= (word_sel < 16) ? decaps_K_final[word_sel*16 +: 16] : 16'd0;  // DECAPS_K_FINAL_OUT
+ 437        8'h36: decaps_read_data <= {15'b0, decaps_match};                          // DECAPS_MATCH
+ 438        default: decaps_read_data <= '0;
+ 439      endcase
+ 440    end
+ 441  
+ 442    always_ff @(posedge clk) begin
+ 443      if (rst) encaps_read_valid_reg <= 1'b0;
+ 444      else encaps_read_valid_reg <= wb_cyc_i && wb_stb_i && !wb_we_i && is_encaps_range;
+ 445      case (wb_adr_i[7:0])
+ 446        8'h44: encaps_read_data <= {14'b0, encaps_done_sticky, encaps_busy};       // ENCAPS_STATUS
+ 447        8'h45: encaps_read_data <= (word_sel < 16) ? encaps_K[word_sel*16 +: 16] : 16'd0;    // ENCAPS_K_OUT
+ 448        8'h46: encaps_read_data <= (word_sel < C_BYTES/2) ? encaps_c[word_sel*16 +: 16] : 16'd0;   // ENCAPS_C_OUT
+ 449        default: encaps_read_data <= '0;
+ 450      endcase
+ 451    end
+ 452  
+ 453    always_comb begin
+ 454      if (is_data_range) begin
+ 455        wb_dat_o = read_data;
+ 456        wb_ack_o = read_valid || (wb_cyc_i && wb_stb_i && wb_we_i && is_data_range);
+ 457      end else if (is_ctrl_range) begin
+ 458        wb_dat_o = ctrl_read_data;
+ 459        wb_ack_o = ctrl_read_valid || (wb_cyc_i && wb_stb_i && wb_we_i && is_ctrl_range);
+ 460      end else if (is_audit_range) begin
+ 461        wb_dat_o = audit_read_data;
+ 462        wb_ack_o = audit_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_audit_range);
+ 463      end else begin
+ 464        wb_dat_o = keygen_read_data;
+ 465        wb_ack_o = keygen_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_keygen_range);
+ 466      end
+ 467      if (is_decaps_range) begin
+ 468        wb_dat_o = decaps_read_data;
+ 469        wb_ack_o = decaps_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_decaps_range);
+ 470      end
+ 471      if (is_encaps_range) begin
+ 472        wb_dat_o = encaps_read_data;
+ 473        wb_ack_o = encaps_read_valid_reg || (wb_cyc_i && wb_stb_i && wb_we_i && is_encaps_range);
+ 474      end
+ 475    end
+ 476  
+ 477  endmodule
+```
+
+### hardware/pqc-rtl/fpga/tau/mlkem_acvp_tb.sv
+
+```
+   1  // mlkem_acvp_tb.sv
+   2  //
+   3  // Synteesikelpoiset ML-KEM-ytimet (pqc_mlkem_keygen_core,
+   4  // pqc_mlkem_encaps_top, pqc_mlkem_decaps_top) vs. NIST ACVP, mika
+   5  // tahansa K. Parametrit asetetaan kaannoksessa:
+   6  //   iverilog ... -P mlkem_acvp_tb.K=3 -P mlkem_acvp_tb.OP=1
+   7  // OP: 0 = KeyGen, 1 = Encaps, 2 = Decaps.
+   8  // Vektoritiedosto: +VEC=<polku>, muoto m2-golden/gen_mlkem_acvp_vectors.py.
+   9  //
+  10  // Jokainen tapaus ajetaan resetin jalkeen. Tulostaa yhden rivin per
+  11  // tapaus ja lopuksi "PASS: ..." vain, jos kaikki tasmaavat.
+  12  
+  13  `timescale 1ns/1ps
+  14  
+  15  module mlkem_acvp_tb;
+  16  
+  17    parameter int K  = 2;
+  18    parameter int OP = 0;
+  19  
+  20    localparam int DU = (K == 4) ? 11 : 10;
+  21    localparam int DV = (K == 4) ? 5 : 4;
+  22    localparam int EK_BYTES = 384*K + 32;
+  23    localparam int DK_BYTES = 768*K + 96;
+  24    localparam int C_BYTES  = 32*(DU*K + DV);
+  25    localparam int MAX_CYCLES = 400000;
+  26  
+  27    logic clk = 0, reset = 1;
+  28    always #5 clk = ~clk;
+  29  
+  30    logic kg_start, kg_done;
+  31    logic [255:0] kg_d, kg_z;
+  32    logic [8*EK_BYTES-1:0] kg_ek;
+  33    logic [8*DK_BYTES-1:0] kg_dk;
+  34    logic [255:0] dbg_rho, dbg_sigma;
+  35    logic [256*16-1:0] dbg_A00;
+  36    logic [4:0] dbg_state;
+  37  
+  38    logic en_start, en_done;
+  39    logic [8*EK_BYTES-1:0] en_ek;
+  40    logic [255:0] en_m, en_K;
+  41    logic [8*C_BYTES-1:0] en_c;
+  42  
+  43    logic de_start, de_done, de_match;
+  44    logic [8*C_BYTES-1:0] de_c;
+  45    logic [8*DK_BYTES-1:0] de_dk;
+  46    logic [255:0] de_K;
+  47  
+  48    if (OP == 0) begin : g_kg
+  49      pqc_mlkem_keygen_core #(.K(K)) dut (
+  50        .clk(clk), .reset(reset), .start(kg_start), .d_seed(kg_d), .z_seed(kg_z),
+  51        .done(kg_done), .ek_out(kg_ek), .dk_out(kg_dk),
+  52        .debug_rho(dbg_rho), .debug_sigma(dbg_sigma), .debug_A00(dbg_A00), .debug_state(dbg_state));
+  53    end else if (OP == 1) begin : g_en
+  54      pqc_mlkem_encaps_top #(.K(K)) dut (
+  55        .clk(clk), .reset(reset), .start(en_start), .ek_in(en_ek), .m_in(en_m),
+  56        .done(en_done), .K_out(en_K), .c_out(en_c));
+  57    end else begin : g_de
+  58      pqc_mlkem_decaps_top #(.K(K)) dut (
+  59        .clk(clk), .reset(reset), .start(de_start), .c_in(de_c), .dk_in(de_dk),
+  60        .done(de_done), .K_final_out(de_K), .match_out(de_match));
+  61    end
+  62  
+  63    string vec_path, opname;
+  64    int fh, n, tc, rej, fails, cyc;
+  65    logic [8*EK_BYTES-1:0] x_ek;
+  66    logic [8*DK_BYTES-1:0] x_dk;
+  67    logic [8*C_BYTES-1:0]  x_c;
+  68    logic [255:0] x_d, x_z, x_m, x_K;
+  69    logic ok, fin;
+  70  
+  71    initial begin
+  72      kg_start = 0; en_start = 0; de_start = 0;
+  73      opname = (OP == 0) ? "KeyGen" : (OP == 1) ? "Encaps" : "Decaps";
+  74      if (!$value$plusargs("VEC=%s", vec_path)) begin
+  75        $display("FAIL: +VEC=<polku> puuttuu"); $fatal(1);
+  76      end
+  77      fh = $fopen(vec_path, "r");
+  78      if (fh == 0) begin $display("FAIL: %0s ei auennut", vec_path); $fatal(1); end
+  79      if ($fscanf(fh, "%d\n", n) != 1 || n < 1) begin
+  80        $display("FAIL: tapausmaara puuttuu"); $fatal(1);
+  81      end
+  82      fails = 0;
+  83  
+  84      for (int i = 0; i < n; i++) begin
+  85        rej = 0;
+  86        if (OP == 2) void'($fscanf(fh, "%d %d\n", tc, rej));
+  87        else         void'($fscanf(fh, "%d\n", tc));
+  88        if (OP == 0) begin
+  89          void'($fscanf(fh, "%h\n", x_d)); void'($fscanf(fh, "%h\n", x_z));
+  90          void'($fscanf(fh, "%h\n", x_ek)); void'($fscanf(fh, "%h\n", x_dk));
+  91          kg_d = x_d; kg_z = x_z;
+  92        end else if (OP == 1) begin
+  93          void'($fscanf(fh, "%h\n", x_ek)); void'($fscanf(fh, "%h\n", x_m));
+  94          void'($fscanf(fh, "%h\n", x_K)); void'($fscanf(fh, "%h\n", x_c));
+  95          en_ek = x_ek; en_m = x_m;
+  96        end else begin
+  97          void'($fscanf(fh, "%h\n", x_dk)); void'($fscanf(fh, "%h\n", x_c));
+  98          void'($fscanf(fh, "%h\n", x_K));
+  99          de_dk = x_dk; de_c = x_c;
+ 100        end
+ 101  
+ 102        reset = 1;
+ 103        repeat (3) @(posedge clk);
+ 104        reset = 0;
+ 105        @(posedge clk);
+ 106        kg_start <= (OP == 0); en_start <= (OP == 1); de_start <= (OP == 2);
+ 107        @(posedge clk);
+ 108        kg_start <= 0; en_start <= 0; de_start <= 0;
+ 109  
+ 110        cyc = 0; fin = 0;
+ 111        while (!fin && cyc < MAX_CYCLES) begin
+ 112          @(posedge clk); cyc++;
+ 113          fin = (OP == 0) ? kg_done : (OP == 1) ? en_done : de_done;
+ 114        end
+ 115  
+ 116        if (!fin) ok = 0;
+ 117        else if (OP == 0) ok = (kg_ek === x_ek) && (kg_dk === x_dk);
+ 118        else if (OP == 1) ok = (en_K === x_K) && (en_c === x_c);
+ 119        else ok = (de_K === x_K) && (de_match === (rej == 0));
+ 120  
+ 121        $display("%0s K=%0d tcId=%0d %0s%0s syklit=%0d", opname, K, tc,
+ 122                 ok ? "ok" : "EI TASMAA",
+ 123                 (OP == 2) ? (rej ? " (hylkays)" : " (valid)") : "", cyc);
+ 124        if (!ok) fails++;
+ 125      end
+ 126      $fclose(fh);
+ 127  
+ 128      if (fails == 0)
+ 129        $display("PASS: %0s K=%0d, %0d/%0d NIST ACVP -tapausta", opname, K, n, n);
+ 130      else
+ 131        $display("FAIL: %0s K=%0d, %0d/%0d tapausta ei tasmaa", opname, K, fails, n);
+ 132      $finish;
+ 133    end
+ 134  
+ 135  endmodule
+```
+
+### hardware/pqc-rtl/m2-golden/gen_mlkem_acvp_vectors.py
+
+```
+   1  #!/usr/bin/env python3
+   2  """NIST ACVP (FIPS 203) -> RTL-testipenkkien vektoritiedostot, mika
+   3  tahansa ML-KEM-parametrisarja.
+   4  
+   5  Kaytto:
+   6    gen_mlkem_acvp_vectors.py <ML-KEM-512|ML-KEM-768> <keyGen.json> \
+   7        <encapDecap.json> <ulostulohakemisto>
+   8  
+   9  Kirjoittaa kolme tiedostoa (<sarja> = 512 tai 768):
+  10    keygen_<sarja>.txt   N; per tapaus: "tcId", d, z, ek, dk
+  11    encaps_<sarja>.txt   N; per tapaus: "tcId", ek, m, K, c
+  12    decaps_<sarja>.txt   N; per tapaus: "tcId hylkays", dk, c, K
+  13                         (sama muoto kuin fpga/tau/decaps_top_nist_vectors.txt)
+  14  
+  15  Heksaluvut ovat little-endian pakattuja (tavu 0 = vahiten merkitseva),
+  16  kuten muissakin taman kansion vektoreissa.
+  17  
+  18  Jokainen tapaus ajetaan ENNEN kirjoitusta myos golden-mallin lapi
+  19  (mlkem_golden.py). Jos golden-malli ja NIST eroavat, skripti
+  20  keskeytyy: silloin vika on mallissa tai kenttien tulkinnassa, eika
+  21  RTL-vertailu kertoisi mitaan. Kenttien pituudet tarkistetaan
+  22  parametrisarjan mukaan (ek/c-sekaannus nakyy pituuserona)."""
+  23  
+  24  import json
+  25  import os
+  26  import sys
+  27  
+  28  sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+  29  from mlkem_golden import (mlkem_keygen_internal, mlkem_encaps_internal,
+  30                            mlkem_decaps_internal)
+  31  
+  32  # FIPS 203, taulukko 2
+  33  PARAMS = {
+  34      "ML-KEM-512": dict(K=2, ETA1=3, ETA2=2, DU=10, DV=4),
+  35      "ML-KEM-768": dict(K=3, ETA1=2, ETA2=2, DU=10, DV=4),
+  36  }
+  37  
+  38  
+  39  def lengths(p):
+  40      k = p["K"]
+  41      return dict(ek=384 * k + 32, dk=768 * k + 96,
+  42                  c=32 * (p["DU"] * k + p["DV"]), K=32, m=32, d=32, z=32)
+  43  
+  44  
+  45  def pack(b):
+  46      return f"{int.from_bytes(b, 'little'):0{len(b) * 2}x}"
+  47  
+  48  
+  49  def check_len(name, b, L, tc):
+  50      if len(b) != L[name]:
+  51          sys.exit(f"tcId={tc}: {name} pituus {len(b)} != {L[name]}")
+  52  
+  53  
+  54  def main(pset, kg_path, ed_path, outdir):
+  55      p = PARAMS[pset]
+  56      L = lengths(p)
+  57      K, E1, E2, DU, DV = p["K"], p["ETA1"], p["ETA2"], p["DU"], p["DV"]
+  58      suffix = pset.split("-")[-1]
+  59      kg = json.load(open(kg_path))
+  60      ed = json.load(open(ed_path))
+  61  
+  62      rows = []
+  63      for g in kg["testGroups"]:
+  64          if g["parameterSet"] != pset:
+  65              continue
+  66          for t in g["tests"]:
+  67              tc = t["tcId"]
+  68              d, z = bytes.fromhex(t["d"]), bytes.fromhex(t["z"])
+  69              ek, dk = bytes.fromhex(t["ek"]), bytes.fromhex(t["dk"])
+  70              for n, b in (("d", d), ("z", z), ("ek", ek), ("dk", dk)):
+  71                  check_len(n, b, L, tc)
+  72              if mlkem_keygen_internal(d, z, K, E1) != (ek, dk):
+  73                  sys.exit(f"KeyGen tcId={tc}: golden-malli != NIST")
+  74              rows.append(f"{tc}\n{pack(d)}\n{pack(z)}\n{pack(ek)}\n{pack(dk)}\n")
+  75      write(outdir, f"keygen_{suffix}.txt", rows)
+  76  
+  77      enc, dec = [], []
+  78      for g in ed["testGroups"]:
+  79          if g["parameterSet"] != pset:
+  80              continue
+  81          for t in g["tests"]:
+  82              tc = t["tcId"]
+  83              if g["function"] == "encapsulation":
+  84                  ek, m = bytes.fromhex(t["ek"]), bytes.fromhex(t["m"])
+  85                  k, c = bytes.fromhex(t["k"]), bytes.fromhex(t["c"])
+  86                  for n, b in (("ek", ek), ("m", m), ("K", k), ("c", c)):
+  87                      check_len(n, b, L, tc)
+  88                  if mlkem_encaps_internal(ek, m, K, E1, E2, DU, DV) != (k, c):
+  89                      sys.exit(f"Encaps tcId={tc}: golden-malli != NIST")
+  90                  enc.append(f"{tc}\n{pack(ek)}\n{pack(m)}\n{pack(k)}\n{pack(c)}\n")
+  91              elif g["function"] == "decapsulation":
+  92                  dk, c, k = (bytes.fromhex(t[x]) for x in ("dk", "c", "k"))
+  93                  for n, b in (("dk", dk), ("c", c), ("K", k)):
+  94                      check_len(n, b, L, tc)
+  95                  if mlkem_decaps_internal(dk, c, K, E1, E2, DU, DV) != k:
+  96                      sys.exit(f"Decaps tcId={tc}: golden-malli != NIST")
+  97                  rej = 0 if t["reason"] == "valid decapsulation" else 1
+  98                  dec.append(f"{tc} {rej}\n{pack(dk)}\n{pack(c)}\n{pack(k)}\n")
+  99      write(outdir, f"encaps_{suffix}.txt", enc)
+ 100      write(outdir, f"decaps_{suffix}.txt", dec)
+ 101  
+ 102  
+ 103  def write(outdir, name, rows):
+ 104      if not rows:
+ 105          sys.exit(f"{name}: ei yhtaan tapausta")
+ 106      path = os.path.join(outdir, name)
+ 107      with open(path, "w") as f:
+ 108          f.write(f"{len(rows)}\n")
+ 109          f.writelines(rows)
+ 110      print(f"{path}: {len(rows)} tapausta, golden-malli = NIST kaikissa")
+ 111  
+ 112  
+ 113  if __name__ == "__main__":
+ 114      if len(sys.argv) != 5:
+ 115          sys.exit(__doc__)
+ 116      main(*sys.argv[1:])
+```
+
+### hardware/pqc-rtl/run_acvp_mlkem_full.sh
+
+```
+   1  #!/bin/bash
+   2  # ML-KEM synteesikelpoiset ytimet vs. NIST ACVP, kaikki ML-KEM-512- tai
+   3  # ML-KEM-768-tapaukset (KeyGen 25, Encaps 25, Decaps 10).
+   4  #
+   5  # Kaytto: run_acvp_mlkem_full.sh 512|768 [--verify-source]
+   6  #
+   7  # Testattavat moduulit: pqc_mlkem_keygen_core, pqc_mlkem_encaps_top,
+   8  # pqc_mlkem_decaps_top (fpga/tau/), testipenkki fpga/tau/mlkem_acvp_tb.sv.
+   9  # Vektorit: fpga/tau/acvp/{keygen,encaps,decaps}_<sarja>.txt.
+  10  #
+  11  # --verify-source: hakee NIST:n JSON-tiedostot kiinnitetysta commitista,
+  12  # tarkistaa sha256:n, generoi vektorit uudelleen (generaattori vertaa
+  13  # jokaista tapausta myos golden-malliin) ja vaatii, etta tulos on
+  14  # tavulleen sama kuin repossa oleva. Vaatii verkon.
+  15  #
+  16  # NEGATIIVIKONTROLLI: jokaisesta vektoritiedostosta tehdaan kopio, jonka
+  17  # viimeisen rivin viimeinen heksamerkki on muutettu. Testipenkin TAYTYY
+  18  # epaonnistua silla.
+  19  set -uo pipefail
+  20  cd "$(dirname "$0")"
+  21  source tau_common_files.sh
+  22  mkdir -p sim
+  23  
+  24  PSET="${1:-}"
+  25  case "$PSET" in
+  26    512) K=2 ;;
+  27    768) K=3 ;;
+  28    *) echo "kaytto: $0 512|768 [--verify-source]"; exit 2 ;;
+  29  esac
+  30  
+  31  ACVP_COMMIT=975de31eb83d87039ec88934fdc47d8c312b892d
+  32  KG_SHA=d7a62a2c3476957f56dd8d24f9004ea6776ccfe995ffe71a65bb9506dc9c7b1b
+  33  ED_SHA=a556952ce869bb89c3a3196a701dad89647c193a34c86eafb61a9d710d5b810f
+  34  
+  35  TMP="$(mktemp -d)"
+  36  trap 'rm -rf "$TMP"' EXIT
+  37  FAILED=0
+  38  
+  39  if [ "${2:-}" = "--verify-source" ]; then
+  40    echo "[0] NIST-lahde: haku, sha256, uudelleengenerointi..."
+  41    base="https://raw.githubusercontent.com/usnistgov/ACVP-Server/$ACVP_COMMIT/gen-val/json-files"
+  42    curl -sSfL -o "$TMP/kg.json" "$base/ML-KEM-keyGen-FIPS203/internalProjection.json" || exit 1
+  43    curl -sSfL -o "$TMP/ed.json" "$base/ML-KEM-encapDecap-FIPS203/internalProjection.json" || exit 1
+  44    echo "$KG_SHA  $TMP/kg.json" | sha256sum -c --quiet || exit 1
+  45    echo "$ED_SHA  $TMP/ed.json" | sha256sum -c --quiet || exit 1
+  46    mkdir -p "$TMP/gen"
+  47    python3 m2-golden/gen_mlkem_acvp_vectors.py "ML-KEM-$PSET" "$TMP/kg.json" "$TMP/ed.json" "$TMP/gen" || exit 1
+  48    for op in keygen encaps decaps; do
+  49      if ! cmp -s "$TMP/gen/${op}_$PSET.txt" "fpga/tau/acvp/${op}_$PSET.txt"; then
+  50        echo "VIRHE: fpga/tau/acvp/${op}_$PSET.txt ei vastaa NIST-lahteesta generoitua"
+  51        FAILED=1
+  52      fi
+  53    done
+  54  fi
+  55  
+  56  corrupt() {
+  57    python3 - "$1" "$2" <<'PY'
+  58  import sys
+  59  lines = open(sys.argv[1]).read().split("\n")
+  60  i = max(k for k, l in enumerate(lines) if l.strip())
+  61  lines[i] = lines[i][:-1] + ("1" if lines[i][-1] == "0" else "0")
+  62  open(sys.argv[2], "w").write("\n".join(lines))
+  63  PY
+  64  }
+  65  
+  66  # $1 = sim, $2 = vektorit, $3 = odotus (pass|fail), $4 = nimi
+  67  run_case() {
+  68    local out result
+  69    out="$(vvp "$1" +VEC="$2" 2>&1)"
+  70    if echo "$out" | grep -q "^PASS" && ! echo "$out" | grep -q "FAIL"; then result=pass; else result=fail; fi
+  71    if [ "$result" = "$3" ]; then
+  72      echo "  ok    $4: $(echo "$out" | grep -E '^(PASS|FAIL)' | head -1)"
+  73    else
+  74      echo "  VIRHE $4: odotettu $3, saatu $result"
+  75      echo "$out" | grep -E "EI TASMAA|FAIL|fatal" | head -5 | sed 's/^/        /'
+  76      FAILED=1
+  77    fi
+  78  }
+  79  
+  80  echo "[1] Kaannetaan (K=$K)..."
+  81  OPS=(keygen encaps decaps)
+  82  for op in 0 1 2; do
+  83    sim="sim/acvp_full_k${K}_op${op}"
+  84    compile_tau "$sim" fpga/tau/mlkem_acvp_tb.sv -P mlkem_acvp_tb.K=$K -P mlkem_acvp_tb.OP=$op 2>&1 | grep -v sorry || true
+  85    [ -f "$sim" ] || { echo "VIRHE: $sim ei kaantynyt"; exit 1; }
+  86  done
+  87  
+  88  echo "[2] NIST ACVP ML-KEM-$PSET + negatiivikontrollit (rinnakkain)..."
+  89  for op in 0 1 2; do
+  90    name="${OPS[$op]}"
+  91    vec="fpga/tau/acvp/${name}_$PSET.txt"
+  92    corrupt "$vec" "$TMP/${name}_bad.txt"
+  93    run_case "sim/acvp_full_k${K}_op${op}" "$vec" pass "$name" > "$TMP/$name.log" &
+  94    run_case "sim/acvp_full_k${K}_op${op}" "$TMP/${name}_bad.txt" fail "$name, turmeltu vektori" > "$TMP/${name}_bad.log" &
+  95  done
+  96  wait
+  97  for name in "${OPS[@]}"; do
+  98    cat "$TMP/$name.log" "$TMP/${name}_bad.log"
+  99    grep -q VIRHE "$TMP/$name.log" "$TMP/${name}_bad.log" && FAILED=1
+ 100  done
+ 101  
+ 102  if [ "$FAILED" -ne 0 ]; then
+ 103    echo "ACVP ML-KEM-$PSET: VIRHEITA"
+ 104    exit 1
+ 105  fi
+ 106  echo "ACVP ML-KEM-$PSET: KeyGen 25, Encaps 25, Decaps 10; 3 negatiivikontrollia."
+```

@@ -1,0 +1,70 @@
+name: katselmointi
+
+# Riippumaton LLM-katselmointi (Kimi K3.1 Pro), sama tyokalu kuin
+# AetherContinuity/ogas3:ssa. Vain kasin:
+#  - PR:ssa: lisaa label "kimi-katselmointi". Katselmoidaan PR:n
+#    katselmoinnit/*-pyynto.txt, joille ei viela ole vastausta.
+#    Vastaus committataan PR:n haaraan.
+#  - main:ssa: Actions -> katselmointi -> Run workflow, anna pyyntotiedosto.
+# Vaatii repo- tai organisaatiosalaisuuden MOONSHOT_API_KEY.
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pyynto:
+        description: "Pyyntotiedosto repossa"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  katselmoi:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'kimi-katselmointi'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Valitse pyynnot
+        id: valinta
+        env:
+          PYYNTO: ${{ inputs.pyynto }}
+        run: |
+          if [ -n "$PYYNTO" ]; then
+            echo "lista=$PYYNTO" >> "$GITHUB_OUTPUT"
+          else
+            lista=""
+            for p in katselmoinnit/*-pyynto.txt; do
+              [ -f "$p" ] || continue
+              nimi=$(basename "$p" -pyynto.txt)
+              ls katselmoinnit/"$nimi"-vastaus-*.md >/dev/null 2>&1 || lista="$lista $p"
+            done
+            echo "lista=$lista" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Katselmoi
+        env:
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          LISTA: ${{ steps.valinta.outputs.lista }}
+        run: |
+          [ -n "$LISTA" ] || { echo "ei avoimia pyyntoja"; exit 0; }
+          rc=0
+          for p in $LISTA; do python3 tools/katselmointi.py "$p" || rc=1; done
+          exit $rc
+      - name: Commit
+        if: always()
+        env:
+          HAARA: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git config user.name  "aether-one-katselmointi"
+          git config user.email "actions@users.noreply.github.com"
+          git add katselmoinnit/
+          git commit -m "katselmointi: Kimi K3.1 Pro -vastaus" || { echo "ei muutoksia"; exit 0; }
+          git pull --rebase origin "$HAARA"
+          git push origin HEAD:"$HAARA"
