@@ -3,6 +3,13 @@
 Merkinnät uusin ensin. Jokainen kohta viittaa lähdedokumenttiin; tila- ja
 rajaustiedot ovat niissä ja juuren `KORJAUSLISTA.md`:ssä.
 
+## 2026-11-16: B4, rekisteribudjetti
+
+- Ennakkorekisteröity (`b4/B4-ENNAKKO.md`): deklaraatioihin perustuva
+  rekisteriarvio (`b4/rekisteri_arvio.py`) ja Yosys-tarkistus.
+- `decaps_a_core` K=3: Yosys 82 330 FF-bittiä, arvio 84 952. Kääre arviolta
+  ≈ 685 000; ECP5-25F 24 288, 85F 83 640 FF:ää. Ei mahdu (`b4/B4-TULOS.md`).
+
 ## 2026-11-16: B8, Decapsin sivukanavaotos
 
 - Ennakkorekisteröity (`sivukanava/B8-ENNAKKO.md`), sitten mitattu:
