@@ -1,5 +1,8 @@
 # M4-MLKEM-ORCH-001: synteesikelpoinen ML-KEM.KeyGen-orkestrointi
 
+> **Historiallinen tilannekuva (2026-07-19).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Paivamaara:** 2026-07-19
 **Tila:** OSITTAINEN, TIETOISESTI KESKEN - ei viela taysi ML-KEM.KeyGen
 

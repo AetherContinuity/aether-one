@@ -23,7 +23,7 @@ tila on `README.md`:ssä ja avoimet kohdat `KORJAUSLISTA.md`:ssä.
 | — | Decaps: syklitason ajoitusmittaus ja toggle-mittaus, 2026-07-21..22. |
 
 Suunta (tutkimusprototyyppi, ei näyteikkuna) ja avoin turvatasokysymys (K=2 vs. ML-DSA-65)
-ovat ennallaan.
+ovat ennallaan. *(2026-10-02:n tila. Turvatasokysymys ratkaistiin 2026-11-16, ks. alku.)*
 
 ---
 
@@ -49,6 +49,9 @@ arkkitehtuurissa jossa nopeus ei ole ensisijainen kriteeri. Jos suunta
 joskus muuttuu kohti oikeaa laitepolkua/tuotantoa, tämä luku on
 ensimmäinen asia joka pitää arvioida uudestaan, ennen mitään muuta.
 
+*Historiallinen (2026-07-27). Ratkaistu 2026-11-16: ML-KEM-768 + ML-DSA-65,
+RTL:n oletus K=3 (ks. tiedoston alku, KORJAUSLISTA D1).*
+
 **Ainoa tunnistettu, yhä ratkaisematon avoin kysymys:** K=2 (ML-KEM-512,
 turvakategoria 1) rinnalla suunniteltu M5-DILITHIUM-001 (ML-DSA-65,
 turvakategoria 3) muodostaisi turvatasoiltaan epäsuhtaisen parin, jos
@@ -58,6 +61,9 @@ jokaisen uuden K=2-oletukseen sidotun testipenkin myötä, joten se
 kannattaa pitää mielessä ennen M5-DILITHIUM-001:n laajempaa työtä.
 
 ---
+
+*Alla oleva osio on historiallinen tilannekuva 2026-07-19. Nykytila:
+juuren `README.md` ja `KORJAUSLISTA.md`.*
 
 **Paivamaara:** 2026-07-19
 **Tarkoitus:** tallettaa projektin nykytila ja sovittu jatkosuunta ennen

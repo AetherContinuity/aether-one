@@ -1,5 +1,8 @@
 # M3 Issue #7 — ByteEncode/ByteDecode: arkkitehtuurivaihtoehtojen vertailu
 
+> **Historiallinen tilannekuva (2026-07-12).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Päivämäärä:** 2026-07-12
 **Tila:** Suunnitteludokumentti ennen toteutusta. Yritys 1 (yksi valtava
 `always_comb`-lohko, ajonaikaiset silmukat) hylätty - ks. Issue #7:n

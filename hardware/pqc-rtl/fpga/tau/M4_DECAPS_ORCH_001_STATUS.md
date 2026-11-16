@@ -1,5 +1,8 @@
 # M4-DECAPS-ORCH-001: ML-KEM.Decaps_internal synteesikelpoinen orkestrointi
 
+> **Historiallinen tilannekuva (2026-07-19).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Paivamaara:** 2026-07-19
 **Tila:** Phase A (K-PKE.Decrypt) VALMIS JA TODENNETTU. Phase G ja
 Phase B (K-PKE.Encrypt + FO-valinta) viela toteuttamatta.

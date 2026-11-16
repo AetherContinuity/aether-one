@@ -1,5 +1,8 @@
 # M4_FPGA_BRINGUP_NOTE.md — M4-FPGA-001: bring-up ja synteesikelpoisuus
 
+> **Historiallinen tilannekuva (2026-07-14).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Päivämäärä:** 2026-07-14
 **Tila:** VALMIS (rajattu tavoite, ks. alla)
 
