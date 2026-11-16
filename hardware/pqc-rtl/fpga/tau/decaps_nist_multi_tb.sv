@@ -41,12 +41,20 @@ module decaps_nist_multi_tb;
     fh = $fopen(vec_path, "r");
     if (fh == 0) begin $display("FAIL: vektoritiedostoa %0s ei voitu avata", vec_path); $fatal(1); end
     scan_ok = $fscanf(fh, "%d\n", num_vectors);
+    if (scan_ok != 1 || num_vectors < 1) begin $display("FAIL: tapausmaara puuttuu"); $fatal(1); end
 
     for (int i = 0; i < num_vectors; i++) begin
+      // Jokaisen kentan taytyy lukeutua (KORJAUSLISTA A12): muuten vajaa
+      // tiedosto jattaa edellisen tapauksen arvot voimaan ja sama tulos
+      // tasmaa uudelleen.
       scan_ok = $fscanf(fh, "%d %d\n", tc_id, rejection_expect);
+      if (scan_ok != 2) begin $display("FAIL: tapaus %0d: otsikkorivi puuttuu", i); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", dk_val);
+      if (scan_ok != 1) begin $display("FAIL: tapaus %0d: dk puuttuu", i); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", c_val);
+      if (scan_ok != 1) begin $display("FAIL: tapaus %0d: c puuttuu", i); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", k_expect);
+      if (scan_ok != 1) begin $display("FAIL: tapaus %0d: K puuttuu", i); $fatal(1); end
 
       dk_in = dk_val; c_in = c_val;
 

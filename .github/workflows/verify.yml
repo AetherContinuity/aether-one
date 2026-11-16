@@ -156,6 +156,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run M1 RTL verification (real simulation, not a text check)
         run: bash hardware/pqc-rtl/run_m1_test.sh
 
@@ -178,6 +180,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run full K-PKE KeyGen->Encrypt->Decrypt->m round-trip (real RTL, all primitives)
         run: bash hardware/pqc-rtl/run_m3_kpke_roundtrip_test.sh
 
@@ -187,10 +191,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run ML-KEM.Decaps_internal TB A (K-PKE.Decrypt + G)
         run: bash hardware/pqc-rtl/run_m3_mlkem_decaps_a_test.sh
       - name: Run ML-KEM.Decaps_internal TB B (K-PKE.Encrypt + FO selection, incl. implicit rejection)
         run: bash hardware/pqc-rtl/run_m3_mlkem_decaps_b_test.sh
+      - name: Decaps Phase B -ydin, valivaiheet ja FO-valinta (KORJAUSLISTA A11)
+        run: bash hardware/pqc-rtl/run_m4_decaps_b_core_test.sh
 
   test-pqc-rtl-m3-keygen-multiseed:
     runs-on: ubuntu-latest
@@ -198,6 +206,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run K-PKE.KeyGen 10x in same simulation (register-leak/reset check)
         run: bash hardware/pqc-rtl/run_m3_kpke_keygen_multiseed_test.sh
 
@@ -207,6 +217,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run M4-TAU-001 end-to-end (ECU->Wishbone->KeyGen->audit-loki->ECU, success path)
         run: bash hardware/pqc-rtl/run_m4_tau_integrated_test.sh
       - name: Run M4-TAU-001 watchdog interrupt path (heartbeat loss mid-KeyGen -> audit log)
@@ -241,6 +253,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-KEM-512 vs. NIST ACVP (KeyGen 1, Encaps 3, Decaps 5) + negatiivikontrollit
         run: bash hardware/pqc-rtl/run_acvp_mlkem.sh
 
@@ -262,6 +276,8 @@ jobs:
           python-version: "3.12"
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-KEM-${{ matrix.pset }} vs. NIST ACVP (KeyGen 25, Encaps 25, Decaps 10) + negatiivikontrollit
         run: bash hardware/pqc-rtl/run_acvp_mlkem_full.sh ${{ matrix.pset }} --verify-source
       - name: TAU-kehys Wishbonen kautta, K=${{ matrix.pset == '512' && '2' || '3' }} (KeyGen->Encaps->Decaps)
@@ -295,6 +311,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-DSA-65 vs. NIST ACVP (KeyGen tcId=26, Verify tcId=140)
         run: bash hardware/pqc-rtl/run_acvp_dilithium.sh
 
@@ -335,6 +353,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run UNIT-tason Sign-primitiivitestit (make_hint, pack_z, pack_h)
         run: bash hardware/pqc-rtl/run_unit_dilithium_sign_primitives.sh
 
@@ -344,6 +364,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run COMPONENT-tason Sign-vaihetestit (S1,S2,S4,S8)
         run: bash hardware/pqc-rtl/run_component_dilithium_sign_stages.sh
 
@@ -353,6 +375,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Verify positive test (aito allekirjoitus -> verify_ok=1)
         run: bash hardware/pqc-rtl/run_integration_dilithium_verify_positive.sh
       - name: Run Verify negative-signature test (yhden bitin muutos allekirjoituksessa -> verify_ok=0)

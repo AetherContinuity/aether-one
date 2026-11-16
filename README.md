@@ -8,7 +8,7 @@ Tämä ei ole tuote eikä valmis käyttöön. Tavoite on arkkitehtuurin ja ACVP-
 oikeellisuuden tutkiminen, ei suorituskyky (ks. `PROJECT_STATUS_AND_DIRECTION.md`).
 Avoimet kohdat ovat tiedostossa [`KORJAUSLISTA.md`](KORJAUSLISTA.md).
 
-**Tila päivitetty:** 2026-10-02. Viimeisin muutos SystemVerilog-tiedostoihin: 2026-07-22.
+**Tila päivitetty:** 2026-11-16. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
 
 ## Tausta
 

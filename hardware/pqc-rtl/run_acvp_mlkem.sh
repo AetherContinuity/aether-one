@@ -61,6 +61,17 @@ open(sys.argv[2], "w").write("\n".join(lines))
 PY
 }
 
+# Vajaa tiedosto: ilmoitettu tapausmaara yhta suurempi kuin sisalto.
+# Testipenkin TAYTYY epaonnistua (KORJAUSLISTA A12).
+overclaim() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+lines = open(sys.argv[1]).read().split("\n")
+lines[0] = str(int(lines[0]) + 1)
+open(sys.argv[2], "w").write("\n".join(lines))
+PY
+}
+
 echo "[1/4] Generoidaan NTT-aikataulu (KeyGen-testipenkin syote)..."
 python3 m2-golden/gen_full_ntt_vectors.py > /dev/null
 
@@ -86,9 +97,11 @@ corrupt fpga/tau/decaps_top_nist_vectors.txt       "$TMP/decaps.txt"
 run_case "KeyGen, turmeltu vektori" sim/acvp_mlkem_keygen_sim "$TMP/keygen.txt" fail
 run_case "Encaps, turmeltu vektori" sim/acvp_mlkem_encaps_sim "$TMP/encaps.txt" fail
 run_case "Decaps, turmeltu vektori" sim/acvp_mlkem_decaps_sim "$TMP/decaps.txt" fail
+overclaim fpga/tau/decaps_top_nist_vectors.txt "$TMP/decaps_vajaa.txt"
+run_case "Decaps, vajaa tiedosto" sim/acvp_mlkem_decaps_sim "$TMP/decaps_vajaa.txt" fail
 
 if [ "$FAILED" -ne 0 ]; then
   echo "ACVP-regressio: VIRHEITA"
   exit 1
 fi
-echo "ACVP-regressio: KeyGen 1, Encaps 3, Decaps 5 vektoria; 3 negatiivikontrollia."
+echo "ACVP-regressio: KeyGen 1, Encaps 3, Decaps 5 vektoria; 4 negatiivikontrollia."
