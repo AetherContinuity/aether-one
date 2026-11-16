@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-LIVING_DOCS="dilithium-rtl/NIST_ACVP_STATUS.md M3_MLKEM_ACVP_STATUS.md FIPS203_COVERAGE.md ../../README.md ../../KORJAUSLISTA.md"
+LIVING_DOCS="dilithium-rtl/NIST_ACVP_STATUS.md M3_MLKEM_ACVP_STATUS.md FIPS203_COVERAGE.md ../../README.md ../../KORJAUSLISTA.md sivukanava/B8-TULOS.md"
 BANNED_PATTERN='TAYDELLISESTI|erittain (vahva|hyva|merkittava)|🎉|riippumaton vahvistus|independent confirmation'
 
 FAIL=0

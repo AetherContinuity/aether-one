@@ -35,6 +35,11 @@ Ero tulee julkisesta rho:sta riippuvasta SampleNTT-hylkayksesta, joten
 taman ajon perusteella ei voi sanoa mitaan salaisen datan vaikutuksesta;
 saman avaimen vertailu (alla, K=2) on ainoa ajoitusmittaus.
 
+Ajoitus- ja toggle-otos laajennettu 2026-11-16 (20 avainta, K=2 ja K=3,
+ennakkorekisteroity): `sivukanava/B8-TULOS.md`. Alla oleva 2026-07-22:n
+yhden avaimen mittaus kaytti NIST:n esimerkkitiedoston aiempaa versiota;
+sen tcId-numerot eivat vastaa commitin 975de31 numerointia.
+
 ## Tila 2026-10-02 (alla olevat osiot ovat aikajarjestyksessa)
 
 | Operaatio | NIST ACVP -vektoreita | Tulos |

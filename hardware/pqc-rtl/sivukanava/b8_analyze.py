@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """B8-otoksen arviointi B8-ENNAKKO.md:n hylkayssaantojen mukaan.
 
-Kaytto: b8_analyze.py <K=2-ajon loki> <K=3-ajon loki> <toggle-hakemisto> [--vaadi]
+Kaytto: b8_analyze.py <toggle-hakemisto> <b8_k2.log> [<b8_k3.log>] [--vaadi]
+(K luetaan lokin nimesta; toggle-ajoja odotetaan 9 per K.)
 
 Toggle-hakemistossa: t_k<K>_<tapausindeksi>_<tcId>_<muunnelma>.vcd.
 Palautusarvo: 2, jos H5 (oikeellisuus) ei pade. --vaadi: 1, jos H1, H2
@@ -29,9 +30,12 @@ def read_log(path, K):
     return rows
 
 
-def main(log2, log3, tdir, vaadi):
-    rows = read_log(log2, 2) + read_log(log3, 3)
-    print(f"Ajoja: {len(rows)} (K=2: {sum(r['K'] == 2 for r in rows)}, K=3: {sum(r['K'] == 3 for r in rows)})")
+def main(tdir, logs, vaadi):
+    rows = []
+    for lg in logs:
+        rows += read_log(lg, int(re.search(r"b8_k(\d)", os.path.basename(lg)).group(1)))
+    Ks = sorted({r["K"] for r in rows})
+    print(f"Ajoja: {len(rows)} (" + ", ".join(f"K={K}: {sum(r['K'] == K for r in rows)}" for K in Ks) + ")")
 
     h5 = [r for r in rows if r["kok"] != 1 or r["m"] != r["mexp"] or
           (r["vid"] == 0 and r["m"] != 1) or (1 <= r["vid"] <= 5 and r["m"] != 0)]
@@ -67,7 +71,7 @@ def main(log2, log3, tdir, vaadi):
         print(f"   ERO: K={f[0][0]} tcId={f[0][1]}: V={f[1]} SWAP={f[2]}")
 
     print("Avainkohtaiset syklit (V; Phase A, Phase B, kokonais):")
-    for K in (2, 3):
+    for K in Ks:
         vals = [(tc, by_key[(K, tc)][0]) for (k, tc) in sorted(by_key) if k == K]
         pa = sorted({t[0] for _, t in vals}); pb = sorted({t[1] for _, t in vals}); tot = sorted({t[2] for _, t in vals})
         print(f"   K={K}: Phase A {pa[0]}..{pa[-1]} ({len(pa)} eri), Phase B {pb[0]}..{pb[-1]} ({len(pb)} eri), "
@@ -85,8 +89,8 @@ def main(log2, log3, tdir, vaadi):
               f"{cand}={bits.get(cand, 0)} ero={diff}")
         if diff != 0:
             h4_fail.append(vcd)
-    if n4 != 18:
-        print(f"H4: odotettiin 18 VCD-ajoa, loytyi {n4}")
+    if n4 != 9 * len(Ks):
+        print(f"H4: odotettiin {9 * len(Ks)} VCD-ajoa, loytyi {n4}")
         h4_fail.append("maara")
     print(f"H4 toggle, K_final_out = valittu ehdokas: {'PATEE' if not h4_fail else 'HYLATAAN'} ({n4} ajoa)")
 
@@ -97,6 +101,6 @@ def main(log2, log3, tdir, vaadi):
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if a != "--vaadi"]
-    if len(args) != 3:
+    if len(args) < 2:
         sys.exit(__doc__)
-    sys.exit(main(*args, vaadi="--vaadi" in sys.argv))
+    sys.exit(main(args[0], args[1:], vaadi="--vaadi" in sys.argv))

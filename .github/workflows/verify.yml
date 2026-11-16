@@ -289,6 +289,29 @@ jobs:
           out=$(vvp sim/fp_k$K); echo "$out" | tail -3
           echo "$out" | grep -q "^PASS: KOKO ML-KEM-PROTOKOLLA"
 
+  # B8: Decapsin ajoitus- ja toggle-otos regressiona (sivukanava/B8-ENNAKKO.md).
+  # Epaonnistuu, jos H1, H2, H4 tai H5 hylataan, tai jos mittari ei havaitse
+  # kolmea tarkoituksella vuotavaa muunnelmaa.
+  test-pqc-rtl-b8-sivukanava:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
+      - name: vvp-kaare kaytossa
+        run: which vvp | grep -q vvp-tarkka
+      - name: B8 K=2 ja K=3 (130 ajoitusajoa, 18 toggle-ajoa)
+        run: bash hardware/pqc-rtl/run_b8_sivukanava.sh --vaadi
+      - name: B8-negatiivikontrollit (L1, L2, L3)
+        run: bash hardware/pqc-rtl/sivukanava/b8_negkontrollit.sh
+
   # Orkestrointiytimien Verilator-lint (virheet, ei varoitukset), K=2 ja K=3.
   test-pqc-rtl-verilator-lint-tau:
     runs-on: ubuntu-latest
