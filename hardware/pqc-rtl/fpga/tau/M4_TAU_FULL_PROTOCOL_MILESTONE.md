@@ -1,5 +1,8 @@
 # M4-TAU: koko ML-KEM-protokolla VALMIS yhdessa TAU-kehyksessa
 
+> **Historiallinen tilannekuva (2026-07-19).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Paivamaara:** 2026-07-19
 **Tila:** TAYDELLINEN, PAASTA-PAAHAN-VALIDOITU VIRSTANPYLVAS
 

@@ -1,5 +1,8 @@
 # M4-ENCAPS-ORCH-001: ML-KEM.Encaps_internal synteesikelpoinen orkestrointi
 
+> **Historiallinen tilannekuva (2026-07-19).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Paivamaara:** 2026-07-19
 **Tila:** VALMIS ensimmaisella yrityksella, hyodyntaen suoraan
 Decapsin todistettua koodia.

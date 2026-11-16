@@ -1,5 +1,8 @@
 # M3 Design Note — ML-KEM Encapsulation/Decapsulation Pipeline
 
+> **Historiallinen tilannekuva (2026-07-12).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Päivämäärä:** 2026-07-12
 **Tila:** Suunnitteludokumentti ennen lisää RTL-työtä. NTT (M2) ja
 BaseCaseMultiply (M3 #1) ovat valmiit ja todennetut.

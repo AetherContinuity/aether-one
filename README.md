@@ -39,7 +39,7 @@ päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luott
 (`install_liboqs.sh`; testattu x86-Linuxilla ja CI:ssä, ei Raspberry Pi:llä). Latenssi- ja
 kuormalukuja ei ole mitattu.
 
-### ML-KEM-512 RTL (`hardware/pqc-rtl/rtl/`, `fpga/`)
+### ML-KEM RTL, ML-KEM-768 oletus (`hardware/pqc-rtl/rtl/`, `fpga/`)
 
 | Osa | Tila | Todennus |
 |---|---|---|
@@ -50,8 +50,8 @@ kuormalukuja ei ole mitattu.
 | 4-pankkinen konfliktiton NTT-muisti | SAT-todistettu | `BANK_MAPPING_PROOF.md` |
 | NTT-ydin ECP5:llä: synteesi ja P&R, DP16KD = 4, Fmax 30,40 MHz (ECP5-25k) | Tehty | `fpga/timing_reports/` |
 | Koko ML-KEM-ytimen (orkestrointi) synteesi ja P&R | Ei valmistunut (resurssiraja) | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` |
-| Decaps-ajoitus: syklitasolla vakioaikainen salaisen datan suhteen | Mitattu saman avaimen vertailulla | Kerta-ajo, `M3_MLKEM_ACVP_STATUS.md` |
-| Decaps-toggle-mittaus: valinta- ja vertailulogiikka | Mitattu validoidulla työkalulla | Kerta-ajo, `toggle-proxy/` |
+| Decaps-ajoitus: syklitasolla vakioaikainen salaisen datan (s, z) ja ciphertextin sisällön suhteen (RTL-simulaatio) | Ennakkorekisteröity, 20 NIST-avainta, K=2 ja K=3, 110 vertailua; kolme vuotavaa negatiivikontrollia havaittiin | CI: `run_b8_sivukanava.sh --vaadi`; `sivukanava/B8-TULOS.md` |
+| Decaps-toggle: valintamekanismi ei lisää bittikytkentää valitun ehdokkaan päälle (yksi rekisteri) | 18 ajoa, sama otos | CI, `sivukanava/B8-TULOS.md`, mittari `toggle-proxy/` |
 | TRNG | Ei toteutettu | — |
 | Lint (Verilator `-Wall`), Yosys-synteesi NTT- ja Keccak-ytimille | — | CI |
 

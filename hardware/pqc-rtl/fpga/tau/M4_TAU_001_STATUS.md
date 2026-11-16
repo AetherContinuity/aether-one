@@ -1,5 +1,8 @@
 # M4-TAU-001: TAU-audit-loki (D4-yhteensopivuus) - Osa 1 VALMIS
 
+> **Historiallinen tilannekuva (2026-07-19).** Ei kuvaa nykytilaa. Nykytila: juuren
+> `README.md` ja `KORJAUSLISTA.md`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+
 **Paivamaara:** 2026-07-19
 **Tila:** Audit-loki (hash-ketjutus + lukurajapinta) TOIMII,
 todennettu Python-referenssia vasten.
