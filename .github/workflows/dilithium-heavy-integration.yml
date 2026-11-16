@@ -31,6 +31,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign positive test (koko hylkayssilmukka + pakkaus, ~242000 sykli)
         run: bash hardware/pqc-rtl/run_integration_dilithium_sign_positive.sh
 
@@ -41,6 +43,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign multi-seed test (kolme riippumatonta siementa, ~726000 sykli yhteensa)
         run: bash hardware/pqc-rtl/run_integration_dilithium_sign_multiseed.sh
 
@@ -51,6 +55,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign vs. NIST ACVP sigGen-FIPS204 (aito hylkays-ja-uusintayritys, kappa 0->5, ~360000 sykli)
         run: bash hardware/pqc-rtl/run_integration_dilithium_sign_nist_acvp.sh
 
@@ -61,6 +67,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
         run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+      - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
+        run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run vaiheistettu functional flow (KeyGen->ek.txt/sk_state.txt->Sign->sig.txt->Verify->PASS/FAIL)
         run: bash hardware/pqc-rtl/run_integration_dilithium_functional_flow.sh
       - name: Tallenna valituotokset (ek.txt, sk_state.txt, sig.txt) myohempaa analyysia varten

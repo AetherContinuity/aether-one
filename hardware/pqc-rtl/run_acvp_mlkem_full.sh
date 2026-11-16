@@ -63,6 +63,17 @@ open(sys.argv[2], "w").write("\n".join(lines))
 PY
 }
 
+# Vajaa tiedosto: ilmoitettu tapausmaara yhta suurempi kuin sisalto.
+# Testipenkin TAYTYY epaonnistua (KORJAUSLISTA A12).
+overclaim() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+lines = open(sys.argv[1]).read().split("\n")
+lines[0] = str(int(lines[0]) + 1)
+open(sys.argv[2], "w").write("\n".join(lines))
+PY
+}
+
 # $1 = sim, $2 = vektorit, $3 = odotus (pass|fail), $4 = nimi
 run_case() {
   local out result
@@ -92,15 +103,17 @@ for op in 0 1 2; do
   corrupt "$vec" "$TMP/${name}_bad.txt"
   run_case "sim/acvp_full_k${K}_op${op}" "$vec" pass "$name" > "$TMP/$name.log" &
   run_case "sim/acvp_full_k${K}_op${op}" "$TMP/${name}_bad.txt" fail "$name, turmeltu vektori" > "$TMP/${name}_bad.log" &
+  overclaim "$vec" "$TMP/${name}_vajaa.txt"
+  run_case "sim/acvp_full_k${K}_op${op}" "$TMP/${name}_vajaa.txt" fail "$name, vajaa tiedosto" > "$TMP/${name}_vajaa.log" &
 done
 wait
 for name in "${OPS[@]}"; do
-  cat "$TMP/$name.log" "$TMP/${name}_bad.log"
-  grep -q VIRHE "$TMP/$name.log" "$TMP/${name}_bad.log" && FAILED=1
+  cat "$TMP/$name.log" "$TMP/${name}_bad.log" "$TMP/${name}_vajaa.log"
+  grep -q VIRHE "$TMP/$name.log" "$TMP/${name}_bad.log" "$TMP/${name}_vajaa.log" && FAILED=1
 done
 
 if [ "$FAILED" -ne 0 ]; then
   echo "ACVP ML-KEM-$PSET: VIRHEITA"
   exit 1
 fi
-echo "ACVP ML-KEM-$PSET: KeyGen 25, Encaps 25, Decaps 10; 3 negatiivikontrollia."
+echo "ACVP ML-KEM-$PSET: KeyGen 25, Encaps 25, Decaps 10; 6 negatiivikontrollia."

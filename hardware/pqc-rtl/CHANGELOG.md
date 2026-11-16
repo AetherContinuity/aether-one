@@ -3,6 +3,16 @@
 Merkinnät uusin ensin. Jokainen kohta viittaa lähdedokumenttiin; tila- ja
 rajaustiedot ovat niissä ja juuren `KORJAUSLISTA.md`:ssä.
 
+## 2026-11-16: testipenkkien luotettavuus (A11, A12, A13)
+
+- A11: kahden Decaps Phase B -testipenkin epäonnistumisen syy oli puuttuva
+  generoitu vektoritiedosto, ei RTL. `run_m4_decaps_b_core_test.sh` CI:hin.
+- A12: `decaps_nist_multi_tb.sv` tarkistaa `$fscanf`-paluuarvot; vajaan
+  tiedoston negatiivikontrolli ACVP-skripteihin.
+- A13: `tools/vvp-tarkka/vvp` CI:n PATHiin; tiedostovirhe simulaatiossa = FAIL.
+- `check_reporting_discipline.sh`: README:n tilapäiväys ei saa olla
+  KORJAUSLISTA:n päiväystä vanhempi.
+
 ## 2026-11-16: oletus K=3
 
 - `pqc_tau_integrated_wrapper` ja ML-KEM-ytimet: `parameter int K = 3`.

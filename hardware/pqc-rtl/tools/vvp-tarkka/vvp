@@ -1,0 +1,21 @@
+#!/bin/bash
+# vvp-kaare: ajaa oikean vvp:n ja epaonnistuu, jos simulaatio raportoi
+# tiedostovirheen (KORJAUSLISTA A13). Icarus jatkaa ajoa virheellisella
+# tiedostokahvalla, jolloin odotusarvot jaavat X:iksi ja X === X voi
+# lapaista vertailun. CI lisaa taman hakemiston PATHin alkuun.
+self_dir="$(cd "$(dirname "$0")" && pwd)"
+real=""
+IFS=: read -ra dirs <<< "$PATH"
+for d in "${dirs[@]}"; do
+  [ "$(cd "$d" 2>/dev/null && pwd)" = "$self_dir" ] && continue
+  if [ -x "$d/vvp" ]; then real="$d/vvp"; break; fi
+done
+[ -n "$real" ] || { echo "vvp-tarkka: oikeaa vvp:ta ei loydy" >&2; exit 127; }
+log="$(mktemp)"
+"$real" "$@" 2>&1 | tee "$log"
+rc=${PIPESTATUS[0]}
+if grep -qE "invalid file descriptor|is not a valid string|Unable to open" "$log"; then
+  echo "FAIL: vvp-tarkka: simulaatio raportoi tiedostovirheen (ks. yllä)"
+  rm -f "$log"; exit 1
+fi
+rm -f "$log"; exit $rc

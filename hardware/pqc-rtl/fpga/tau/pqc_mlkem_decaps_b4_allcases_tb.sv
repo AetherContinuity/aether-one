@@ -47,6 +47,7 @@ module pqc_mlkem_decaps_b4_allcases_tb;
     clk = 0; reset = 1; start = 0;
 
     fh = $fopen("vectors/mlkem_decaps_b_vectors.txt", "r");
+    if (fh == 0) begin $display("FAIL: vectors/mlkem_decaps_b_vectors.txt puuttuu (generoi: python3 m2-golden/gen_mlkem_decaps_b_vectors.py)"); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", ek);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     ek_in = ek; z_in = z_seed;

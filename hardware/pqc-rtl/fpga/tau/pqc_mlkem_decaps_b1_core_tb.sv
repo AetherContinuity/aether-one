@@ -57,6 +57,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     clk = 0; reset = 1; start = 0;
 
     fh = $fopen("vectors/mlkem_decaps_b_vectors.txt", "r");
+    if (fh == 0) begin $display("FAIL: vectors/mlkem_decaps_b_vectors.txt puuttuu (generoi: python3 m2-golden/gen_mlkem_decaps_b_vectors.py)"); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", ek);
     scan_ok = $fscanf(fh, "%h\n", z_seed);
     scan_ok = $fscanf(fh, "%s\n", tag);
@@ -73,6 +74,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     ek_in = ek;
 
     fh = $fopen("fpga/tau/decaps_b1_golden.txt", "r");
+    if (fh == 0) begin $display("FAIL: fpga/tau/decaps_b1_golden.txt puuttuu"); $fatal(1); end
     scan_ok = $fscanf(fh, "%h\n", A00_golden);
     scan_ok = $fscanf(fh, "%h\n", y0_golden);
     scan_ok = $fscanf(fh, "%h\n", e10_golden);
@@ -114,6 +116,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     begin
       logic [256*COEFF_W-1:0] y0_hat_golden;
       fh = $fopen("fpga/tau/decaps_b2a_golden.txt", "r");
+      if (fh == 0) begin $display("FAIL: fpga/tau/decaps_b2a_golden.txt puuttuu"); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", y0_hat_golden);
       $fclose(fh);
       if (y_hat_out_flat[256*COEFF_W-1:0] === y0_hat_golden) $display("OK: y_hat[0] (B2a, NTT-forward) tasmaa taydellisesti");
@@ -123,6 +126,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     begin
       logic [256*COEFF_W-1:0] u0_golden, v_golden;
       fh = $fopen("fpga/tau/decaps_b2b2_golden.txt", "r");
+      if (fh == 0) begin $display("FAIL: fpga/tau/decaps_b2b2_golden.txt puuttuu"); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", u0_golden);
       scan_ok = $fscanf(fh, "%h\n", v_golden);
       $fclose(fh);
@@ -146,6 +150,7 @@ module pqc_mlkem_decaps_b1_core_tb;
     begin
       logic [256*COEFF_W-1:0] u_acc0_golden, v_acc_golden;
       fh = $fopen("fpga/tau/decaps_b2b1_golden.txt", "r");
+      if (fh == 0) begin $display("FAIL: fpga/tau/decaps_b2b1_golden.txt puuttuu"); $fatal(1); end
       scan_ok = $fscanf(fh, "%h\n", u_acc0_golden);
       scan_ok = $fscanf(fh, "%h\n", v_acc_golden);
       $fclose(fh);
