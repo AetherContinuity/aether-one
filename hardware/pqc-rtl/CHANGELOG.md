@@ -3,6 +3,15 @@
 Merkinnät uusin ensin. Jokainen kohta viittaa lähdedokumenttiin; tila- ja
 rajaustiedot ovat niissä ja juuren `KORJAUSLISTA.md`:ssä.
 
+## 2026-11-16: B8, Decapsin sivukanavaotos
+
+- Ennakkorekisteröity (`sivukanava/B8-ENNAKKO.md`), sitten mitattu:
+  20 NIST-avainta, K=2 ja K=3, 130 ajoitusajoa ja 18 toggle-ajoa.
+  H1, H2, H4, H5 pätevät (`sivukanava/B8-TULOS.md`).
+- Negatiivikontrollit: kolme tarkoituksella vuotavaa Decaps-muunnelmaa
+  (`sivukanava/b8_negkontrollit.sh`), kukin hylkää odotetun hypoteesin.
+- CI: `run_b8_sivukanava.sh --vaadi` ja negatiivikontrollit.
+
 ## 2026-11-16: testipenkkien luotettavuus (A11, A12, A13)
 
 - A11: kahden Decaps Phase B -testipenkin epäonnistumisen syy oli puuttuva

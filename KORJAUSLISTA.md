@@ -36,8 +36,8 @@ Järjestys osion sisällä ei ole prioriteetti.
 | B4 | ECP5-synteesi ja P&R on tehty NTT-ytimelle (ja Wishbone-kääreelle synteesi). KeyGen-, Encaps- ja Decaps-orkestrointiytimien synteesi ei valmistunut työympäristön resurssirajoissa. Keccak-instanssien jakamista ei ole toteutettu. | `fpga/tau/M4_DECAPS_ORCH_001_STATUS.md` (jatko 11), `M4_TAU_001_MILESTONE.md` |
 | B5 | Fmax 30,40 MHz koskee NTT-ydintä (ECP5-25k, 1 pipeline-vaihe). Koko ML-KEM:n Fmax ei tiedossa. | `fpga/timing_reports/M4_FPGA_006_ANALYSIS.md` |
 | B6 | Ei ajettu fyysisellä FPGA-laudalla. | Repossa ei ole laiteajon kirjausta |
-| B7 | Sivukanavat: Decaps on syklitasolla vakioaikainen salaisen datan suhteen (saman avaimen vertailu). Toggle-mittaus kattaa valinta- ja vertailulogiikan. Ulostuloarvon Hamming-painovaihtelu vaatisi maskauksen; teho- tai EM-mittausta ei ole tehty. | `M3_MLKEM_ACVP_STATUS.md` |
-| B8 | Ajoitus- ja toggle-mittauksen otos on yksi avain (tcId=76) ja yksi valid/rejection-pari; korruptio on yksi tavu. Laajempaa otosta (useita avaimia, useita hylkäystapauksia) ei ole ajettu. | `M3_MLKEM_ACVP_STATUS.md` |
+| B7 | Sivukanavat: Decaps on syklitasolla vakioaikainen salaisen datan ja ciphertextin sisällön suhteen, ja valintamekanismi ei lisää bittikytkentää valitun ehdokkaan päälle (RTL-simulaatio, B8:n otos). Ulostuloarvon Hamming-painovaihtelu vaatisi maskauksen; teho- tai EM-mittausta ei ole tehty. | `hardware/pqc-rtl/sivukanava/B8-TULOS.md` |
+| B8 | ~~Otos yksi avain ja yksi valid/hylkäys-pari.~~ **2026-11-16:** 20 NIST-avainta (K=2, K=3), 5–6 ciphertext-muunnelmaa ja salaisuudenvaihto per avain, 130 ajoa + 18 toggle-ajoa; ennakkorekisteröity, kaikki neljä hypoteesia pätevät; kolme tarkoituksella vuotavaa muunnelmaa havaittiin. CI:ssä regressiona. | `hardware/pqc-rtl/sivukanava/B8-ENNAKKO.md`, `B8-TULOS.md` |
 
 ## C. ML-DSA-65 RTL (`hardware/pqc-rtl/dilithium-rtl/`)
 
