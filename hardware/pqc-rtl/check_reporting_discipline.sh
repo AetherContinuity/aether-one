@@ -30,6 +30,17 @@ elif [[ "$readme_d" < "$lista_d" ]]; then
   echo "FAIL: README.md tila $readme_d on vanhempi kuin KORJAUSLISTA.md $lista_d"; FAIL=1
 fi
 
+# Juuren README:n ja agenttiohjeen taytyy viitata olemassa olevaan
+# baseline-tiedostoon (KORJAUSLISTA A15).
+for ref in ../../README.md ../../CLAUDE.md ../../AGENTS.md; do
+  b=$(grep -oE 'BASELINE-v[0-9]+\.[0-9]+\.md' "$ref" 2>/dev/null | head -1)
+  if [ -z "$b" ]; then echo "FAIL: $ref ei viittaa BASELINE-tiedostoon"; FAIL=1
+  elif [ ! -f "../../$b" ]; then echo "FAIL: $ref viittaa puuttuvaan $b"; FAIL=1; fi
+done
+if ! cmp -s <(tail -n +2 ../../CLAUDE.md) <(tail -n +2 ../../AGENTS.md); then
+  echo "FAIL: AGENTS.md ja CLAUDE.md eroavat (otsikkoriviä lukuun ottamatta)"; FAIL=1
+fi
+
 if [ "$FAIL" -eq 0 ]; then
   echo "PASS: elavat referenssidokumentit lapaisevat raportointikuritarkistuksen"
 else

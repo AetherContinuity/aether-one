@@ -6,9 +6,14 @@ ML-DSA (FIPS 204).
 
 Tämä ei ole tuote eikä valmis käyttöön. Tavoite on arkkitehtuurin ja ACVP-ankkuroidun
 oikeellisuuden tutkiminen, ei suorituskyky (ks. `PROJECT_STATUS_AND_DIRECTION.md`).
-Avoimet kohdat ovat tiedostossa [`KORJAUSLISTA.md`](KORJAUSLISTA.md).
+Jäädytetty tilannekuva todisteineen: [`BASELINE-v1.0.md`](BASELINE-v1.0.md) (2026-11-16).
+Avoimet kohdat: [`KORJAUSLISTA.md`](KORJAUSLISTA.md). Agenttisessiot: [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md).
 
-**Tila päivitetty:** 2026-11-16. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+**Suunta 2026-11-16:** RTL jäädytetty baselinen tilaan (ML-KEM-orkestrointi ei mahdu
+ECP5:lle, KORJAUSLISTA B4). Työn alla ohjelmistopohjainen laitteiden attestaatio
+(Linux ja Android); suunnitelma kirjataan ennen toteutusta.
+
+**Tila päivitetty:** 2026-11-18. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
 
 ## Tausta
 

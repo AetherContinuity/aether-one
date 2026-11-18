@@ -7,6 +7,14 @@ ML-KEM-768 + ML-DSA-65 (molemmat NIST-kategoria 3). ML-KEM-ytimet ovat
 K-parametrisia, ja K=3 on todennettu kaikilla NIST ACVP -tapauksilla.
 RTL:n oletus vaihdettu K=3:ksi 2026-11-16 (`KORJAUSLISTA.md` B1, D1).
 
+## Päätös 2026-11-16: suunta
+
+RTL jäädytetään `BASELINE-v1.0.md`:n tilaan. Nykyinen ML-KEM-orkestrointi ei
+mahdu ECP5:lle (B4), ja korjaus vaatisi arkkitehtuurin uudelleenkirjoituksen.
+Työn kohde vaihtuu käyttöön: ohjelmistopohjainen laitteiden attestaatio
+(Linux ja Android rinnakkain, omat laitteet). Suunnitelma kirjataan repoon
+ennen toteutusta.
+
 ## Tilapäivitys 2026-10-02 (lisätty; alla olevia päivättyjä osioita ei ole muutettu)
 
 Alla oleva 2026-07-19 kirjattu tila on vanhentunut seuraavilta osin. Ajantasainen

@@ -1,6 +1,6 @@
 # Korjauslista
 
-**Päivitetty:** 2026-11-16
+**Päivitetty:** 2026-11-18
 
 Avoimet kohdat yhdessä paikassa. Jokaisella rivillä on lähde, josta kohta
 on peräisin; tämä tiedosto ei lisää uusia havaintoja niiden päälle, paitsi
@@ -24,6 +24,8 @@ Järjestys osion sisällä ei ole prioriteetti.
 | A11 | ~~Kaksi testipenkkiä (`pqc_mlkem_decaps_b1_core_tb.sv`, `pqc_mlkem_decaps_b4_allcases_tb.sv`) epäonnistuu.~~ **Syy 2026-11-16:** ne lukevat generoidun (gitignore) `vectors/mlkem_decaps_b_vectors.txt`:n, jonka vain `run_m3_mlkem_decaps_b_test.sh` luo. Ilman sitä `$fopen` palautti 0, ja 10/3 vertailua epäonnistui; samalla osa vertailuista (c', K_final) raportoi OK X-arvoilla. RTL:ssä ei vikaa: generoinnin jälkeen kaikki vaiheet täsmäävät. Korjattu: tiedoston puuttuminen on virhe, `run_m4_decaps_b_core_test.sh` CI:ssä. | Korjattu 2026-11-16 |
 | A12 | ~~`decaps_nist_multi_tb.sv` ei tarkista `$fscanf`-paluuarvoja.~~ Todennettu: 6 ilmoitettua, 5 tiedostossa → PASS. Korjattu 2026-11-16; `run_acvp_mlkem.sh` ja `run_acvp_mlkem_full.sh` ajavat nyt vajaan tiedoston negatiivikontrollin jokaiselle operaatiolle. | Korjattu 2026-11-16 |
 | A13 | 138 testipenkkitiedostoa avaa tiedostoja tarkistamatta kahvaa. Icarus jatkaa virheellisellä kahvalla, odotusarvot jäävät X:iksi, ja X === X läpäisee. Lievennys 2026-11-16: CI ajaa `vvp`:n kääreen `tools/vvp-tarkka/vvp` kautta, joka epäonnistuu tiedostovirheestä. CI:n 26 testiskriptiä ajettiin kääreen kanssa paikallisesti: yhtään tiedostovirhettä ei ollut (kolme raskasta ML-DSA-skriptiä aikakatkaistiin rinnakkaisajossa, ne ajetaan CI:ssä). Testipenkit itse ovat ennallaan; CI:n ulkopuolinen ajo ilman käärettä on yhä altis. | Lievennetty |
+| A14 | `run_m3_kpke_keygen_full_test.sh` toimii vain, jos `run_m3_kpke_keygen_t_test.sh` on ajettu ensin: `tb/pqc_kpke_keygen_full_tb.sv` (rivi 175) lukee `vectors/kpke_keygen_t_vectors.txt`:n, jota full-skripti ei generoi. Ei CI:ssä; `FIPS203_COVERAGE.md` käyttää testiä K-PKE.KeyGenin todisteena. Havaittu 2026-11-18 (toinen sessio, puhdas klooni). | Avoin |
+| A15 | Agenttisessio suunnitteli jo tehtyä työtä (K=2→3), koska README ei viitannut `BASELINE-v1.0.md`:hen eikä agenttiohjetta ollut. Korjattu 2026-11-18: `CLAUDE.md`/`AGENTS.md`, linkit README:ihin, tarkistus `check_reporting_discipline.sh`:ssa. | Korjattu 2026-11-18 |
 | A10 | Ennen 2026-10-02 tallennettujen ML-KEM Encaps- (1 kpl) ja Decaps-vektorien (5 kpl) lähdecommitia `usnistgov/ACVP-Server`:ssä ei ole kirjattu. NIST:n `encapDecap`-esimerkkitiedosto on sittemmin generoitu uudelleen: vektoreita ei löydy nykyisestä tiedostosta. KeyGen-vektori vastaa commitin 975de31 tcId=1:tä. Uudet Encaps-vektorit (tcId 1–3) on sidottu commitiin, ks. `hardware/pqc-rtl/fpga/tau/acvp/README.md`. | Avoin |
 
 ## B. ML-KEM-512 RTL (`hardware/pqc-rtl/rtl/`, `fpga/`)
