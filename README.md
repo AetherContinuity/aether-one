@@ -10,10 +10,11 @@ Jäädytetty tilannekuva todisteineen: [`BASELINE-v1.0.md`](BASELINE-v1.0.md) (2
 Avoimet kohdat: [`KORJAUSLISTA.md`](KORJAUSLISTA.md). Agenttisessiot: [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md).
 
 **Suunta 2026-11-16:** RTL jäädytetty baselinen tilaan (ML-KEM-orkestrointi ei mahdu
-ECP5:lle, KORJAUSLISTA B4). Työn alla ohjelmistopohjainen laitteiden attestaatio
-(Linux ja Android); suunnitelma kirjataan ennen toteutusta.
+ECP5:lle, KORJAUSLISTA B4). Työn alla ohjelmistopohjainen laitteiden attestaatio:
+[`docs/ATTESTATION-ARCHITECTURE.md`](docs/ATTESTATION-ARCHITECTURE.md),
+[`docs/ATTESTATION-LEVELS.md`](docs/ATTESTATION-LEVELS.md).
 
-**Tila päivitetty:** 2026-11-18. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+**Tila päivitetty:** 2026-11-19. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
 
 ## Tausta
 
@@ -34,7 +35,7 @@ päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luott
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, TPM+PQC-päästä-päähän-testi ohjelmisto-TPM:llä (swtpm), asennusskriptin testi |
+| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, päästä-päähän-testi ohjelmisto-TPM:llä (swtpm), asennusskriptin testi. **Palvelin ei tarkista TPM-quotea** (KORJAUSLISTA A16): PASS tarkoittaa vain, että ohjelmistossa olevan ML-DSA-avaimen haltija allekirjoitti viestin |
 | Edge Node: KRI/LR-laskenta, web-käyttöliittymä, drift-näkymät | Toteutettu (Python) | Ei automaattista testiä |
 | Sensorit: MQ-9 (ADC), AetherCam, mock-varavaihtoehto | Ajurit olemassa | Ei automaattista testiä |
 | C-ydin (`libtrustcore.so`) | Ei repossa | — |
