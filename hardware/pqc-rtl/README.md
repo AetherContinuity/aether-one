@@ -8,7 +8,10 @@ Kansion sisältö:
 - `dilithium-rtl/`: ML-DSA-65 (KeyGen, `Sign_internal`, `Verify_internal`).
 - `m2-golden/`, `dilithium-golden/`: Python-referenssimallit ja vektorigeneraattorit.
 
-Ajantasainen tila: repon juuren `README.md`. Avoimet kohdat: `KORJAUSLISTA.md`.
+**Aloita repon juuresta:** `BASELINE-v1.0.md` (jäädytetty tila todisteineen),
+`KORJAUSLISTA.md` (avoimet kohdat), `CLAUDE.md` (ohje agenttisessioille).
+Tämän kansion muut markdown-tiedostot ovat pääosin historiallisia tilannekuvia.
+RTL on jäädytetty 2026-11-16 (KORJAUSLISTA B4).
 Alla oleva milestone-taulukko on historiallinen loki (M1–M3), ei nykytilan kuvaus.
 
 ## Tila
