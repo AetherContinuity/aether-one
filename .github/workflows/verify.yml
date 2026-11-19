@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build deps for liboqs
-        run: sudo apt-get update -qq && sudo apt-get install -y cmake ninja-build build-essential libssl-dev
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y cmake ninja-build build-essential libssl-dev
       - name: Build minimal liboqs (ML-DSA-65 only)
         run: |
           git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
@@ -73,7 +73,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build deps for liboqs + tpm2-tools + swtpm
-        run: sudo apt-get update -qq && sudo apt-get install -y cmake ninja-build build-essential libssl-dev tpm2-tools swtpm
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y cmake ninja-build build-essential libssl-dev tpm2-tools swtpm
       - name: Build minimal liboqs (ML-DSA-65 only)
         run: |
           git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y qemu-user-static gcc-riscv64-linux-gnu
       - name: Build and run RVV Montgomery reduction (VLEN=256 and VLEN=128)
         run: |
           cd hardware/pqc-rtl/rvv
@@ -119,7 +119,7 @@ jobs:
           python-version: "3.12"
       - name: Install QEMU riscv64 + cross-toolchain + TVM
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y qemu-user-static gcc-riscv64-linux-gnu
           pip install apache-tvm
       - name: Build model, cross-compile, run under QEMU
         run: |
@@ -132,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y qemu-user-static gcc-riscv64-linux-gnu
       - name: Build OpenSSL libcrypto for RISC-V (cross), then provider skeleton, run under QEMU
         run: |
           cd hardware/pqc-rtl/oqs-rvv-provider
@@ -144,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install QEMU riscv64 + cross-toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y qemu-user-static gcc-riscv64-linux-gnu
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y qemu-user-static gcc-riscv64-linux-gnu
       - name: Build reference, extract zetas, build RVV, run under QEMU
         run: |
           cd hardware/pqc-rtl/rvv-dilithium
@@ -155,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run M1 RTL verification (real simulation, not a text check)
@@ -179,7 +179,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run full K-PKE KeyGen->Encrypt->Decrypt->m round-trip (real RTL, all primitives)
@@ -190,7 +190,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run ML-KEM.Decaps_internal TB A (K-PKE.Decrypt + G)
@@ -205,7 +205,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run K-PKE.KeyGen 10x in same simulation (register-leak/reset check)
@@ -216,7 +216,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run M4-TAU-001 end-to-end (ECU->Wishbone->KeyGen->audit-loki->ECU, success path)
@@ -252,7 +252,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-KEM-512 vs. NIST ACVP (KeyGen 1, Encaps 3, Decaps 5) + negatiivikontrollit
@@ -275,7 +275,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-KEM-${{ matrix.pset }} vs. NIST ACVP (KeyGen 25, Encaps 25, Decaps 10) + negatiivikontrollit
@@ -302,7 +302,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: vvp-kaare kaytossa
@@ -318,7 +318,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Verilator
-        run: sudo apt-get update -qq && sudo apt-get install -y verilator
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y verilator
       - name: Lint pqc_tau_integrated_wrapper (K=2, K=3)
         run: |
           cd hardware/pqc-rtl
@@ -333,7 +333,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: ML-DSA-65 vs. NIST ACVP (KeyGen tcId=26, Verify tcId=140)
@@ -352,7 +352,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build deps
-        run: sudo apt-get update -qq && sudo apt-get install -y cmake ninja-build build-essential libssl-dev
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y cmake ninja-build build-essential libssl-dev
       - name: Run pi2_trust_server/install.sh (rakentaa liboqs:n, ajaa itsetestin)
         run: |
           cd pi2_trust_server
@@ -375,7 +375,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run UNIT-tason Sign-primitiivitestit (make_hint, pack_z, pack_h)
@@ -386,7 +386,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run COMPONENT-tason Sign-vaihetestit (S1,S2,S4,S8)
@@ -397,7 +397,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Verify positive test (aito allekirjoitus -> verify_ok=1)
@@ -414,7 +414,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Verilator
-        run: sudo apt-get update -qq && sudo apt-get install -y verilator
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y verilator
       - name: Lint every rtl/*.sv file, fail on any LATCH/UNDRIVEN/COMBDLY warning
         run: |
           cd hardware/pqc-rtl
@@ -435,7 +435,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Yosys
-        run: sudo apt-get update -qq && sudo apt-get install -y yosys
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y yosys
       - name: Synthesize NTT core (pqc_ntt_stage_banked + lane_fsm)
         run: |
           cd hardware/pqc-rtl

@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign positive test (koko hylkayssilmukka + pakkaus, ~242000 sykli)
@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign multi-seed test (kolme riippumatonta siementa, ~726000 sykli yhteensa)
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run Sign vs. NIST ACVP sigGen-FIPS204 (aito hylkays-ja-uusintayritys, kappa 0->5, ~360000 sykli)
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Icarus Verilog
-        run: sudo apt-get update -qq && sudo apt-get install -y iverilog
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y iverilog
       - name: vvp-tarkka PATHiin (tiedostovirhe = FAIL, KORJAUSLISTA A13)
         run: echo "$GITHUB_WORKSPACE/hardware/pqc-rtl/tools/vvp-tarkka" >> "$GITHUB_PATH"
       - name: Run vaiheistettu functional flow (KeyGen->ek.txt/sk_state.txt->Sign->sig.txt->Verify->PASS/FAIL)
