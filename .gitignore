@@ -207,3 +207,7 @@ hardware/pqc-rtl/vectors/kpke_keygen_multiseed_vectors.txt
 # Vaihe 2: Googlen jäsentimen lähteet kopioidaan CI:ssä, ei commitoida
 pi2_trust_server/tests/android/google_ref/target/
 pi2_trust_server/tests/android/google_ref/src/main/java/com/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
