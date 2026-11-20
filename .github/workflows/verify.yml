@@ -37,6 +37,14 @@ jobs:
           python -m pytest test_engine.py -v
           python build.py
 
+  # VAIHE2-ENNAKKO K2: Googlen attestaatiojuuret = kiinnitetty joukko.
+  android-roots-pinned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Virallinen juurilista vs. kiinnitetty
+        run: python3 pi2_trust_server/tools/android_roots.py check pi2_trust_server/core/trustcore/android_roots.json
+
   # K9 (docs/VAIHE1-ENNAKKO.md): todentajan ja attestoijan trustcore on yksi lähde.
   trustcore-copies-identical:
     runs-on: ubuntu-latest
