@@ -19,9 +19,10 @@ työtä niiden perusteella tarkistamatta asiaa yllä olevista.
 - **RTL on jäädytetty `BASELINE-v1.0.md`:n tilaan.** Nykyinen ML-KEM-
   orkestrointi ei mahdu ECP5:lle (KORJAUSLISTA B4). RTL:ää ylläpidetään
   (testit toistettaviksi), mutta sitä ei laajenneta.
-- **Työn alla: ohjelmistopohjainen laitteiden attestaatio**, Linux ja Android
-  rinnakkain, käyttäjän omat laitteet. Suunnitelma on kesken; se kirjataan
-  repoon ennen toteutusta.
+- **Työn alla: ohjelmistopohjainen laitteiden attestaatio**, käyttäjän omat
+  laitteet. Arkkitehtuuri: `docs/ATTESTATION-ARCHITECTURE.md`. Tasot ja
+  todentajan vastaukset (sitovat): `docs/ATTESTATION-LEVELS.md`. Puuttuva
+  todiste ei ole koskaan onnistunut attestaatio.
 
 Jo tehty, älä tee uudelleen: ML-KEM K-parametrisointi ja oletus K=3
 (ML-KEM-768), täysi NIST ACVP K=2 ja K=3, Decaps-sivukanavaotos (B8),
