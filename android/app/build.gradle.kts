@@ -51,3 +51,8 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.81")
     testImplementation("junit:junit:4.13.2")
 }
+
+// Testien nimet CI-lokiin todisteeksi siitä, että ne ajettiin.
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "failed", "skipped") }
+}
