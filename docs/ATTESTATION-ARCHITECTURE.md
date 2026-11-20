@@ -107,7 +107,7 @@ tuotantolaitteelle.
 
 CI-testi "TPM+PQC päästä päähän" todentaa siis, että viesti kulkee ja
 allekirjoitus täsmää, ei TPM-attestaatiota. Korjaus on vaihe 1 alla.
-Kirjattu `KORJAUSLISTA.md`:hen (A16).
+Kirjattu `KORJAUSLISTA.md`:hen (A16). Korjattu vaiheessa 1 (2026-11-20, `docs/VAIHE1-ENNAKKO.md`).
 
 ## Vaiheet
 

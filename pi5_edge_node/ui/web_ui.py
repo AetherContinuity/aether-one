@@ -96,7 +96,8 @@ async def index():
                     const attEl = document.getElementById("attestation");
                     const st = (att.status || "UNKNOWN").toString().toUpperCase();
                     attEl.innerText = st;
-                    attEl.className = "value " + (st === "PASS" ? "pass" : (st === "FAIL" ? "fail" : "unknown"));
+                    // Väitekohtainen tiivistelmä; ei yhteistä PASS-väriä.
+                    attEl.className = "value " + (st.includes("FAILED") ? "fail" : "unknown");
                     document.getElementById("device_id").innerText = att.device_id || "–";
                 } catch (e) {
                     console.error(e);

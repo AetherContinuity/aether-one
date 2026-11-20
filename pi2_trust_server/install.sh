@@ -13,6 +13,14 @@ fi
 
 echo "✓ Python3 löytyi: $(python3 --version)"
 
+# TPM-quoten tarkistus: tpm2_checkquote (tpm2-tools). Toimii ilman TPM:ää;
+# Pi 2 ei tarvitse omaa TPM:ää. Ilman työkalua väite A on aina UNKNOWN.
+if ! command -v tpm2_checkquote > /dev/null; then
+    echo "❌ tpm2_checkquote puuttuu. Asenna: sudo apt install tpm2-tools"
+    exit 1
+fi
+echo "✓ tpm2-tools: $(tpm2_checkquote --version 2>&1 | head -1)"
+
 # Luo virtuaaliympäristö
 if [ ! -d ".venv" ]; then
     echo "📦 Luodaan virtuaaliympäristö..."

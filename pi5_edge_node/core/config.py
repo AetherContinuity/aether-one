@@ -7,11 +7,11 @@ class Settings(BaseSettings):
     mqtt_client_id: str = "aether-pi5"
     lr_enabled: bool = True
 
-    # TrustCore v0.1 (attestation)
+    # TrustCore v0.2 (attestation)
     attestation_enabled: bool = True
     attestation_interval: int = 60  # seconds
     attestation_server_url: str = "http://localhost:5000"
-    attestation_policy_id: str = "policy_demo"
+    attestation_policy_id: str = "trustcore-v0.2"
 
     class Config:
         env_prefix = "AETHER_"

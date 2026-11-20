@@ -1,7 +1,7 @@
 # Aether One™ — Pi5 Edge Node (Unified)
 
 **Täysiverinen edge-node joka yhdistää:**
-- TrustCore v1.0 attestation (PQC + TPM)
+- TrustCore v0.2 attestation (TPM-quote + ML-DSA-65, väitekohtainen tulos)
 - Fyysiset sensorit (MQ-9 kaasu + AetherCam IP-kamera)
 - TrustCore v1.0 KRI + LR-D -laskenta (Python — ei C-ydintä, korjattu 2026-07-05, ks. alla)
 - Live dashboard + web UI
@@ -172,7 +172,9 @@ curl http://localhost:8080/sensor/aethercam
 
 ```bash
 curl http://localhost:8080/attestation
-# → {"status": "PASS", "device_id": "abc123...", ...}
+# → {"status": "A:PARTIAL B:UNSUPPORTED P:UNSUPPORTED Q:VERIFIED", "claims": {...}, ...}
+#   (väitekohtainen; ei PASS-tilaa, docs/ATTESTATION-LEVELS.md. Laite on ensin
+#   rekisteröitävä käsin: pi2_trust_server/README.md)
 ```
 
 ---
@@ -203,7 +205,9 @@ curl http://192.168.1.50:5000/nonce
 
 # Pi 5 API:sta
 curl http://localhost:8080/attestation
-# → {"status": "PASS", ...}
+# → {"status": "A:PARTIAL B:UNSUPPORTED P:UNSUPPORTED Q:VERIFIED", "claims": {...}, ...}
+#   (väitekohtainen; ei PASS-tilaa, docs/ATTESTATION-LEVELS.md. Laite on ensin
+#   rekisteröitävä käsin: pi2_trust_server/README.md)
 ```
 
 ---
