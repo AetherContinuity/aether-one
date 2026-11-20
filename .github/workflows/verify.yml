@@ -102,6 +102,78 @@ jobs:
           python3 tests/android/reference_compare.py compare "$RUNNER_TEMP/ours.jsonl" "$RUNNER_TEMP/google.jsonl"
           python3 tests/android/reference_compare.py selftest "$RUNNER_TEMP/ours.jsonl" "$RUNNER_TEMP/google.jsonl"
 
+  # Vaihe 3a (docs/VAIHE3-ENNAKKO.md S1-S4): Android-sovellus.
+  android-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Install build deps for liboqs
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y cmake ninja-build build-essential libssl-dev
+      - name: Build minimal liboqs (ML-DSA-65 only)
+        run: |
+          git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          cd liboqs && mkdir build && cd build
+          cmake -GNinja -DOQS_MINIMAL_BUILD="SIG_ml_dsa_65" -DOQS_USE_OPENSSL=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release ..
+          ninja -j$(nproc)
+          sudo ninja install
+          sudo ldconfig
+      - name: Install Python deps
+        run: pip install liboqs-python cbor2 cryptography
+      - name: S1 kultaiset vektorit ajan tasalla (Python = lähde)
+        run: |
+          cd pi2_trust_server
+          python3 tests/android/app_vectors.py gen "$RUNNER_TEMP/golden.txt"
+          diff "$RUNNER_TEMP/golden.txt" ../android/app/src/test/resources/golden.txt
+      - name: Avainsäilö salaisuudesta (jos asetettu)
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 puuttuu: APK jää allekirjoittamatta (S3 ei täyty)"
+          fi
+      - name: S1/S3 yksikkötestit, lint, release-rakennus
+        run: gradle -p android --no-daemon testReleaseUnitTest lintRelease assembleRelease
+      - name: S2 Kotlinin ML-DSA ja CBOR todentajan koodilla (liboqs)
+        run: cd pi2_trust_server && python3 tests/android/app_vectors.py check ../android/app/build/aether-vectors
+      - name: S4 ainoa oikeus INTERNET
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          "$AAPT2" dump permissions "$APK" | tee perms.txt
+          grep -o "name='[^']*'" perms.txt | sort -u > names.txt
+          cat names.txt
+          test "$(cat names.txt)" = "name='android.permission.INTERNET'"
+      - name: APK:n sha256 ja artefakti
+        run: sha256sum android/app/build/outputs/apk/release/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aether-attest-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
+      - name: S3 allekirjoitettu pysyvällä avaimella
+        run: |
+          test -n "$ANDROID_KEYSTORE_FILE" || { echo "S3 ei täyty: allekirjoitusavain puuttuu (ANDROID_KEYSTORE_B64)"; exit 1; }
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$APKSIGNER" verify --print-certs "$APK" | grep -i "sha-256 digest"
+
   # K9 (docs/VAIHE1-ENNAKKO.md): todentajan ja attestoijan trustcore on yksi lähde.
   trustcore-copies-identical:
     runs-on: ubuntu-latest

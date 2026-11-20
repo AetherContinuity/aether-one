@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Todentaja on lähiverkossa HTTP:llä. Todisteen eheys ei riipu kuljetuksesta
+     (allekirjoitukset, kertakäyttöinen nonce); välissä oleva voi vain estää
+     vastauksen (docs/VAIHE3-ENNAKKO.md). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
