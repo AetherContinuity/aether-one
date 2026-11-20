@@ -36,6 +36,7 @@ päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luott
 | Osa | Tila | Todennus |
 |---|---|---|
 | Trust Server (todentaja v0.2): nonce, käsinrekisteröinti, TPM-quoten tarkistus (`tpm2_checkquote`), ML-DSA-65; vastaus väitekohtaisesti A/B/P/Q (`docs/ATTESTATION-LEVELS.md`) | Toteutettu (Python, FastAPI) | CI: `test_vaihe1.py` (negatiivikontrollit, `docs/VAIHE1-ENNAKKO.md`), HTTP-päästä-päähän ohjelmisto-TPM:llä (swtpm), asennusskriptin testi. Vain swtpm: A enintään `PARTIAL`; B ja P `UNSUPPORTED` Linux-laitteilla. EK-ketjua ei tarkisteta |
+| Todentaja, Android-todiste (vaihe 2): Keystore-avainattestaatio, kiinnitetyt Googlen juuret, revokaatiolista, väitteet A/B/P (`docs/VAIHE2-ENNAKKO.md`) | Toteutettu todentajalle; puhelinsovellusta ei ole | CI: synteettiset ketjut (negatiivikontrollit), 89 oikeaa Auditor-ketjua tuotantojuuria vasten, KeyDescription-jäsennin = Googlen jäsennin 113 tietueella. **B `VERIFIED` vain synteettisillä ketjuilla**; oikea laite vasta vaiheessa 3 |
 | Edge Node: KRI/LR-laskenta, web-käyttöliittymä, drift-näkymät | Toteutettu (Python) | Ei automaattista testiä |
 | Sensorit: MQ-9 (ADC), AetherCam, mock-varavaihtoehto | Ajurit olemassa | Ei automaattista testiä |
 | C-ydin (`libtrustcore.so`) | Ei repossa | — |

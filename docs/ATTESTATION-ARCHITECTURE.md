@@ -60,6 +60,10 @@ Se ei tarkoita:
   verifioitua käynnistysketjua kokonaisuutena, sellaisena kuin TEE sen
   raportoi.
 
+**Havainto 2026-11-20 (`VAIHE2-POIKKEAMA-1.md`):** 2019-sukupolven
+Samsungit raportoivat `vendorPatchLevel` ja `bootPatchLevel` arvolla 0.
+Jos S21 ja S24 tekevät samoin, P on niillä `PARTIAL`. Mitataan vaiheessa 3.
+
 ### S21: testiattestoija
 
 Android 15 (One UI 7) oli viimeinen iso päivitys, ja tietoturvapäivitykset
