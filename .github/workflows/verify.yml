@@ -72,7 +72,7 @@ jobs:
           sudo ninja install
           sudo ldconfig
       - name: Install Python deps
-        run: pip install liboqs-python cryptography
+        run: pip install liboqs-python cryptography cbor2 fastapi
       - name: Kiinnitetyt lähteet (Google f9846cd, Auditor-näytteet b7f2d29)
         run: |
           for spec in "google/android-key-attestation f9846cd019289f1788cec65b062d9f81c0c4884c aka" \
