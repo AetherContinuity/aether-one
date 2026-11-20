@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 try:
     import oqs  # type: ignore
@@ -34,34 +34,41 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def make_signed_message(
+def quote_hash(q: Any) -> bytes:
+    """Tiiviste, jonka ML-DSA-allekirjoitus kattaa. Puuttuva quote = 32 nollatavua.
+
+    Kentät erotetaan pituusetuliitteellä, ei erotinmerkillä (binäärikentät).
+    """
+    if not isinstance(q, dict) or not q:
+        return b"\x00" * 32
+    h = hashlib.sha256(b"TCQ1")
+    for k in ("msg", "sig", "pcrs"):
+        v = bytes(q.get(k) or b"")
+        h.update(len(v).to_bytes(4, "big"))
+        h.update(v)
+    return h.digest()
+
+
+def make_attestation_message(
     *,
     device_id: str,
     policy_id: str,
     nonce: bytes,
-    pcrs_concat: bytes,
+    quote_hash: bytes,
     sensor_state_hash: bytes,
     decision_hash: bytes,
 ) -> bytes:
-    """Canonical bytes to sign.
+    """Kanoninen allekirjoitettava viesti, todistepaketti v2 (TC02).
 
-    If you change this, bump bundle version.
+    quote_hash sitoo ML-DSA-allekirjoituksen TPM-quoteen (verifier.quote_hash).
+    Kenttien pituudet koodataan, jotta rajat eivät voi liukua.
     """
-    parts = [
-        b"TC01\x00",
-        device_id.encode("utf-8"),
-        b"\x00",
-        policy_id.encode("utf-8"),
-        b"\x00",
-        nonce,
-        b"\x00",
-        pcrs_concat,
-        b"\x00",
-        sensor_state_hash,
-        b"\x00",
-        decision_hash,
-    ]
-    return b"".join(parts)
+    out = [b"TC02\x00"]
+    for f in (device_id.encode("utf-8"), policy_id.encode("utf-8"), nonce,
+              quote_hash, sensor_state_hash, decision_hash):
+        out.append(len(f).to_bytes(4, "big"))
+        out.append(f)
+    return b"".join(out)
 
 
 @dataclass
@@ -115,6 +122,7 @@ class PQCManager:
 
         self.pub_path.write_bytes(self.public_key)
         self.sec_path.write_bytes(self.secret_key)
+        self.sec_path.chmod(0o600)
 
         self.meta = PQCKeyMeta(
             algorithm=self.algorithm,

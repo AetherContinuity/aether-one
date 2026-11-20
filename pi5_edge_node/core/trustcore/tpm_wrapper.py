@@ -58,7 +58,7 @@ class TPMWrapper:
             nonce_file = td_path / "nonce.bin"
             quote_file = td_path / "quote.bin"
             sig_file = td_path / "sig.bin"
-            pkey_file = td_path / "pkey.bin"
+            pcrs_file = td_path / "pcrs.bin"
             nonce_file.write_bytes(nonce)
 
             self._run(
@@ -75,12 +75,27 @@ class TPMWrapper:
                     "-s",
                     str(sig_file),
                     "-o",
-                    str(pkey_file),
+                    str(pcrs_file),
+                    "-g",
+                    "sha256",
                 ]
             )
 
+            # -o kirjoittaa PCR-arvot (ei julkista avainta, kuten v0.1:n
+            # kenttänimi "pubkey" antoi ymmärtää). tpm2_checkquote tarvitsee ne.
             return {
-                "quote_data": quote_file.read_bytes(),
-                "signature": sig_file.read_bytes(),
-                "pubkey": pkey_file.read_bytes(),
+                "msg": quote_file.read_bytes(),
+                "sig": sig_file.read_bytes(),
+                "pcrs": pcrs_file.read_bytes(),
+                "selection": pcr_selection.encode(),
             }
+
+    def read_ak_public(self) -> Dict[str, str]:
+        """AK:n TPM2B_PUBLIC (TSS-binääri) ja tpm2_readpublic-tuloste.
+
+        Rekisteröintiä varten: omistaja vie nämä todentajalle (admin.py enroll).
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tss = Path(td) / "ak.pub"
+            res = self._run(["tpm2_readpublic", "-c", self.ak_handle, "-f", "tss", "-o", str(tss)])
+            return {"ak_public_tss": tss.read_bytes(), "readpublic": res.stdout}

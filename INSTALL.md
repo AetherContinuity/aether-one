@@ -184,7 +184,9 @@ curl http://192.168.1.50:5000/nonce
 
 # Pi 5 API
 curl http://localhost:8080/attestation
-# → {"status": "PASS", ...}
+# → {"status": "A:PARTIAL B:UNSUPPORTED P:UNSUPPORTED Q:VERIFIED", "claims": {...}, ...}
+#   (väitekohtainen; ei PASS-tilaa, docs/ATTESTATION-LEVELS.md. Laite on ensin
+#   rekisteröitävä käsin: pi2_trust_server/README.md)
 
 # Pi 5 Dashboard (selaimessa)
 http://<pi5_ip>:8080/ui/

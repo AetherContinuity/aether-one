@@ -45,6 +45,7 @@ LAST_DECISION: Dict[str, Any] = {
 }
 
 trustcore_client: Optional[TrustCoreClient] = None
+ATTESTATION_CLAIMS: Dict[str, Any] = {}
 
 # Sensor singletons (v7.1 integration)
 _mq9: Optional[MQ9Reader] = None
@@ -115,11 +116,19 @@ async def attestation_loop():
             if trustcore_client is not None:
                 # Include decision_hash in attestation if available
                 result = await trustcore_client.attest(SENSOR_CACHE)
-                SENSOR_CACHE["attestation_status"] = result.get("status", "UNKNOWN")
+                # Väitekohtainen vastaus; ei yhdistetä yhdeksi OK-tilaksi
+                # (docs/ATTESTATION-LEVELS.md). status on vain tiivistelmäteksti.
+                claims = result.get("claims") or {}
+                ATTESTATION_CLAIMS.clear()
+                ATTESTATION_CLAIMS.update(claims)
+                SENSOR_CACHE["attestation_status"] = " ".join(
+                    f"{k}:{(claims.get(k) or {}).get('result', 'UNKNOWN')}" for k in "ABPQ")
                 SENSOR_CACHE["attestation_timestamp"] = result.get("ts")
                 print(f"🔐 Attestation: {SENSOR_CACHE['attestation_status']}")
         except Exception as e:
-            SENSOR_CACHE["attestation_status"] = "FAIL"
+            # Todentajaa ei tavoitettu: tulos on tuntematon, ei epäonnistunut.
+            ATTESTATION_CLAIMS.clear()
+            SENSOR_CACHE["attestation_status"] = f"UNKNOWN (todentajaa ei tavoitettu: {type(e).__name__})"
             SENSOR_CACHE["attestation_timestamp"] = None
             print(f"❌ Attestation failed: {e}")
 
@@ -169,9 +178,10 @@ async def kri_status():
 async def attestation_status():
     return {
         "status": SENSOR_CACHE.get("attestation_status", "UNKNOWN"),
+        "claims": dict(ATTESTATION_CLAIMS),
         "timestamp": SENSOR_CACHE.get("attestation_timestamp"),
         "device_id": trustcore_client.pqc.get_device_id() if trustcore_client else None,
-        "tpm_available": trustcore_client.tpm_available if trustcore_client else False,
+        "tpm_available": bool(trustcore_client and trustcore_client.tpm is not None),
         "decision_hash": LAST_DECISION.get("decision_hash"),
     }
 

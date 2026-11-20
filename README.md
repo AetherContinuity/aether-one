@@ -14,7 +14,7 @@ ECP5:lle, KORJAUSLISTA B4). Työn alla ohjelmistopohjainen laitteiden attestaati
 [`docs/ATTESTATION-ARCHITECTURE.md`](docs/ATTESTATION-ARCHITECTURE.md),
 [`docs/ATTESTATION-LEVELS.md`](docs/ATTESTATION-LEVELS.md).
 
-**Tila päivitetty:** 2026-11-19. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
+**Tila päivitetty:** 2026-11-20. Muutoshistoria: `git log`; RTL-muutokset `hardware/pqc-rtl/CHANGELOG.md`.
 
 ## Tausta
 
@@ -35,7 +35,7 @@ päätöksen tekevä yksikkö (ECU) ja sen validoiva, fyysisesti erillinen luott
 
 | Osa | Tila | Todennus |
 |---|---|---|
-| Trust Server: nonce, laitteen rekisteröinti, attestaatio, ML-DSA-65-allekirjoitus liboqs:n kautta | Toteutettu (Python, FastAPI) | CI: rekisteröintihyökkäystesti, päästä-päähän-testi ohjelmisto-TPM:llä (swtpm), asennusskriptin testi. **Palvelin ei tarkista TPM-quotea** (KORJAUSLISTA A16): PASS tarkoittaa vain, että ohjelmistossa olevan ML-DSA-avaimen haltija allekirjoitti viestin |
+| Trust Server (todentaja v0.2): nonce, käsinrekisteröinti, TPM-quoten tarkistus (`tpm2_checkquote`), ML-DSA-65; vastaus väitekohtaisesti A/B/P/Q (`docs/ATTESTATION-LEVELS.md`) | Toteutettu (Python, FastAPI) | CI: `test_vaihe1.py` (negatiivikontrollit, `docs/VAIHE1-ENNAKKO.md`), HTTP-päästä-päähän ohjelmisto-TPM:llä (swtpm), asennusskriptin testi. Vain swtpm: A enintään `PARTIAL`; B ja P `UNSUPPORTED` Linux-laitteilla. EK-ketjua ei tarkisteta |
 | Edge Node: KRI/LR-laskenta, web-käyttöliittymä, drift-näkymät | Toteutettu (Python) | Ei automaattista testiä |
 | Sensorit: MQ-9 (ADC), AetherCam, mock-varavaihtoehto | Ajurit olemassa | Ei automaattista testiä |
 | C-ydin (`libtrustcore.so`) | Ei repossa | — |

@@ -74,9 +74,29 @@ Toiselta koneelta samassa verkossa:
 # Hae nonce
 curl http://192.168.1.50:5000/nonce
 
-# Tarkista rekisteröidyt laitteet
-curl http://192.168.1.50:5000/enrolled
+# Rekisteröidyt laitteet (Pi 2:lla)
+python -m core.trustcore.admin list
 ```
+
+---
+
+## Laitteen rekisteröinti (käsin)
+
+Todentaja ei rekisteröi laitetta ensimmäisellä näkemällä. Omistaja vie
+rekisteröintitiedot laitteelta Pi 2:lle itse (USB, scp omalla tunnuksella):
+
+```bash
+# Laitteella (Pi 5):
+python -c "from core.trustcore.client import TrustCoreClient, TrustCoreConfig as C; \
+import json; print(json.dumps(TrustCoreClient(C(server_url='-')).export_enrollment(platform='rpi5', tpm_kind='hardware')))" > laite.json
+
+# Pi 2:lla:
+python -m core.trustcore.admin enroll laite.json
+```
+
+`admin enroll` lukee AK:n attribuutit TPM2B_PUBLIC-rakenteesta ja hylkää
+avaimen, joka ei ole `restricted|sign|fixedtpm`. Swtpm-laite rekisteröidään
+`tpm_kind='swtpm'`, jolloin väite A on enintään `PARTIAL`.
 
 ---
 
@@ -84,9 +104,10 @@ curl http://192.168.1.50:5000/enrolled
 
 1. **Vastaa attestation-pyyntöihin** Pi 5:ltä
 2. **Generoi nonce**-haasteet
-3. **Varmentaa PQC-allekirjoitukset** (Dilithium3)
-4. **Tallentaa laitteen enrollment** (first-seen automaattisesti)
-5. **Kirjaa lokiin** `trustcore_server.log`
+3. **Tarkistaa TPM-quoten** (`tpm2_checkquote`: AK-allekirjoitus, nonce, PCR-digest)
+4. **Varmentaa ML-DSA-65-allekirjoituksen** rekisteröityä avainta vasten
+5. **Vastaa väitekohtaisesti** (A, B, P, Q; `docs/ATTESTATION-LEVELS.md`), ei yhteistä PASS/FAIL-tilaa
+6. **Kirjaa lokiin** `trustcore_server.log`
 
 **Pi 2 ei:**
 - ❌ Lue sensoreita
@@ -97,17 +118,12 @@ curl http://192.168.1.50:5000/enrolled
 
 ## Konfigurointi
 
-Muokkaa `core/trustcore/server.py` jos haluat:
+Ympäristömuuttujat:
 
-```python
-# Portti (oletus 5000)
-TRUSTCORE_PORT = 5000
-
-# Automaattinen enrollment (oletus: True)
-TRUSTCORE_ALLOW_FIRST_SEEN = True
-
-# Data-hakemisto (oletus: .trustcore_server)
-TRUSTCORE_DATA_DIR = ".trustcore_server"
+```bash
+TRUSTCORE_PORT=5000                  # portti
+TRUSTCORE_DATA_DIR=.trustcore_server # devices.json
+TRUSTCORE_NONCE_TTL=120              # noncen elinikä sekunteina
 ```
 
 ---
