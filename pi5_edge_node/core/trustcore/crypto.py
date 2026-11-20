@@ -49,6 +49,27 @@ def quote_hash(q: Any) -> bytes:
     return h.digest()
 
 
+def android_evidence_hash(ev: Any) -> bytes:
+    """Android-todisteen tiiviste ML-DSA-allekirjoitukseen (ketju + K:n allekirjoitus)."""
+    if not isinstance(ev, dict) or not isinstance(ev.get("chain"), list):
+        return b"\x00" * 32
+    h = hashlib.sha256(b"TCE1")
+    h.update(str(ev.get("mode", "")).encode())
+    parts = [bytes(d) for d in ev["chain"] if isinstance(d, (bytes, bytearray))]
+    parts.append(bytes(ev.get("k_sig") or b""))
+    for v in parts:
+        h.update(len(v).to_bytes(4, "big"))
+        h.update(v)
+    return h.digest()
+
+
+def evidence_hash(bundle: Any) -> bytes:
+    """Alustan todisteen tiiviste: Android-ketju tai TPM-quote."""
+    if isinstance(bundle, dict) and bundle.get("android") is not None:
+        return android_evidence_hash(bundle.get("android"))
+    return quote_hash(bundle.get("tpm_quote") if isinstance(bundle, dict) else None)
+
+
 def make_attestation_message(
     *,
     device_id: str,

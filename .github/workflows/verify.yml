@@ -37,6 +37,71 @@ jobs:
           python -m pytest test_engine.py -v
           python build.py
 
+  # VAIHE2-ENNAKKO K2: Googlen attestaatiojuuret = kiinnitetty joukko.
+  android-roots-pinned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Virallinen juurilista vs. kiinnitetty
+        run: python3 pi2_trust_server/tools/android_roots.py check pi2_trust_server/core/trustcore/android_roots.json
+
+  # Vaihe 2 (docs/VAIHE2-ENNAKKO.md): Android-todisteen todentaja.
+  # K7: Googlen android-key-attestation (f9846cd) ulkoisena mittapuuna.
+  test-android-vaihe2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install build deps for liboqs
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y cmake ninja-build build-essential libssl-dev
+      - name: Build minimal liboqs (ML-DSA-65 only)
+        run: |
+          git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          cd liboqs && mkdir build && cd build
+          cmake -GNinja -DOQS_MINIMAL_BUILD="SIG_ml_dsa_65" -DOQS_USE_OPENSSL=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release ..
+          ninja -j$(nproc)
+          sudo ninja install
+          sudo ldconfig
+      - name: Install Python deps
+        run: pip install liboqs-python cryptography cbor2 fastapi
+      - name: Kiinnitetyt lähteet (Google f9846cd, Auditor-näytteet b7f2d29)
+        run: |
+          for spec in "google/android-key-attestation f9846cd019289f1788cec65b062d9f81c0c4884c aka" \
+                      "dbaxa/AttestationSamples b7f2d294b987281ad24276eea537127c8072fc4c auditor"; do
+            set -- $spec
+            git init -q "$RUNNER_TEMP/$3" && cd "$RUNNER_TEMP/$3"
+            git fetch -q --depth 1 "https://github.com/$1" "$2" && git checkout -q FETCH_HEAD
+            test "$(git rev-parse HEAD)" = "$2"
+            cd "$GITHUB_WORKSPACE"
+          done
+      - name: K4-K9 synteettiset ketjut (negatiivikontrollit + positiivinen)
+        run: cd pi2_trust_server && python3 tests/android/test_vaihe2.py
+      - name: Oikeat ketjut (K1, K3)
+        run: |
+          cd pi2_trust_server
+          python3 tests/android/reference_compare.py layout "$RUNNER_TEMP/refchains" "$RUNNER_TEMP/aka" "$RUNNER_TEMP/auditor"
+          python3 tests/android/test_vaihe2_real.py "$RUNNER_TEMP/refchains" "$RUNNER_TEMP/aka/src/test/resources/status.json"
+      - name: K7 Googlen jäsennin vs. oma
+        run: |
+          cd pi2_trust_server/tests/android/google_ref
+          mkdir -p src/main/java/com/google/android/attestation
+          cp "$RUNNER_TEMP"/aka/src/main/java/com/google/android/attestation/*.java src/main/java/com/google/android/attestation/
+          mvn -B -q package dependency:copy-dependencies -DoutputDirectory=target/lib
+          java -cp "target/classes:target/lib/*" ref.Main "$RUNNER_TEMP/refchains" > "$RUNNER_TEMP/google.jsonl"
+          cd ../../..
+          python3 tests/android/reference_compare.py ours "$RUNNER_TEMP/refchains" > "$RUNNER_TEMP/ours.jsonl"
+          python3 tests/android/reference_compare.py compare "$RUNNER_TEMP/ours.jsonl" "$RUNNER_TEMP/google.jsonl"
+          python3 tests/android/reference_compare.py selftest "$RUNNER_TEMP/ours.jsonl" "$RUNNER_TEMP/google.jsonl"
+
   # K9 (docs/VAIHE1-ENNAKKO.md): todentajan ja attestoijan trustcore on yksi lähde.
   trustcore-copies-identical:
     runs-on: ubuntu-latest

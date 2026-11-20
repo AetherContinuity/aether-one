@@ -4,6 +4,13 @@
   python -m core.trustcore.admin enroll laite.json [--data-dir DIR] [--replace]
   python -m core.trustcore.admin list   [--data-dir DIR]
   python -m core.trustcore.admin remove DEVICE_ID [--data-dir DIR]
+  python -m core.trustcore.admin android-nonce [--data-dir DIR]
+  python -m core.trustcore.admin enroll-android laite.json [--data-dir DIR] [--replace]
+
+Android (docs/VAIHE2-ENNAKKO.md): android-nonce luo rekisteröintinoncen
+(voimassa 15 min), jonka omistaja syöttää puhelimen sovellukseen. Sovellus
+luo avaimen K tällä challengella ja vie K:n ketjun (laite.json).
+enroll-android tarkistaa ketjun Googlen juuriin ja kuluttaa noncen.
 
 laite.json = TrustCoreClient.export_enrollment(), siirretty omistajan
 käsissä (ei verkon yli laitteelta). AK:n attribuutit luetaan
@@ -24,6 +31,7 @@ from typing import Any, Dict, List
 from .tpm_public import TPMPublicError, ak_policy_violations, parse_rsa_public, rsa_pem
 
 PLATFORMS = ("rpi5", "swtpm", "linux")
+ANDROID_NONCE_TTL = 15 * 60
 TPM_KINDS = ("swtpm", "hardware")
 
 
@@ -89,6 +97,42 @@ def enroll(devices_file: Path, exp: Dict[str, Any], replace: bool = False) -> Di
     return rec
 
 
+def android_nonce(data_dir: Path) -> str:
+    import secrets
+    n = secrets.token_bytes(32).hex()
+    _save(data_dir / "android_enroll_nonce.json", {"nonce": n, "expires": int(time.time()) + ANDROID_NONCE_TTL})
+    return n
+
+
+def enroll_android(devices_file: Path, exp: Dict[str, Any], nonce: bytes, android_ctx: Dict[str, Any],
+                   replace: bool = False) -> Dict[str, Any]:
+    from .android_verify import AndroidEnrollError, build_android_record
+    for k in ("device_id", "mode", "k_chain_hex", "algorithm", "mldsa_public_hex"):
+        if not exp.get(k):
+            raise EnrollError(f"{k} puuttuu")
+    try:
+        rec = build_android_record(exp, nonce, android_ctx["roots"], android_ctx["now"],
+                                   android_ctx.get("status_entries"), android_ctx.get("status_fetched"))
+    except AndroidEnrollError as e:
+        raise EnrollError(str(e))
+    pk = bytes.fromhex(exp["mldsa_public_hex"])
+    rec.update({
+        "tpm_kind": None,
+        "algorithm": exp["algorithm"],
+        "mldsa_public_hex": pk.hex(),
+        "mldsa_public_sha256": hashlib.sha256(pk).hexdigest(),
+        "mldsa_storage": exp.get("mldsa_storage") or "ohjelmisto",
+        "enrolled_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
+    db = _load(devices_file)
+    devs = db.setdefault("devices", {})
+    if exp["device_id"] in devs and not replace:
+        raise EnrollError(f"{exp['device_id']} on jo rekisteröity (--replace korvaa)")
+    devs[exp["device_id"]] = rec
+    _save(devices_file, db)
+    return rec
+
+
 def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="trustcore-admin")
     ap.add_argument("--data-dir", default=os.environ.get("TRUSTCORE_DATA_DIR", ".trustcore_server"))
@@ -99,6 +143,10 @@ def main(argv: List[str] | None = None) -> int:
     sub.add_parser("list")
     r = sub.add_parser("remove")
     r.add_argument("device_id")
+    sub.add_parser("android-nonce")
+    ea = sub.add_parser("enroll-android")
+    ea.add_argument("export_json")
+    ea.add_argument("--replace", action="store_true")
     a = ap.parse_args(argv)
     path = Path(a.data_dir) / "devices.json"
 
@@ -109,6 +157,25 @@ def main(argv: List[str] | None = None) -> int:
             print(f"HYLÄTTY: {err}", file=sys.stderr)
             return 2
         print(f"Rekisteröity: AK {rec['ak_attributes']}, {rec['algorithm']} {rec['mldsa_public_sha256'][:16]}")
+        return 0
+    if a.cmd == "android-nonce":
+        print(android_nonce(Path(a.data_dir)))
+        return 0
+    if a.cmd == "enroll-android":
+        npath = Path(a.data_dir) / "android_enroll_nonce.json"
+        pend = _load(npath) if npath.exists() else {}
+        if not pend.get("nonce") or pend.get("expires", 0) < time.time():
+            print("HYLÄTTY: voimassa olevaa rekisteröintinoncea ei ole (android-nonce)", file=sys.stderr)
+            return 2
+        npath.unlink()  # kertakäyttöinen, myös hylätyllä yrityksellä
+        from .server import android_context
+        try:
+            rec = enroll_android(path, json.loads(Path(a.export_json).read_text(encoding="utf-8")),
+                                 bytes.fromhex(pend["nonce"]), android_context(Path(a.data_dir)), a.replace)
+        except EnrollError as err:
+            print(f"HYLÄTTY: {err}", file=sys.stderr)
+            return 2
+        print(f"Rekisteröity: Android {rec['mode']}, {rec['security_level']}")
         return 0
     db = _load(path)
     if a.cmd == "list":

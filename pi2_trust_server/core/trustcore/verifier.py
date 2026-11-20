@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .crypto import make_attestation_message, quote_hash
+from .crypto import evidence_hash, make_attestation_message
 
 try:
     import oqs  # type: ignore
@@ -85,7 +85,7 @@ def _check_mldsa(bundle: Dict[str, Any], dev: Dict[str, Any], nonce: bytes) -> D
         device_id=str(bundle.get("device_id")),
         policy_id=str(bundle.get("policy_id") or ""),
         nonce=nonce,
-        quote_hash=quote_hash(bundle.get("tpm_quote") or {}),
+        quote_hash=evidence_hash(bundle),
         sensor_state_hash=bytes(bundle.get("sensor_state_hash") or b""),
         decision_hash=bytes(bundle.get("decision_hash") or b""),
     )
@@ -101,8 +101,13 @@ def _check_mldsa(bundle: Dict[str, Any], dev: Dict[str, Any], nonce: bytes) -> D
     return _c(VERIFIED, f"{alg}-allekirjoitus täsmää; avain: {dev.get('mldsa_storage', 'ohjelmisto')}")
 
 
-def evaluate(bundle: Any, dev: Optional[Dict[str, Any]], nonce_error: Optional[str]) -> Dict[str, Any]:
-    """Arvioi todistepaketin. dev = rekisteröity laite tai None. nonce_error = syy tai None."""
+def evaluate(bundle: Any, dev: Optional[Dict[str, Any]], nonce_error: Optional[str],
+             android: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Arvioi todistepaketin. dev = rekisteröity laite tai None. nonce_error = syy tai None.
+
+    android = {"roots", "now", "status_entries", "status_fetched"} Android-laitteille
+    (docs/VAIHE2-ENNAKKO.md). Puuttuessa Android-väitteet ovat UNKNOWN.
+    """
     out: Dict[str, Any] = {"policy_id": POLICY_ID}
     if not isinstance(bundle, dict):
         out["claims"] = all_claims(UNKNOWN, "todiste ei ole jäsennettävissä")
@@ -118,6 +123,17 @@ def evaluate(bundle: Any, dev: Optional[Dict[str, Any]], nonce_error: Optional[s
         out["claims"] = all_claims(UNKNOWN, "laitetta ei ole rekisteröity (rekisteröinti käsin, admin.py)")
         return out
     nonce = bytes(bundle["nonce"])
+
+    if dev.get("platform") == "android":
+        if android is None:
+            u = _c(UNKNOWN, "Android-tarkistuksen konteksti (juuret, aika) puuttuu")
+            abp = {"A": u, "B": u, "P": u}
+        else:
+            from .android_verify import evaluate_android
+            abp = evaluate_android(bundle, dev, nonce, android["roots"], android["now"],
+                                   android.get("status_entries"), android.get("status_fetched"))
+        out["claims"] = {**abp, "Q": _check_mldsa(bundle, dev, nonce)}
+        return out
 
     q = bundle.get("tpm_quote")
     if not isinstance(q, dict) or not q:

@@ -203,3 +203,7 @@ hardware/pqc-rtl/vectors/mlkem_encaps_vectors.txt
 hardware/pqc-rtl/vectors/mlkem_decaps_a_vectors.txt
 hardware/pqc-rtl/vectors/mlkem_decaps_b_vectors.txt
 hardware/pqc-rtl/vectors/kpke_keygen_multiseed_vectors.txt
+
+# Vaihe 2: Googlen jäsentimen lähteet kopioidaan CI:ssä, ei commitoida
+pi2_trust_server/tests/android/google_ref/target/
+pi2_trust_server/tests/android/google_ref/src/main/java/com/

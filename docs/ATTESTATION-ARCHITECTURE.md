@@ -60,6 +60,10 @@ Se ei tarkoita:
   verifioitua käynnistysketjua kokonaisuutena, sellaisena kuin TEE sen
   raportoi.
 
+**Havainto 2026-11-20 (`VAIHE2-POIKKEAMA-1.md`):** 2019-sukupolven
+Samsungit raportoivat `vendorPatchLevel` ja `bootPatchLevel` arvolla 0.
+Jos S21 ja S24 tekevät samoin, P on niillä `PARTIAL`. Mitataan vaiheessa 3.
+
 ### S21: testiattestoija
 
 Android 15 (One UI 7) oli viimeinen iso päivitys, ja tietoturvapäivitykset
@@ -119,7 +123,8 @@ Jokainen vaihe on oma PR, ja sen hyväksymiskriteerit kirjataan ennen koodia.
    negatiivikontrollit jokaiselle säännölle.
 2. **Android-todisteiden tarkistus todentajalla:** varmenneketjun ja
    KeyDescriptionin jäsennys, Googlen juuret, revokaatio. Testataan
-   tallennetuilla todistesarjoilla ennen puhelinta.
+   tallennetuilla todistesarjoilla ennen puhelinta. Todistemalli
+   (rekisteröity attestaatioavain K) ja kriteerit: `docs/VAIHE2-ENNAKKO.md`.
 3. **Android-sovellus** (Kotlin, rakennetaan CI:ssä): nonce, Keystore-avain
    challengella, ML-DSA-65, lähetys. Ensin S21:llä, sitten S24:llä.
 4. **ML-DSA:n säilytystason mittaus S24:llä** (Android 17 Keystore).
