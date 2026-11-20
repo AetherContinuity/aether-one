@@ -119,7 +119,8 @@ Jokainen vaihe on oma PR, ja sen hyväksymiskriteerit kirjataan ennen koodia.
    negatiivikontrollit jokaiselle säännölle.
 2. **Android-todisteiden tarkistus todentajalla:** varmenneketjun ja
    KeyDescriptionin jäsennys, Googlen juuret, revokaatio. Testataan
-   tallennetuilla todistesarjoilla ennen puhelinta.
+   tallennetuilla todistesarjoilla ennen puhelinta. Todistemalli
+   (rekisteröity attestaatioavain K) ja kriteerit: `docs/VAIHE2-ENNAKKO.md`.
 3. **Android-sovellus** (Kotlin, rakennetaan CI:ssä): nonce, Keystore-avain
    challengella, ML-DSA-65, lähetys. Ensin S21:llä, sitten S24:llä.
 4. **ML-DSA:n säilytystason mittaus S24:llä** (Android 17 Keystore).
