@@ -181,13 +181,20 @@ def main(a: list) -> int:
         return compare(load(a[1]), load(a[2]))
     if a[0] == "selftest":
         mine, google = load(a[1]), load(a[2])
-        key = sorted(k for k in mine if "error" not in mine[k])[0]
-        bad = json.loads(json.dumps(mine))
+        import copy
+        key = sorted(k for k in mine if "error" not in mine[k] and "error" not in google.get(k, {}))[0]
+        bad = copy.deepcopy(mine)
         bad[key]["attestationChallenge"] = "ff" + bad[key]["attestationChallenge"]
         if compare(bad, google, quiet=True) == 0:
             print("SELFTEST FAIL: muutettu odotusarvo ei kaatanut vertailua")
             return 1
         print(f"selftest ok: muutettu arvo ({key}) kaatoi vertailun")
+        g2 = copy.deepcopy(google)
+        g2[key] = {"error": "IllegalArgumentException: keinotekoinen"}
+        if compare(mine, g2, quiet=True) == 0:
+            print("SELFTEST FAIL: Googlen hylkäys ilman patch-tasoa 0 hyväksyttiin")
+            return 1
+        print(f"selftest ok: Googlen hylkäys ilman patch-tasoa 0 ({key}) kaatoi vertailun")
         return 0
     print(__doc__)
     return 2
