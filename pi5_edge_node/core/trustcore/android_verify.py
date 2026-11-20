@@ -113,13 +113,14 @@ def _b_claim(kd: Dict[str, Any], dev: Dict[str, Any], bound: bool) -> Dict[str, 
 def _p_claim(kd: Dict[str, Any], bound: bool) -> Dict[str, str]:
     hw = kd["hardwareEnforced"]
     names = ("osPatchLevel", "vendorPatchLevel", "bootPatchLevel")
-    have = {n: hw.get(n) for n in names if hw.get(n) is not None}
+    # Arvo 0 = tasoa ei ilmoitettu (esim. Samsung Galaxy A70: vendor ja boot = 0).
+    have = {n: hw.get(n) for n in names if hw.get(n)}
     if not have:
         sw = [n for n in names if kd["softwareEnforced"].get(n) is not None]
         return _c(UNKNOWN, "päivitystaso puuttuu laitteistossa valvotusta listasta"
                   + (f" (vain ohjelmiston ilmoittama: {', '.join(sw)})" if sw else ""))
     vals = ", ".join(f"{n}={v}" for n, v in have.items())
-    missing = [n for n in names if n not in have]
+    missing = [n + (" (=0)" if hw.get(n) == 0 else "") for n in names if n not in have]
     if missing:
         return _c(PARTIAL, f"{vals}; puuttuu: {', '.join(missing)}")
     if not bound:

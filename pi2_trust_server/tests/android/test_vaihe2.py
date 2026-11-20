@@ -178,6 +178,10 @@ def main() -> int:
           {"P": U})
     check("patch-tasoista osa", evaluate(bundle(dev, did, n, dev.fresh(n, patches={"os": 202610})), rec, None,
                                          ctx()), {"P": P})
+    r = evaluate(bundle(dev, did, n, dev.fresh(n, patches={"os": 202610, "vendor": 0, "boot": 0})), rec, None, ctx())
+    check("vendor/bootPatchLevel = 0 (kuten Galaxy A70)", r, {"P": P})
+    if "vendorPatchLevel (=0)" not in r["claims"]["P"]["reason"]:
+        FAILS.append(f"patch 0: väärä syy: {r['claims']['P']['reason']}")
     check("patch-tasot vain ohjelmiston listassa",
           evaluate(bundle(dev, did, n, dev.fresh(n, patches_sw_only=True)), rec, None, ctx()), {"P": U})
 

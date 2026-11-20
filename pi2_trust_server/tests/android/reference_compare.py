@@ -10,6 +10,11 @@ Lähteet kiinnitetty: google/android-key-attestation f9846cd,
 dbaxa/AttestationSamples b7f2d29. Tiedostojen sha256-kooste tulostetaan ja
 verrataan arvoon SOURCES_SHA256 (muuttunut lähde kaataa).
 
+Googlen jäsennin hylkää tietueen (IllegalArgumentException), jos patch-taso
+on 0 (oikea laite: Galaxy A70). Tällainen hylkäys hyväksytään vain, jos oma
+tietue sisältää patch-tason 0; muu Googlen virhe on ero. verifiedBootHash:
+oma None (kenttä puuttuu, attestaatioversio < 3) ≡ Googlen ''.
+
 Päivämäärien vertailusääntö: Googlen jäsennin normalisoi osPatchLevel muotoon
 yyyyMM ja vendor/bootPatchLevel muotoon LocalDate (kuukausi 00 -> 01, päivä
 00 tai puuttuva -> 01). Vertailu: vuosi ja kuukausi aina; päivä vain kun oma
@@ -113,6 +118,8 @@ def _diff(a: dict, b: dict, path="") -> list:
     for k in sorted(set(a) | set(b)):
         p = f"{path}.{k}" if path else k
         x, y = a.get(k), b.get(k)
+        if k == "verifiedBootHash" and x is None and y == "":
+            continue
         if k in ("osPatchLevel", "vendorPatchLevel", "bootPatchLevel"):
             if not _date_eq(k, x, y):
                 out.append(f"{p}: oma {x} ≠ google {y}")
@@ -133,14 +140,31 @@ def load(p: str) -> dict:
 
 
 def compare(mine: dict, google: dict, quiet=False) -> int:
-    diffs = []
+    diffs, known = [], []
     for key in sorted(set(mine) | set(google)):
         if key not in mine or key not in google:
             diffs.append(f"{key}: vain {'omassa' if key in mine else 'Googlen'} tulosteessa")
             continue
-        diffs += [f"{key}: {d}" for d in _diff(mine[key], google[key])]
+        g = google[key]
+        if "error" in g and "error" not in mine[key]:
+            m = mine[key]
+            zero = [f"{side}.{n}" for side in ("teeEnforced", "softwareEnforced")
+                    for n in ("osPatchLevel", "vendorPatchLevel", "bootPatchLevel") if m[side][n] == 0]
+            if g["error"].startswith("IllegalArgumentException") and zero:
+                known.append(f"{key}: Google hylkää ({g['error']}); omassa tietueessa 0: {', '.join(zero)}")
+                continue
+        diffs += [f"{key}: {d}" for d in _diff(mine[key], g)]
     if not quiet:
-        print(f"{len(mine)} tietuetta omasta, {len(google)} Googlen jäsentimestä, eroja {len(diffs)}")
+        print(f"{len(mine)} tietuetta omasta, {len(google)} Googlen jäsentimestä, "
+              f"eroja {len(diffs)}, tunnettuja hylkäyksiä {len(known)}")
+        for k in known:
+            print("   tunnettu:", k)
+        cats = {}
+        for d in diffs:
+            c = d.split("): ", 1)[-1].split(":")[0]
+            cats[c] = cats.get(c, 0) + 1
+        for c, n in sorted(cats.items()):
+            print(f"   ero {c}: {n}")
         for d in diffs[:50]:
             print("  ", d)
     return 1 if diffs else 0
