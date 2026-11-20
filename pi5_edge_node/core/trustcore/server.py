@@ -31,6 +31,8 @@ APP = FastAPI(title="TrustCore v0.2 Attestation Verifier")
 
 DATA_DIR = Path(os.environ.get("TRUSTCORE_DATA_DIR", ".trustcore_server"))
 DEVICES_FILE = DATA_DIR / "devices.json"
+_STATUS_RETRY_SEC = 600
+_last_status_try = 0.0
 NONCE_TTL_SEC = int(os.environ.get("TRUSTCORE_NONCE_TTL", "120"))
 
 # nonce_hex -> expires_at
@@ -67,6 +69,27 @@ def _consume_nonce(nonce: Any) -> Optional[str]:
     return None
 
 
+def android_context(data_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Kiinnitetyt juuret, nykyhetki ja Googlen tilalista (haetaan, jos yli 24 h vanha)."""
+    global _last_status_try
+    from datetime import datetime, timezone
+
+    from .android_chain import STATUS_MAX_AGE, load_production_roots
+    from .android_verify import fetch_status, load_status
+
+    ddir = data_dir or DATA_DIR
+    status_file = ddir / "android_status.json"
+    now = datetime.now(timezone.utc)
+    entries, fetched = load_status(status_file)
+    if (fetched is None or now - fetched > STATUS_MAX_AGE) and time.time() - _last_status_try > _STATUS_RETRY_SEC:
+        _last_status_try = time.time()
+        ddir.mkdir(parents=True, exist_ok=True)
+        if fetch_status(status_file):
+            entries, fetched = load_status(status_file)
+    return {"roots": load_production_roots(), "now": now,
+            "status_entries": entries, "status_fetched": fetched}
+
+
 def verify_bytes(raw: bytes) -> Dict[str, Any]:
     try:
         bundle = cbor2.loads(raw)
@@ -76,7 +99,8 @@ def verify_bytes(raw: bytes) -> Dict[str, Any]:
         return {**evaluate(None, None, None), "ts": int(time.time())}
     nonce_error = _consume_nonce(bundle.get("nonce"))
     dev = load_devices().get("devices", {}).get(str(bundle.get("device_id")))
-    return {**evaluate(bundle, dev, nonce_error), "ts": int(time.time())}
+    ctx = android_context() if dev and dev.get("platform") == "android" and not nonce_error else None
+    return {**evaluate(bundle, dev, nonce_error, ctx), "ts": int(time.time())}
 
 
 @APP.post("/verify")

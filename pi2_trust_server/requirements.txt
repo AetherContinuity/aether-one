@@ -4,3 +4,5 @@ pydantic>=2.0.0
 # PQC: liboqs-python + liboqs-C-kirjasto asennetaan install_liboqs.sh:lla
 # (install.sh kutsuu sita). pip ei voi asentaa C-kirjastoa.
 cbor2>=5.5.0
+# Android-attestaatio (vaihe 2): X.509-allekirjoitusprimitiivit
+cryptography>=42
